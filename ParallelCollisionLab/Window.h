@@ -14,7 +14,15 @@ struct FInputState
 	bool Sub;
 	bool SubMany;
 	bool Pause;
+	bool Wireframe;
+	bool ResetCamera;
 	bool Quit;
+
+	bool bLButtonPressed;
+	bool bLButtonReleased;
+	bool bMouseMoving;
+	int  MouseX;
+	int  MouseY;
 
 	void Clear() { *this = {}; }
 };
@@ -33,6 +41,7 @@ public:
 	HWND  GetHWND()        const { return hWnd; }
 	float GetAspectRatio() const;
 	bool  IsMinimized()    const;
+	void  GetClientSize(int& width, int& height) const;
 
 private:
 	HWND      hWnd          = nullptr;

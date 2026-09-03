@@ -1,4 +1,8 @@
 #include "Window.h"
+#include <windowsx.h>
+#ifdef IsMinimized
+#undef IsMinimized
+#endif
 
 //=============================================================================
 // Window Lifecycle
@@ -55,6 +59,27 @@ bool FWindow::PumpMessages(FInputState& outInput)
 		if (msg.message == WM_QUIT)
 			return false;
 
+		if (msg.message == WM_LBUTTONDOWN)
+		{
+			SetCapture(hWnd);
+			outInput.bLButtonPressed = true;
+			outInput.MouseX          = GET_X_LPARAM(msg.lParam);
+			outInput.MouseY          = GET_Y_LPARAM(msg.lParam);
+		}
+		else if (msg.message == WM_LBUTTONUP)
+		{
+			ReleaseCapture();
+			outInput.bLButtonReleased = true;
+			outInput.MouseX           = GET_X_LPARAM(msg.lParam);
+			outInput.MouseY           = GET_Y_LPARAM(msg.lParam);
+		}
+		else if (msg.message == WM_MOUSEMOVE)
+		{
+			outInput.bMouseMoving = true;
+			outInput.MouseX       = GET_X_LPARAM(msg.lParam);
+			outInput.MouseY       = GET_Y_LPARAM(msg.lParam);
+		}
+
 		if (msg.message == WM_KEYDOWN)
 		{
 			switch (msg.wParam)
@@ -70,6 +95,14 @@ bool FWindow::PumpMessages(FInputState& outInput)
 
 			case 'F':
 				outInput.Toggle = true;
+				break;
+
+			case 'W':
+				outInput.Wireframe = true;
+				break;
+
+			case VK_HOME:
+				outInput.ResetCamera = true;
 				break;
 
 			case VK_OEM_PLUS:
@@ -109,6 +142,14 @@ float FWindow::GetAspectRatio() const
 	int h = rect.bottom - rect.top;
 	if (h == 0) return 1.0f;
 	return (float)w / (float)h;
+}
+
+void FWindow::GetClientSize(int& width, int& height) const
+{
+	RECT rect;
+	GetClientRect(hWnd, &rect);
+	width  = rect.right  - rect.left;
+	height = rect.bottom - rect.top;
 }
 
 bool FWindow::IsMinimized() const

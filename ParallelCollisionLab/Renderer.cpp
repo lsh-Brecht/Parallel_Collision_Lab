@@ -4,6 +4,7 @@ bool URenderer::Init(HWND hWnd)
 {
 	CreateDeviceAndSwapChain(hWnd);
 	CreateFrameBuffer();
+	CreateDepthBuffer();
 	CreateRasterizerState();
 	CreateShader();
 	CreateConstantBuffers();
@@ -15,6 +16,7 @@ void URenderer::Shutdown()
 	ReleaseConstantBuffers();
 	ReleaseShader();
 	ReleaseRasterizerState();
+	ReleaseDepthBuffer();
 	DeviceContext->OMSetRenderTargets(0, nullptr, nullptr);
 	ReleaseFrameBuffer();
 	ReleaseDeviceAndSwapChain();
@@ -26,11 +28,13 @@ void URenderer::Shutdown()
 void URenderer::BeginFrame(const FMatrix4x4& viewProj)
 {
 	DeviceContext->ClearRenderTargetView(FrameBufferRTV, ClearColor);
+	DeviceContext->ClearDepthStencilView(DepthStencilView, D3D11_CLEAR_DEPTH | D3D11_CLEAR_STENCIL, 1.0f, 0);
 
 	DeviceContext->IASetPrimitiveTopology(D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
 	DeviceContext->RSSetViewports(1, &ViewportInfo);
-	DeviceContext->RSSetState(RasterizerState);
-	DeviceContext->OMSetRenderTargets(1, &FrameBufferRTV, nullptr);
+	DeviceContext->RSSetState(bWireframe ? RasterizerWireframe : RasterizerState);
+	DeviceContext->OMSetRenderTargets(1, &FrameBufferRTV, DepthStencilView);
+	DeviceContext->OMSetDepthStencilState(DepthStencilState, 0);
 	DeviceContext->OMSetBlendState(nullptr, nullptr, 0xffffffff);
 
 	DeviceContext->VSSetShader(VertexShader, nullptr, 0);
@@ -45,7 +49,7 @@ void URenderer::BeginFrame(const FMatrix4x4& viewProj)
 	UpdateConstantBuffer(CBPerFrame, perFrame);
 }
 
-void URenderer::RenderCircle(const FMatrix4x4& model, const FVector4& color,
+void URenderer::RenderSphere(const FMatrix4x4& model, const FVector4& color,
                               ID3D11Buffer* pVB, UINT vertexCount)
 {
 	FPerObjectConstants perObj;
@@ -128,13 +132,40 @@ void URenderer::CreateFrameBuffer()
 	Device->CreateRenderTargetView(FrameBuffer, &rtvDesc, &FrameBufferRTV);
 }
 
+void URenderer::CreateDepthBuffer()
+{
+	D3D11_TEXTURE2D_DESC depthDesc = {};
+	depthDesc.Width     = (UINT)ViewportInfo.Width;
+	depthDesc.Height    = (UINT)ViewportInfo.Height;
+	depthDesc.MipLevels = 1;
+	depthDesc.ArraySize = 1;
+	depthDesc.Format    = DXGI_FORMAT_D24_UNORM_S8_UINT;
+	depthDesc.SampleDesc.Count = 1;
+	depthDesc.Usage     = D3D11_USAGE_DEFAULT;
+	depthDesc.BindFlags = D3D11_BIND_DEPTH_STENCIL;
+	Device->CreateTexture2D(&depthDesc, nullptr, &DepthStencilBuffer);
+
+	Device->CreateDepthStencilView(DepthStencilBuffer, nullptr, &DepthStencilView);
+
+	D3D11_DEPTH_STENCIL_DESC dsDesc = {};
+	dsDesc.DepthEnable    = TRUE;
+	dsDesc.DepthWriteMask = D3D11_DEPTH_WRITE_MASK_ALL;
+	dsDesc.DepthFunc      = D3D11_COMPARISON_LESS_EQUAL;
+	Device->CreateDepthStencilState(&dsDesc, &DepthStencilState);
+}
+
 void URenderer::CreateRasterizerState()
 {
 	D3D11_RASTERIZER_DESC desc = {};
-	desc.FillMode = D3D11_FILL_SOLID;
-	desc.CullMode = D3D11_CULL_NONE;
-
+	desc.FillMode              = D3D11_FILL_SOLID;
+	desc.CullMode              = D3D11_CULL_BACK;
+	desc.FrontCounterClockwise = TRUE;
 	Device->CreateRasterizerState(&desc, &RasterizerState);
+
+	desc.FillMode              = D3D11_FILL_WIREFRAME;
+	desc.CullMode              = D3D11_CULL_NONE;
+	desc.FrontCounterClockwise = FALSE;
+	Device->CreateRasterizerState(&desc, &RasterizerWireframe);
 }
 
 void URenderer::CreateShader()
@@ -215,9 +246,17 @@ void URenderer::ReleaseFrameBuffer()
 	if (FrameBuffer)    { FrameBuffer->Release();    FrameBuffer    = nullptr; }
 }
 
+void URenderer::ReleaseDepthBuffer()
+{
+	if (DepthStencilState)  { DepthStencilState->Release();  DepthStencilState  = nullptr; }
+	if (DepthStencilView)   { DepthStencilView->Release();   DepthStencilView   = nullptr; }
+	if (DepthStencilBuffer) { DepthStencilBuffer->Release(); DepthStencilBuffer = nullptr; }
+}
+
 void URenderer::ReleaseRasterizerState()
 {
-	if (RasterizerState) { RasterizerState->Release(); RasterizerState = nullptr; }
+	if (RasterizerWireframe) { RasterizerWireframe->Release(); RasterizerWireframe = nullptr; }
+	if (RasterizerState)     { RasterizerState->Release();     RasterizerState     = nullptr; }
 }
 
 void URenderer::ReleaseShader()

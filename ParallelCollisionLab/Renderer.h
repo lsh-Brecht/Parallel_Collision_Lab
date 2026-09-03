@@ -37,8 +37,14 @@ public:
 	ID3D11Texture2D*        FrameBuffer    = nullptr;
 	ID3D11RenderTargetView* FrameBufferRTV = nullptr;
 
-	ID3D11RasterizerState*  RasterizerState = nullptr;
-	D3D11_VIEWPORT          ViewportInfo    = {};
+	ID3D11Texture2D*          DepthStencilBuffer = nullptr;
+	ID3D11DepthStencilView*   DepthStencilView   = nullptr;
+	ID3D11DepthStencilState*  DepthStencilState  = nullptr;
+
+	ID3D11RasterizerState*  RasterizerState     = nullptr;
+	ID3D11RasterizerState*  RasterizerWireframe = nullptr;
+	bool                    bWireframe          = false;
+	D3D11_VIEWPORT          ViewportInfo        = {};
 
 	ID3D11VertexShader*     VertexShader  = nullptr;
 	ID3D11PixelShader*      PixelShader   = nullptr;
@@ -48,7 +54,7 @@ public:
 	ID3D11Buffer*           CBPerFrame   = nullptr;
 	ID3D11Buffer*           CBPerObject  = nullptr;
 
-	FLOAT ClearColor[4] = { 0.025f, 0.025f, 0.025f, 1.0f };
+	FLOAT ClearColor[4] = { 0.05f, 0.05f, 0.05f, 1.0f };
 
 public:
 	bool Init(HWND hWnd);
@@ -57,8 +63,10 @@ public:
 	void BeginFrame(const FMatrix4x4& viewProj);
 	void EndFrame();
 
-	void RenderCircle(const FMatrix4x4& model, const FVector4& color,
+	void RenderSphere(const FMatrix4x4& model, const FVector4& color,
 	                  ID3D11Buffer* pVB, UINT vertexCount);
+
+	void ToggleWireframe() { bWireframe = !bWireframe; }
 
 	ID3D11Buffer* CreateVertexBuffer(const std::vector<FVertexSimple>& vertices);
 	void          ReleaseVertexBuffer(ID3D11Buffer* pBuffer);
@@ -66,12 +74,14 @@ public:
 private:
 	void CreateDeviceAndSwapChain(HWND hWnd);
 	void CreateFrameBuffer();
+	void CreateDepthBuffer();
 	void CreateRasterizerState();
 	void CreateShader();
 	void CreateConstantBuffers();
 
 	void ReleaseDeviceAndSwapChain();
 	void ReleaseFrameBuffer();
+	void ReleaseDepthBuffer();
 	void ReleaseRasterizerState();
 	void ReleaseShader();
 	void ReleaseConstantBuffers();

@@ -22,6 +22,34 @@ struct FVector2
 	float Length()                const { return sqrtf(LengthSq()); }
 };
 
+struct FVector3
+{
+	float x, y, z;
+	FVector3(float _x = 0.0f, float _y = 0.0f, float _z = 0.0f) : x(_x), y(_y), z(_z) {}
+
+	FVector3 operator+(const FVector3& v) const { return FVector3(x + v.x, y + v.y, z + v.z); }
+	FVector3 operator-(const FVector3& v) const { return FVector3(x - v.x, y - v.y, z - v.z); }
+	FVector3 operator*(float s)           const { return FVector3(x * s, y * s, z * s); }
+	FVector3 operator-() const { return FVector3(-x, -y, -z); }
+	FVector3& operator+=(const FVector3& v) { x += v.x; y += v.y; z += v.z; return *this; }
+	FVector3& operator-=(const FVector3& v) { x -= v.x; y -= v.y; z -= v.z; return *this; }
+
+	float Dot(const FVector3& v) const { return x * v.x + y * v.y + z * v.z; }
+	float LengthSq()             const { return x * x + y * y + z * z; }
+	float Length()               const { return sqrtf(LengthSq()); }
+
+	FVector3 Cross(const FVector3& v) const
+	{
+		return FVector3(y * v.z - z * v.y, z * v.x - x * v.z, x * v.y - y * v.x);
+	}
+
+	FVector3 Normalize() const
+	{
+		float len = Length();
+		return (len > 0.0f) ? (*this * (1.0f / len)) : *this;
+	}
+};
+
 struct FVector4
 {
 	float x, y, z, w;
@@ -81,6 +109,34 @@ struct FMatrix4x4
 		return M;
 	}
 
+	static FMatrix4x4 PerspectiveFovLH(float fovY, float aspect, float nearZ, float farZ)
+	{
+		FMatrix4x4 M;
+		float h = 1.0f / tanf(fovY * 0.5f);
+		float w = h / aspect;
+		M.m[0][0] = w;
+		M.m[1][1] = h;
+		M.m[2][2] = farZ / (farZ - nearZ);
+		M.m[2][3] = -(nearZ * farZ) / (farZ - nearZ);
+		M.m[3][2] = 1.0f;
+		M.m[3][3] = 0.0f;
+		return M;
+	}
+
+	static FMatrix4x4 LookAtLH(const FVector3& eye, const FVector3& at, const FVector3& up)
+	{
+		FVector3 zAxis = (at - eye).Normalize();
+		FVector3 xAxis = up.Cross(zAxis).Normalize();
+		FVector3 yAxis = zAxis.Cross(xAxis);
+
+		FMatrix4x4 M;
+		M.m[0][0] = xAxis.x; M.m[0][1] = xAxis.y; M.m[0][2] = xAxis.z; M.m[0][3] = -xAxis.Dot(eye);
+		M.m[1][0] = yAxis.x; M.m[1][1] = yAxis.y; M.m[1][2] = yAxis.z; M.m[1][3] = -yAxis.Dot(eye);
+		M.m[2][0] = zAxis.x; M.m[2][1] = zAxis.y; M.m[2][2] = zAxis.z; M.m[2][3] = -zAxis.Dot(eye);
+		M.m[3][3] = 1.0f;
+		return M;
+	}
+
 	FMatrix4x4 operator*(const FMatrix4x4& B) const
 	{
 		FMatrix4x4 C;
@@ -98,4 +154,22 @@ struct FMatrix4x4
 inline float RandF(float lo, float hi)
 {
 	return lo + (hi - lo) * ((float)rand() / (float)RAND_MAX);
+}
+
+// Convert HSV (H: [0, 360], S: [0, 1], V: [0, 1]) to RGB color
+inline FVector4 HSVtoRGB(float h, float s, float v)
+{
+	float c = v * s;
+	float x = c * (1.0f - fabsf(fmodf(h / 60.0f, 2.0f) - 1.0f));
+	float m = v - c;
+	float r = 0.0f, g = 0.0f, b = 0.0f;
+
+	if      (h < 60.0f)  { r = c; g = x; b = 0.0f; }
+	else if (h < 120.0f) { r = x; g = c; b = 0.0f; }
+	else if (h < 180.0f) { r = 0.0f; g = c; b = x; }
+	else if (h < 240.0f) { r = 0.0f; g = x; b = c; }
+	else if (h < 300.0f) { r = x; g = 0.0f; b = c; }
+	else                 { r = c; g = 0.0f; b = x; }
+
+	return FVector4(r + m, g + m, b + m, 1.0f);
 }
