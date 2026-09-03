@@ -1,9 +1,12 @@
 #pragma once
+
 #include "Common.h"
 #include <cmath>
 #include <algorithm>
 
-
+//=============================================================================
+// Utility
+//=============================================================================
 inline FVector2 CursorToNDC(int mouseX, int mouseY, int width, int height)
 {
 	if (width <= 1 || height <= 1)
@@ -19,29 +22,60 @@ inline FVector2 CursorToNDC(int mouseX, int mouseY, int width, int height)
 class FTrackball
 {
 public:
-	bool     bTracking = false;
+	int      mode = 0;
 	FVector2 m0;
 	FVector3 cam0Eye;
 	FVector3 cam0Up;
 
-	void Begin(const FVector3& eye, const FVector3& up, const FVector2& m)
+	static constexpr float MinDistance = 5.0f;
+	static constexpr float MaxDistance = 15.0f;
+
+	void Begin(const FVector3& eye, const FVector3& up, const FVector2& m, int inMode)
 	{
-		bTracking = true;
-		m0        = m;
-		cam0Eye   = eye;
-		cam0Up    = up;
+		mode    = inMode;
+		m0      = m;
+		cam0Eye = eye;
+		cam0Up  = up;
 	}
 
 	void End()
 	{
-		bTracking = false;
+		mode = 0;
+	}
+
+	bool IsTracking() const
+	{
+		return mode != 0;
 	}
 
 	void Update(const FVector2& m, const FVector3& at, FVector3& outEye, FVector3& outUp)
 	{
-		if (!bTracking)
+		if (mode == 1)
+		{
+			UpdateRotating(m, at, outEye, outUp);
+		}
+		else if (mode == 2)
+		{
+			UpdateZooming(m, at, outEye);
+		}
+	}
+
+	void ApplyWheelZoom(int wheelDelta, const FVector3& at, FVector3& eye)
+	{
+		FVector3 toAt = at - eye;
+		float dist = toAt.Length();
+		if (dist < 0.0001f)
 			return;
 
+		FVector3 n = toAt * (1.0f / dist);
+		float newDist = dist - (float)wheelDelta * 0.002f;
+		newDist = (std::max)(MinDistance, (std::min)(MaxDistance, newDist));
+		eye = at - n * newDist;
+	}
+
+private:
+	void UpdateRotating(const FVector2& m, const FVector3& at, FVector3& outEye, FVector3& outUp)
+	{
 		FVector3 p1(m.x - m0.x, m.y - m0.y, 0.0f);
 		if (p1.LengthSq() < 0.000001f)
 		{
@@ -78,5 +112,23 @@ public:
 		FVector3 w = cam0Eye - at;
 		outEye = at + RotateVector(w, axis, -theta);
 		outUp  = RotateVector(cam0Up, axis, -theta).Normalize();
+	}
+
+	void UpdateZooming(const FVector2& m, const FVector3& at, FVector3& outEye)
+	{
+		FVector3 p1(m.x - m0.x, m.y - m0.y, 0.0f);
+		if (p1.LengthSq() < 0.000001f)
+			return;
+
+		FVector3 toAt = at - cam0Eye;
+		float dist = toAt.Length();
+		if (dist < 0.0001f)
+			return;
+
+		FVector3 n = toAt * (1.0f / dist);
+		float zoom = dist - p1.y * dist * 3.0f;
+		zoom = (std::max)(MinDistance, (std::min)(MaxDistance, zoom));
+
+		outEye = at - n * zoom;
 	}
 };

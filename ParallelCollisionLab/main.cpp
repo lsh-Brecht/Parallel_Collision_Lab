@@ -34,7 +34,7 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE, LPSTR, int)
 	srand((unsigned int)time(nullptr));
 
 	FWindow window;
-	if (!window.Init(hInstance, 1024, 1024, L"Parallel Collision Lab"))
+	if (!window.Init(hInstance, 768, 768, L"Parallel Collision Lab"))
 		return -1;
 
 	URenderer renderer;
@@ -81,23 +81,34 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE, LPSTR, int)
 		if (input.Wireframe)
 			renderer.ToggleWireframe();
 
-		if (input.bLButtonPressed)
+		if (input.bRButtonPressed || (input.bLButtonPressed && input.bShiftDown))
 		{
 			int w, h;
 			window.GetClientSize(w, h);
 			FVector2 npos = CursorToNDC(input.MouseX, input.MouseY, w, h);
-			trackball.Begin(eye, up, npos);
+			trackball.Begin(eye, up, npos, 2);
 		}
-		if (input.bMouseMoving && trackball.bTracking)
+		else if (input.bLButtonPressed)
+		{
+			int w, h;
+			window.GetClientSize(w, h);
+			FVector2 npos = CursorToNDC(input.MouseX, input.MouseY, w, h);
+			trackball.Begin(eye, up, npos, 1);
+		}
+		if (input.bMouseMoving && trackball.IsTracking())
 		{
 			int w, h;
 			window.GetClientSize(w, h);
 			FVector2 npos = CursorToNDC(input.MouseX, input.MouseY, w, h);
 			trackball.Update(npos, at, eye, up);
 		}
-		if (input.bLButtonReleased)
+		if (input.bLButtonReleased || input.bRButtonReleased)
 		{
 			trackball.End();
+		}
+		if (input.WheelDelta != 0)
+		{
+			trackball.ApplyWheelZoom(input.WheelDelta, at, eye);
 		}
 
 		if (input.ResetCamera)

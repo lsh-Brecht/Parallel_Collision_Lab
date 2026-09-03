@@ -49,6 +49,7 @@ bool FWindow::PumpMessages(FInputState& outInput)
 	outInput.Clear();
 
 	bShiftHeld = (GetKeyState(VK_SHIFT) & 0x8000) != 0;
+	outInput.bShiftDown = bShiftHeld;
 
 	MSG msg;
 	while (PeekMessageW(&msg, nullptr, 0, 0, PM_REMOVE))
@@ -73,11 +74,29 @@ bool FWindow::PumpMessages(FInputState& outInput)
 			outInput.MouseX           = GET_X_LPARAM(msg.lParam);
 			outInput.MouseY           = GET_Y_LPARAM(msg.lParam);
 		}
+		else if (msg.message == WM_RBUTTONDOWN)
+		{
+			SetCapture(hWnd);
+			outInput.bRButtonPressed = true;
+			outInput.MouseX          = GET_X_LPARAM(msg.lParam);
+			outInput.MouseY          = GET_Y_LPARAM(msg.lParam);
+		}
+		else if (msg.message == WM_RBUTTONUP)
+		{
+			ReleaseCapture();
+			outInput.bRButtonReleased = true;
+			outInput.MouseX           = GET_X_LPARAM(msg.lParam);
+			outInput.MouseY           = GET_Y_LPARAM(msg.lParam);
+		}
 		else if (msg.message == WM_MOUSEMOVE)
 		{
 			outInput.bMouseMoving = true;
 			outInput.MouseX       = GET_X_LPARAM(msg.lParam);
 			outInput.MouseY       = GET_Y_LPARAM(msg.lParam);
+		}
+		else if (msg.message == WM_MOUSEWHEEL)
+		{
+			outInput.WheelDelta += GET_WHEEL_DELTA_WPARAM(msg.wParam);
 		}
 
 		if (msg.message == WM_KEYDOWN)

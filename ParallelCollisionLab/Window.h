@@ -20,9 +20,13 @@ struct FInputState
 
 	bool bLButtonPressed;
 	bool bLButtonReleased;
+	bool bRButtonPressed;
+	bool bRButtonReleased;
 	bool bMouseMoving;
+	bool bShiftDown;
 	int  MouseX;
 	int  MouseY;
+	int  WheelDelta;
 
 	void Clear() { *this = {}; }
 };
