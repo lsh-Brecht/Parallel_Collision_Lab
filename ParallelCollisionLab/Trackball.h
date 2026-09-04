@@ -110,8 +110,8 @@ private:
 		};
 
 		FVector3 w = cam0Eye - at;
-		outEye = at + RotateVector(w, axis, -theta);
-		outUp  = RotateVector(cam0Up, axis, -theta).Normalize();
+		outEye = at + RotateVector(w, axis, theta);
+		outUp  = RotateVector(cam0Up, axis, theta).Normalize();
 	}
 
 	void UpdateZooming(const FVector2& m, const FVector3& at, FVector3& outEye)
