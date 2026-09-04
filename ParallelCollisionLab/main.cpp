@@ -23,6 +23,14 @@ static float GetDeltaTime()
 	QueryPerformanceCounter(&now);
 	float dt = (float)(now.QuadPart - g_LastTime.QuadPart) / (float)g_Frequency.QuadPart;
 	g_LastTime = now;
+
+	// Temporary solution: clamp dt to ~30 FPS (0.033s) to mitigate frame hitch
+	// and avoid tunneling, rather than using sub-stepping. (Low FPS will cause slow-motion)
+	if (dt > 0.033f)
+	{
+		dt = 0.033f;
+	}
+
 	return dt;
 }
 
