@@ -231,12 +231,15 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE, LPSTR, int)
 			}
 
 			textRenderer.DrawTextOverlay(hudText, 10.0f, 10.0f, 450.0f, 80.0f);
-
-			renderer.EndFrame();
 		}
 
 		QueryPerformanceCounter(&renderEnd);
 		lastRenderTimeMs = (float)(renderEnd.QuadPart - renderStart.QuadPart) * 1000.0f / (float)g_Frequency.QuadPart;
+
+		if (!window.IsMinimized())
+		{
+			renderer.EndFrame();
+		}
 	}
 
 	renderer.ReleaseVertexBuffer(leftWallVB);
