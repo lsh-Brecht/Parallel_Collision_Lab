@@ -1,5 +1,6 @@
 #include "Window.h"
 #include "Renderer.h"
+#include "TextRenderer.h"
 #include "Sphere.h"
 #include "Trackball.h"
 
@@ -47,6 +48,9 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE, LPSTR, int)
 
 	URenderer renderer;
 	renderer.Init(window.GetHWND());
+
+	FTextRenderer textRenderer;
+	textRenderer.Init(renderer.SwapChain);
 
 	const float boxHalfSize = 2.0f;
 
@@ -153,6 +157,20 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE, LPSTR, int)
 
 		float dt = GetDeltaTime();
 
+		static float timeAccum  = 0.0f;
+		static int   frameAccum = 0;
+		static wchar_t fpsText[32] = L"FPS: 00.0";
+
+		timeAccum  += dt;
+		frameAccum += 1;
+		if (timeAccum >= 0.25f)
+		{
+			float currentFPS = (float)frameAccum / timeAccum;
+			swprintf_s(fpsText, L"FPS: %.1f", currentFPS);
+			timeAccum  = 0.0f;
+			frameAccum = 0;
+		}
+
 		if (!bPaused && !window.IsMinimized())
 		{
 			for (FSphere& s : spheres)
@@ -189,6 +207,8 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE, LPSTR, int)
 				renderer.RenderSphere(s.GetModelMatrix(), s.Color, sphereVB, sphereVCount);
 			}
 
+			textRenderer.DrawTextOverlay(fpsText, 10.0f, 10.0f, 200.0f, 10.0f);
+
 			renderer.EndFrame();
 		}
 	}
@@ -197,6 +217,7 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE, LPSTR, int)
 	renderer.ReleaseVertexBuffer(rightWallVB);
 	renderer.ReleaseVertexBuffer(otherWallsVB);
 	renderer.ReleaseVertexBuffer(sphereVB);
+	textRenderer.Shutdown();
 	renderer.Shutdown();
 	window.Shutdown();
 

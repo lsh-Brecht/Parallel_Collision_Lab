@@ -139,6 +139,7 @@
   <ItemGroup>
     <ClCompile Include="main.cpp" />
     <ClCompile Include="Renderer.cpp" />
+    <ClCompile Include="TextRenderer.cpp" />
     <ClCompile Include="Window.cpp" />
   </ItemGroup>
   <ItemGroup>
@@ -150,6 +151,7 @@
   <ItemGroup>
     <ClInclude Include="Common.h" />
     <ClInclude Include="Renderer.h" />
+    <ClInclude Include="TextRenderer.h" />
     <ClInclude Include="Window.h" />
     <ClInclude Include="Sphere.h" />
     <ClInclude Include="Trackball.h" />
