@@ -136,7 +136,7 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE, LPSTR, int)
 		}
 		else if (input.Toggle)
 		{
-			numSpheres = (numSpheres < 137) ? MAX_SPHERES : MIN_SPHERES;
+			numSpheres = (numSpheres == MAX_SPHERES) ? MIN_SPHERES : MAX_SPHERES;
 			spheres    = CreateSpheres(numSpheres, boxHalfSize);
 		}
 		else if (input.Add || input.AddMany)
@@ -157,19 +157,8 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE, LPSTR, int)
 
 		float dt = GetDeltaTime();
 
-		static float timeAccum  = 0.0f;
-		static int   frameAccum = 0;
-		static wchar_t fpsText[32] = L"FPS: 00.0";
-
-		timeAccum  += dt;
-		frameAccum += 1;
-		if (timeAccum >= 0.25f)
-		{
-			float currentFPS = (float)frameAccum / timeAccum;
-			swprintf_s(fpsText, L"FPS: %.1f", currentFPS);
-			timeAccum  = 0.0f;
-			frameAccum = 0;
-		}
+		LARGE_INTEGER updateStart, updateEnd;
+		QueryPerformanceCounter(&updateStart);
 
 		if (!bPaused && !window.IsMinimized())
 		{
@@ -189,6 +178,40 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE, LPSTR, int)
 			}
 		}
 
+		QueryPerformanceCounter(&updateEnd);
+		float updateTimeMs = (float)(updateEnd.QuadPart - updateStart.QuadPart) * 1000.0f / (float)g_Frequency.QuadPart;
+
+		static float timeAccum        = 0.0f;
+		static int   frameAccum       = 0;
+		static float updateAccumMs    = 0.0f;
+		static float renderAccumMs    = 0.0f;
+		static float lastRenderTimeMs = 0.0f;
+		static wchar_t hudText[128]   = L"FPS: 60.0 (16.6 ms)\nUpdate: 0.00 ms | Render: 0.00 ms\nSpheres: 16";
+
+		timeAccum     += dt;
+		frameAccum    += 1;
+		updateAccumMs += updateTimeMs;
+		renderAccumMs += lastRenderTimeMs;
+
+		if (timeAccum >= 0.25f)
+		{
+			float currentFPS  = (float)frameAccum / timeAccum;
+			float frameTimeMs = (timeAccum / (float)frameAccum) * 1000.0f;
+			float avgUpdateMs = updateAccumMs / (float)frameAccum;
+			float avgRenderMs = renderAccumMs / (float)frameAccum;
+
+			swprintf_s(hudText, L"FPS: %.1f (%.1f ms)\nUpdate: %.2f ms | Render: %.2f ms\nSpheres: %d",
+			           currentFPS, frameTimeMs, avgUpdateMs, avgRenderMs, (int)spheres.size());
+
+			timeAccum     = 0.0f;
+			frameAccum    = 0;
+			updateAccumMs = 0.0f;
+			renderAccumMs = 0.0f;
+		}
+
+		LARGE_INTEGER renderStart, renderEnd;
+		QueryPerformanceCounter(&renderStart);
+
 		if (!window.IsMinimized())
 		{
 			float aspect = window.GetAspectRatio();
@@ -207,10 +230,13 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE, LPSTR, int)
 				renderer.RenderSphere(s.GetModelMatrix(), s.Color, sphereVB, sphereVCount);
 			}
 
-			textRenderer.DrawTextOverlay(fpsText, 10.0f, 10.0f, 200.0f, 10.0f);
+			textRenderer.DrawTextOverlay(hudText, 10.0f, 10.0f, 450.0f, 80.0f);
 
 			renderer.EndFrame();
 		}
+
+		QueryPerformanceCounter(&renderEnd);
+		lastRenderTimeMs = (float)(renderEnd.QuadPart - renderStart.QuadPart) * 1000.0f / (float)g_Frequency.QuadPart;
 	}
 
 	renderer.ReleaseVertexBuffer(leftWallVB);

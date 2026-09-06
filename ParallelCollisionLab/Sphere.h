@@ -104,7 +104,7 @@ inline std::vector<FVertexSimple> CreateWallVertices(int wallType, float L)
 // FSphere
 //=============================================================================
 static const int   MIN_SPHERES  = 16;
-static const int   MAX_SPHERES  = 256;
+static const int   MAX_SPHERES  = 1024;
 static const float SPEED_FACTOR = 0.8f;
 
 struct FSphere
@@ -186,10 +186,13 @@ inline std::vector<FSphere> CreateSpheres(int numSpheres, float L)
 	{
 		FSphere c;
 		bool bColliding;
+		int attempts = 0;
 
 		do
 		{
 			bColliding = false;
+			if (++attempts > 1000)
+				break;
 
 			float scale = cbrtf((float)MIN_SPHERES) / cbrtf((float)numSpheres);
 			c.Radius    = RandF(0.08f, 0.22f) * scale;
