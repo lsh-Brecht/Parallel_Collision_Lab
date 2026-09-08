@@ -174,15 +174,40 @@ void URenderer::CreateShader()
 	ID3DBlob* psBlob   = nullptr;
 	ID3DBlob* errBlob  = nullptr;
 
-	HRESULT hr = D3DCompileFromFile(L"Shader.hlsl", nullptr, nullptr,
+	const wchar_t* shaderPath = L"Renderer/Shader.hlsl";
+	if (GetFileAttributesW(shaderPath) == INVALID_FILE_ATTRIBUTES)
+	{
+		shaderPath = L"Shader.hlsl";
+	}
+
+	HRESULT hr = D3DCompileFromFile(shaderPath, nullptr, nullptr,
 		"mainVS", "vs_5_0", 0, 0, &vsBlob, &errBlob);
-	if (FAILED(hr)) { if (errBlob) errBlob->Release(); return; }
+	if (FAILED(hr))
+	{
+		if (errBlob)
+		{
+			OutputDebugStringA((const char*)errBlob->GetBufferPointer());
+			errBlob->Release();
+		}
+		return;
+	}
 
 	Device->CreateVertexShader(
 		vsBlob->GetBufferPointer(), vsBlob->GetBufferSize(), nullptr, &VertexShader);
 
-	D3DCompileFromFile(L"Shader.hlsl", nullptr, nullptr,
-		"mainPS", "ps_5_0", 0, 0, &psBlob, nullptr);
+	hr = D3DCompileFromFile(shaderPath, nullptr, nullptr,
+		"mainPS", "ps_5_0", 0, 0, &psBlob, &errBlob);
+	if (FAILED(hr))
+	{
+		if (errBlob)
+		{
+			OutputDebugStringA((const char*)errBlob->GetBufferPointer());
+			errBlob->Release();
+		}
+		vsBlob->Release();
+		return;
+	}
+
 	Device->CreatePixelShader(
 		psBlob->GetBufferPointer(), psBlob->GetBufferSize(), nullptr, &PixelShader);
 
