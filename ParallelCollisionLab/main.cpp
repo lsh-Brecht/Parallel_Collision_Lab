@@ -1,8 +1,9 @@
-#include "Window.h"
-#include "Renderer.h"
-#include "TextRenderer.h"
-#include "Sphere.h"
-#include "Trackball.h"
+#include "Window/Window.h"
+#include "Renderer/Renderer.h"
+#include "Renderer/TextRenderer.h"
+#include "Renderer/Trackball.h"
+#include "Core/Sphere.h"
+#include "Collision/NestedLoop/NestedLoopSolver.h"
 
 #include <ctime>
 
@@ -77,6 +78,8 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE, LPSTR, int)
 	FVector3 up = defaultUp;
 
 	bool bPaused = false;
+
+	NestedLoopSolver solver;
 
 	InitTimer();
 
@@ -168,14 +171,7 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE, LPSTR, int)
 				s.BoxCollisionCheck(boxHalfSize);
 			}
 
-			for (size_t i = 0; i < spheres.size(); ++i)
-			{
-				for (size_t j = i + 1; j < spheres.size(); ++j)
-				{
-					if (spheres[i].CollisionCheck(spheres[j]) < 0.0f)
-						spheres[i].HandleCollision(spheres[j]);
-				}
-			}
+			solver.Solve(spheres);
 		}
 
 		QueryPerformanceCounter(&updateEnd);

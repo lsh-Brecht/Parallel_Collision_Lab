@@ -7,7 +7,7 @@
 #include <d3d11.h>
 #include <d3dcompiler.h>
 
-#include "Common.h"
+#include "../Core/Common.h"
 #include <vector>
 
 //=============================================================================

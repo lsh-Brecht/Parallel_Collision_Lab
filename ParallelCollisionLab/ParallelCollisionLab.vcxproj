@@ -116,7 +116,7 @@
       <GenerateDebugInformation>true</GenerateDebugInformation>
     </Link>
     <PostBuildEvent>
-      <Command>xcopy /y "$(ProjectDir)Shader.hlsl" "$(OutDir)"</Command>
+      <Command>xcopy /y "$(ProjectDir)Renderer\Shader.hlsl" "$(OutDir)"</Command>
     </PostBuildEvent>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
@@ -133,28 +133,30 @@
       <GenerateDebugInformation>true</GenerateDebugInformation>
     </Link>
     <PostBuildEvent>
-      <Command>xcopy /y "$(ProjectDir)Shader.hlsl" "$(OutDir)"</Command>
+      <Command>xcopy /y "$(ProjectDir)Renderer\Shader.hlsl" "$(OutDir)"</Command>
     </PostBuildEvent>
   </ItemDefinitionGroup>
   <ItemGroup>
     <ClCompile Include="main.cpp" />
-    <ClCompile Include="Renderer.cpp" />
-    <ClCompile Include="TextRenderer.cpp" />
-    <ClCompile Include="Window.cpp" />
+    <ClCompile Include="Renderer\Renderer.cpp" />
+    <ClCompile Include="Renderer\TextRenderer.cpp" />
+    <ClCompile Include="Window\Window.cpp" />
   </ItemGroup>
   <ItemGroup>
-    <FxCompile Include="Shader.hlsl">
+    <FxCompile Include="Renderer\Shader.hlsl">
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">true</ExcludedFromBuild>
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|x64'">true</ExcludedFromBuild>
     </FxCompile>
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="Common.h" />
-    <ClInclude Include="Renderer.h" />
-    <ClInclude Include="TextRenderer.h" />
-    <ClInclude Include="Window.h" />
-    <ClInclude Include="Sphere.h" />
-    <ClInclude Include="Trackball.h" />
+    <ClInclude Include="Core\Common.h" />
+    <ClInclude Include="Core\Sphere.h" />
+    <ClInclude Include="Renderer\Renderer.h" />
+    <ClInclude Include="Renderer\TextRenderer.h" />
+    <ClInclude Include="Renderer\Trackball.h" />
+    <ClInclude Include="Window\Window.h" />
+    <ClInclude Include="Collision\ICollisionSolver.h" />
+    <ClInclude Include="Collision\NestedLoop\NestedLoopSolver.h" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">
