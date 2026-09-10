@@ -79,6 +79,15 @@
     <ClInclude Include="Collision\ICollisionSolver.h">
       <Filter>Header Files\Collision</Filter>
     </ClInclude>
+    <ClInclude Include="Collision\CollisionTypes.h">
+      <Filter>Header Files\Collision</Filter>
+    </ClInclude>
+    <ClInclude Include="Collision\NarrowPhase.h">
+      <Filter>Header Files\Collision</Filter>
+    </ClInclude>
+    <ClInclude Include="Collision\Resolution.h">
+      <Filter>Header Files\Collision</Filter>
+    </ClInclude>
     <ClInclude Include="Collision\NestedLoop\NestedLoopSolver.h">
       <Filter>Header Files\Collision\NestedLoop</Filter>
     </ClInclude>

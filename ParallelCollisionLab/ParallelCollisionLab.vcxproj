@@ -156,6 +156,9 @@
     <ClInclude Include="Renderer\Trackball.h" />
     <ClInclude Include="Window\Window.h" />
     <ClInclude Include="Collision\ICollisionSolver.h" />
+    <ClInclude Include="Collision\CollisionTypes.h" />
+    <ClInclude Include="Collision\NarrowPhase.h" />
+    <ClInclude Include="Collision\Resolution.h" />
     <ClInclude Include="Collision\NestedLoop\NestedLoopSolver.h" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
