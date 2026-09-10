@@ -1,6 +1,7 @@
 #pragma once
 
 #include <vector>
+#include <windows.h>
 #include "../ICollisionSolver.h"
 #include "../CollisionTypes.h"
 #include "../NarrowPhase.h"
@@ -9,33 +10,41 @@
 //=============================================================================
 // NestedLoopSolver - Naive O(n^2) nested loop collision solver
 // Optimized: Zero-allocation pair traversal with L1/L2 cache-friendly streaming.
-// Decouples detection and resolution without memory bandwidth thrashing.
+// Decouples detection and resolution, profiling each stage with high-precision QPC.
 //=============================================================================
 class NestedLoopSolver : public ICollisionSolver
 {
 public:
+    NestedLoopSolver()
+    {
+        QueryPerformanceFrequency(&m_TimerFreq);
+    }
+
     void Solve(std::vector<FSphere>& spheres) override
     {
         const int count = static_cast<int>(spheres.size());
+        m_Stats = {};
         if (count < 2) return;
+
+        LARGE_INTEGER t0, t1, t2, t3;
 
         // --------------------------------------------------------------------
         // 1. Broad Phase: Mathematical pair count (N * (N - 1) / 2)
-        // Avoid materializing all pairs into memory, which would allocate 4+ MB
-        // per frame, evicting the entire L1/L2 CPU cache and stalling memory bus.
         // --------------------------------------------------------------------
-        m_CandidatePairCount = static_cast<uint64_t>(count) * (count - 1) / 2;
+        QueryPerformanceCounter(&t0);
+
+        m_Stats.CandidatePairCount = static_cast<uint64_t>(count) * (count - 1) / 2;
+
+        QueryPerformanceCounter(&t1);
 
         // --------------------------------------------------------------------
         // 2. Narrow Phase: Cache-friendly collision detection
-        // Stream spheres array with outer sphere cached in CPU registers.
-        // Only actual colliding manifolds are collected for resolution.
         // --------------------------------------------------------------------
         m_Manifolds.clear();
 
         for (int i = 0; i < count; ++i)
         {
-            // Cache sphere A in CPU registers for the entire inner loop
+            // Cache sphere A in CPU registers for the inner loop
             const FVector3 posA = spheres[i].Center;
             const float    radA = spheres[i].Radius;
 
@@ -45,7 +54,7 @@ public:
                 const float distSq  = diff.LengthSq();
                 const float radSum  = radA + spheres[j].Radius;
 
-                // Squared distance fast rejection avoids expensive sqrtf
+                // Fast rejection with squared distance
                 if (distSq < radSum * radSum)
                 {
                     const float dist = sqrtf(distSq);
@@ -55,19 +64,32 @@ public:
             }
         }
 
+        m_Stats.ActualCollisionCount = static_cast<uint64_t>(m_Manifolds.size());
+
+        QueryPerformanceCounter(&t2);
+
         // --------------------------------------------------------------------
         // 3. Resolution: Deterministic, sequential impulse & position updates
         // --------------------------------------------------------------------
         ResolveCollisions(spheres, m_Manifolds);
+
+        QueryPerformanceCounter(&t3);
+
+        // Calculate detailed timing statistics in milliseconds
+        const double toMs = 1000.0 / static_cast<double>(m_TimerFreq.QuadPart);
+        m_Stats.BroadPhaseTimeMs   = static_cast<float>((t1.QuadPart - t0.QuadPart) * toMs);
+        m_Stats.NarrowPhaseTimeMs  = static_cast<float>((t2.QuadPart - t1.QuadPart) * toMs);
+        m_Stats.ResolutionTimeMs   = static_cast<float>((t3.QuadPart - t2.QuadPart) * toMs);
+        m_Stats.TotalSolveTimeMs   = static_cast<float>((t3.QuadPart - t0.QuadPart) * toMs);
     }
 
     const wchar_t* GetName() const override { return L"NestedLoop (ST)"; }
 
-    // Accessors for metrics & profiling
-    uint64_t GetCandidatePairCount() const { return m_CandidatePairCount; }
+    const FCollisionStats& GetLastStats() const override { return m_Stats; }
     const std::vector<FCollisionManifold>& GetManifolds() const { return m_Manifolds; }
 
 private:
-    uint64_t                        m_CandidatePairCount = 0;
+    LARGE_INTEGER                   m_TimerFreq          = {};
+    FCollisionStats                 m_Stats              = {};
     std::vector<FCollisionManifold> m_Manifolds;
 };
