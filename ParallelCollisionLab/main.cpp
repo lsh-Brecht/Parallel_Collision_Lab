@@ -175,16 +175,16 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE, LPSTR, int)
 		}
 
 		QueryPerformanceCounter(&updateEnd);
-		float updateTimeMs = (float)(updateEnd.QuadPart - updateStart.QuadPart) * 1000.0f / (float)g_Frequency.QuadPart;
+		double updateTimeMs = (double)(updateEnd.QuadPart - updateStart.QuadPart) * 1000.0 / (double)g_Frequency.QuadPart;
 
-		static float    timeAccum        = 0.0f;
+		static double   timeAccum        = 0.0;
 		static int      frameAccum       = 0;
-		static float    updateAccumMs    = 0.0f;
-		static float    renderAccumMs    = 0.0f;
-		static float    broadAccumMs     = 0.0f;
-		static float    narrowAccumMs    = 0.0f;
-		static float    resolveAccumMs   = 0.0f;
-		static float    lastRenderTimeMs = 0.0f;
+		static double   updateAccumMs    = 0.0;
+		static double   renderAccumMs    = 0.0;
+		static double   broadAccumMs     = 0.0;
+		static double   narrowAccumMs    = 0.0;
+		static double   resolveAccumMs   = 0.0;
+		static double   lastRenderTimeMs = 0.0;
 		static wchar_t  hudText[512]     = L"FPS: 60.0 (16.6 ms)\nUpdate: 0.00 ms | Render: 0.00 ms\nSpheres: 16";
 
 		const FCollisionStats& stats = solver.GetLastStats();
@@ -197,15 +197,15 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE, LPSTR, int)
 		narrowAccumMs  += stats.NarrowPhaseTimeMs;
 		resolveAccumMs += stats.ResolutionTimeMs;
 
-		if (timeAccum >= 0.25f)
+		if (timeAccum >= 0.25)
 		{
-			float currentFPS   = (float)frameAccum / timeAccum;
-			float frameTimeMs  = (timeAccum / (float)frameAccum) * 1000.0f;
-			float avgUpdateMs  = updateAccumMs / (float)frameAccum;
-			float avgRenderMs  = renderAccumMs / (float)frameAccum;
-			float avgBroadMs   = broadAccumMs / (float)frameAccum;
-			float avgNarrowMs  = narrowAccumMs / (float)frameAccum;
-			float avgResolveMs = resolveAccumMs / (float)frameAccum;
+			double currentFPS   = (double)frameAccum / timeAccum;
+			double frameTimeMs  = (timeAccum / (double)frameAccum) * 1000.0;
+			double avgUpdateMs  = updateAccumMs / (double)frameAccum;
+			double avgRenderMs  = renderAccumMs / (double)frameAccum;
+			double avgBroadMs   = broadAccumMs / (double)frameAccum;
+			double avgNarrowMs  = narrowAccumMs / (double)frameAccum;
+			double avgResolveMs = resolveAccumMs / (double)frameAccum;
 
 			swprintf_s(hudText,
 			           L"[%s] Spheres: %d\n"
@@ -217,13 +217,13 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE, LPSTR, int)
 			           avgBroadMs, avgNarrowMs, avgResolveMs,
 			           stats.CandidatePairCount, stats.ActualCollisionCount);
 
-			timeAccum      = 0.0f;
+			timeAccum      = 0.0;
 			frameAccum     = 0;
-			updateAccumMs  = 0.0f;
-			renderAccumMs  = 0.0f;
-			broadAccumMs   = 0.0f;
-			narrowAccumMs  = 0.0f;
-			resolveAccumMs = 0.0f;
+			updateAccumMs  = 0.0;
+			renderAccumMs  = 0.0;
+			broadAccumMs   = 0.0;
+			narrowAccumMs  = 0.0;
+			resolveAccumMs = 0.0;
 		}
 
 		LARGE_INTEGER renderStart, renderEnd;
@@ -251,7 +251,7 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE, LPSTR, int)
 		}
 
 		QueryPerformanceCounter(&renderEnd);
-		lastRenderTimeMs = (float)(renderEnd.QuadPart - renderStart.QuadPart) * 1000.0f / (float)g_Frequency.QuadPart;
+		lastRenderTimeMs = (double)(renderEnd.QuadPart - renderStart.QuadPart) * 1000.0 / (double)g_Frequency.QuadPart;
 
 		if (!window.IsMinimized())
 		{

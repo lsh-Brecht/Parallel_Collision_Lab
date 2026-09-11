@@ -9,8 +9,6 @@
 
 //=============================================================================
 // NestedLoopSolver - Naive O(n^2) nested loop collision solver
-// Optimized: Zero-allocation pair traversal with L1/L2 cache-friendly streaming.
-// Decouples detection and resolution, profiling each stage with high-precision QPC.
 //=============================================================================
 class NestedLoopSolver : public ICollisionSolver
 {
@@ -28,23 +26,15 @@ public:
 
         LARGE_INTEGER t0, t1, t2, t3;
 
-        // --------------------------------------------------------------------
-        // 1. Broad Phase: Mathematical pair count (N * (N - 1) / 2)
-        // --------------------------------------------------------------------
+        // Broad Phase
         QueryPerformanceCounter(&t0);
-
         m_Stats.CandidatePairCount = static_cast<uint64_t>(count) * (count - 1) / 2;
-
         QueryPerformanceCounter(&t1);
 
-        // --------------------------------------------------------------------
-        // 2. Narrow Phase: Cache-friendly collision detection
-        // --------------------------------------------------------------------
+        // Narrow Phase
         m_Manifolds.clear();
-
         for (int i = 0; i < count; ++i)
         {
-            // Cache sphere A in CPU registers for the inner loop
             const FVector3 posA = spheres[i].Center;
             const float    radA = spheres[i].Radius;
 
@@ -54,7 +44,6 @@ public:
                 const float distSq  = diff.LengthSq();
                 const float radSum  = radA + spheres[j].Radius;
 
-                // Fast rejection with squared distance
                 if (distSq < radSum * radSum)
                 {
                     const float dist = sqrtf(distSq);
@@ -63,24 +52,18 @@ public:
                 }
             }
         }
-
         m_Stats.ActualCollisionCount = static_cast<uint64_t>(m_Manifolds.size());
-
         QueryPerformanceCounter(&t2);
 
-        // --------------------------------------------------------------------
-        // 3. Resolution: Deterministic, sequential impulse & position updates
-        // --------------------------------------------------------------------
+        // Resolution
         ResolveCollisions(spheres, m_Manifolds);
-
         QueryPerformanceCounter(&t3);
 
-        // Calculate detailed timing statistics in milliseconds
         const double toMs = 1000.0 / static_cast<double>(m_TimerFreq.QuadPart);
-        m_Stats.BroadPhaseTimeMs   = static_cast<float>((t1.QuadPart - t0.QuadPart) * toMs);
-        m_Stats.NarrowPhaseTimeMs  = static_cast<float>((t2.QuadPart - t1.QuadPart) * toMs);
-        m_Stats.ResolutionTimeMs   = static_cast<float>((t3.QuadPart - t2.QuadPart) * toMs);
-        m_Stats.TotalSolveTimeMs   = static_cast<float>((t3.QuadPart - t0.QuadPart) * toMs);
+        m_Stats.BroadPhaseTimeMs   = static_cast<double>(t1.QuadPart - t0.QuadPart) * toMs;
+        m_Stats.NarrowPhaseTimeMs  = static_cast<double>(t2.QuadPart - t1.QuadPart) * toMs;
+        m_Stats.ResolutionTimeMs   = static_cast<double>(t3.QuadPart - t2.QuadPart) * toMs;
+        m_Stats.TotalSolveTimeMs   = static_cast<double>(t3.QuadPart - t0.QuadPart) * toMs;
     }
 
     const wchar_t* GetName() const override { return L"NestedLoop (ST)"; }
