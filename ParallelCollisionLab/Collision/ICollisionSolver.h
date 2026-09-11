@@ -15,6 +15,9 @@ public:
     virtual void Solve(std::vector<FSphere>& spheres) = 0;
 
     virtual const wchar_t* GetName() const = 0;
+    virtual const wchar_t* GetAlgorithmName() const { return GetName(); }
+    virtual const wchar_t* GetExecutionMode() const { return L"Single Thread"; }
+    virtual int            GetThreadCount()   const { return 1; }
 
     virtual const FCollisionStats& GetLastStats() const = 0;
 };

@@ -148,6 +148,28 @@ bool FWindow::PumpMessages(FInputState& outInput)
 					bSpaceWasDown  = true;
 				}
 				break;
+
+			case '1':
+			case VK_NUMPAD1:
+			case VK_F1:
+				outInput.SelectSolver = 0;
+				break;
+
+			case '2':
+			case VK_NUMPAD2:
+			case VK_F2:
+				outInput.SelectSolver = 1;
+				break;
+
+			case '3':
+			case VK_NUMPAD3:
+			case VK_F3:
+				outInput.SelectSolver = 2;
+				break;
+
+			case VK_TAB:
+				outInput.CycleSolver = true;
+				break;
 			}
 		}
 

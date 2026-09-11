@@ -18,6 +18,9 @@ struct FInputState
 	bool ResetCamera;
 	bool Quit;
 
+	int  SelectSolver;
+	bool CycleSolver;
+
 	bool bLButtonPressed;
 	bool bLButtonReleased;
 	bool bRButtonPressed;
@@ -32,7 +35,7 @@ struct FInputState
 	int  NewWidth;
 	int  NewHeight;
 
-	void Clear() { *this = {}; }
+	void Clear() { *this = {}; SelectSolver = -1; }
 };
 
 //=============================================================================

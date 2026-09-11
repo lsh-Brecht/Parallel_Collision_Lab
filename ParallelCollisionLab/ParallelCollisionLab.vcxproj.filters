@@ -31,6 +31,9 @@
     <Filter Include="Header Files\Collision\NestedLoop">
       <UniqueIdentifier>{a1b2c3d4-0001-0001-0001-000000000005}</UniqueIdentifier>
     </Filter>
+    <Filter Include="Header Files\Collision\UniformGrid">
+      <UniqueIdentifier>{a1b2c3d4-0001-0001-0001-000000000008}</UniqueIdentifier>
+    </Filter>
     <Filter Include="Source Files\Renderer">
       <UniqueIdentifier>{a1b2c3d4-0001-0001-0001-000000000006}</UniqueIdentifier>
     </Filter>
@@ -90,6 +93,12 @@
     </ClInclude>
     <ClInclude Include="Collision\NestedLoop\NestedLoopSolver.h">
       <Filter>Header Files\Collision\NestedLoop</Filter>
+    </ClInclude>
+    <ClInclude Include="Collision\NestedLoop\NestedLoopMTSolver.h">
+      <Filter>Header Files\Collision\NestedLoop</Filter>
+    </ClInclude>
+    <ClInclude Include="Collision\UniformGrid\UniformGridSolver.h">
+      <Filter>Header Files\Collision\UniformGrid</Filter>
     </ClInclude>
   </ItemGroup>
 </Project>

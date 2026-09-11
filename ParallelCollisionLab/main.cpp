@@ -4,8 +4,24 @@
 #include "Renderer/Trackball.h"
 #include "Core/Sphere.h"
 #include "Collision/NestedLoop/NestedLoopSolver.h"
+#include "Collision/NestedLoop/NestedLoopMTSolver.h"
+#include "Collision/UniformGrid/UniformGridSolver.h"
 
 #include <ctime>
+#include <memory>
+#include <string>
+
+static std::wstring FormatCommas(uint64_t val)
+{
+	std::wstring s = std::to_wstring(val);
+	int insertPos = static_cast<int>(s.length()) - 3;
+	while (insertPos > 0)
+	{
+		s.insert(insertPos, L",");
+		insertPos -= 3;
+	}
+	return s;
+}
 
 //=============================================================================
 // Timer
@@ -79,7 +95,11 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE, LPSTR, int)
 
 	bool bPaused = false;
 
-	NestedLoopSolver solver;
+	std::vector<std::unique_ptr<ICollisionSolver>> solvers;
+	solvers.push_back(std::make_unique<NestedLoopSolver>());
+	solvers.push_back(std::make_unique<NestedLoopMTSolver>());
+	solvers.push_back(std::make_unique<UniformGridSolver>());
+	size_t currentSolverIdx = 0;
 
 	InitTimer();
 
@@ -162,6 +182,15 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE, LPSTR, int)
 			spheres    = CreateSpheres(numSpheres, boxHalfSize);
 		}
 
+		if (input.SelectSolver >= 0 && input.SelectSolver < static_cast<int>(solvers.size()))
+		{
+			currentSolverIdx = static_cast<size_t>(input.SelectSolver);
+		}
+		else if (input.CycleSolver)
+		{
+			currentSolverIdx = (currentSolverIdx + 1) % solvers.size();
+		}
+
 		if (input.Pause)
 			bPaused = !bPaused;
 
@@ -169,6 +198,8 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE, LPSTR, int)
 
 		LARGE_INTEGER updateStart, updateEnd;
 		QueryPerformanceCounter(&updateStart);
+
+		ICollisionSolver* activeSolver = solvers[currentSolverIdx].get();
 
 		if (!bPaused && !window.IsMinimized())
 		{
@@ -178,7 +209,7 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE, LPSTR, int)
 				s.BoxCollisionCheck(boxHalfSize);
 			}
 
-			solver.Solve(spheres);
+			activeSolver->Solve(spheres);
 		}
 
 		QueryPerformanceCounter(&updateEnd);
@@ -192,9 +223,9 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE, LPSTR, int)
 		static double   narrowAccumMs    = 0.0;
 		static double   resolveAccumMs   = 0.0;
 		static double   lastRenderTimeMs = 0.0;
-		static wchar_t  hudText[512]     = L"FPS: 60.0 (16.6 ms)\nUpdate: 0.00 ms | Render: 0.00 ms\nSpheres: 16";
+		static wchar_t  hudText[1024]    = L"Initializing...";
 
-		const FCollisionStats& stats = solver.GetLastStats();
+		const FCollisionStats& stats = activeSolver->GetLastStats();
 
 		timeAccum      += dt;
 		frameAccum     += 1;
@@ -214,15 +245,37 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE, LPSTR, int)
 			double avgNarrowMs  = narrowAccumMs / (double)frameAccum;
 			double avgResolveMs = resolveAccumMs / (double)frameAccum;
 
+			std::wstring strBalls      = FormatCommas(spheres.size());
+			std::wstring strCandidates = FormatCommas(stats.CandidatePairCount);
+			std::wstring strCollisions = FormatCommas(stats.ActualCollisionCount);
+
 			swprintf_s(hudText,
-			           L"[%s] Spheres: %d\n"
-			           L"FPS: %.1f (%.1f ms) | Update: %.2f ms | Render: %.2f ms\n"
-			           L"  Broad: %.3f ms | Narrow: %.2f ms | Resolve: %.3f ms\n"
-			           L"Candidate Pairs: %llu | Collisions: %llu",
-			           solver.GetName(), (int)spheres.size(),
-			           currentFPS, frameTimeMs, avgUpdateMs, avgRenderMs,
-			           avgBroadMs, avgNarrowMs, avgResolveMs,
-			           stats.CandidatePairCount, stats.ActualCollisionCount);
+			           L"Balls             : %s\n"
+			           L"Algorithm         : %s\n"
+			           L"Execution         : %s\n"
+			           L"Threads           : %d\n"
+			           L"\n"
+			           L"Frame Time        : %.1f ms (%.1f FPS)\n"
+			           L"Broad Phase       : %.3f ms\n"
+			           L"Narrow Phase      : %.2f ms\n"
+			           L"Resolution        : %.3f ms\n"
+			           L"Rendering         : %.2f ms\n"
+			           L"\n"
+			           L"Candidate Pairs   : %s\n"
+			           L"Actual Collisions : %s\n"
+			           L"\n"
+			           L"[1] Naive ST  [2] Naive MT  [3] Grid ST  (Tab: Cycle)",
+			           strBalls.c_str(),
+			           activeSolver->GetAlgorithmName(),
+			           activeSolver->GetExecutionMode(),
+			           activeSolver->GetThreadCount(),
+			           frameTimeMs, currentFPS,
+			           avgBroadMs,
+			           avgNarrowMs,
+			           avgResolveMs,
+			           avgRenderMs,
+			           strCandidates.c_str(),
+			           strCollisions.c_str());
 
 			timeAccum      = 0.0;
 			frameAccum     = 0;
@@ -254,7 +307,7 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE, LPSTR, int)
 				renderer.RenderSphere(s.GetModelMatrix(), s.Color, sphereVB, sphereVCount);
 			}
 
-			textRenderer.DrawTextOverlay(hudText, 10.0f, 10.0f, 550.0f, 110.0f);
+			textRenderer.DrawTextOverlay(hudText, 10.0f, 10.0f, 520.0f, 280.0f);
 		}
 
 		QueryPerformanceCounter(&renderEnd);

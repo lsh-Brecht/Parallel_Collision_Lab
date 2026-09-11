@@ -160,6 +160,8 @@
     <ClInclude Include="Collision\NarrowPhase.h" />
     <ClInclude Include="Collision\Resolution.h" />
     <ClInclude Include="Collision\NestedLoop\NestedLoopSolver.h" />
+    <ClInclude Include="Collision\NestedLoop\NestedLoopMTSolver.h" />
+    <ClInclude Include="Collision\UniformGrid\UniformGridSolver.h" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

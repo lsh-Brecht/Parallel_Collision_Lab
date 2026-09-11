@@ -66,7 +66,10 @@ public:
         m_Stats.TotalSolveTimeMs   = static_cast<double>(t3.QuadPart - t0.QuadPart) * toMs;
     }
 
-    const wchar_t* GetName() const override { return L"NestedLoop (ST)"; }
+    const wchar_t* GetName()          const override { return L"NestedLoop (ST)"; }
+    const wchar_t* GetAlgorithmName() const override { return L"Nested Loop (Naive)"; }
+    const wchar_t* GetExecutionMode() const override { return L"Single Thread"; }
+    int            GetThreadCount()   const override { return 1; }
 
     const FCollisionStats& GetLastStats() const override { return m_Stats; }
     const std::vector<FCollisionManifold>& GetManifolds() const { return m_Manifolds; }
