@@ -15,6 +15,9 @@ public:
 	bool Init(IDXGISwapChain* pSwapChain);
 	void Shutdown();
 
+	void ReleaseRenderTarget();
+	bool CreateRenderTarget(IDXGISwapChain* pSwapChain);
+
 	void DrawTextOverlay(const wchar_t* text, float x, float y, float width, float height);
 
 private:

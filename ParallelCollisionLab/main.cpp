@@ -93,6 +93,13 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE, LPSTR, int)
 		if (input.Quit)
 			break;
 
+		if (input.bResized && input.NewWidth > 0 && input.NewHeight > 0)
+		{
+			textRenderer.ReleaseRenderTarget();
+			renderer.OnResize(input.NewWidth, input.NewHeight);
+			textRenderer.CreateRenderTarget(renderer.SwapChain);
+		}
+
 		if (input.Wireframe)
 			renderer.ToggleWireframe();
 

@@ -22,6 +22,24 @@ void URenderer::Shutdown()
 	ReleaseDeviceAndSwapChain();
 }
 
+void URenderer::OnResize(int newWidth, int newHeight)
+{
+	if (!SwapChain || newWidth <= 0 || newHeight <= 0)
+		return;
+
+	DeviceContext->OMSetRenderTargets(0, nullptr, nullptr);
+	ReleaseFrameBuffer();
+	ReleaseDepthBuffer();
+
+	HRESULT hr = SwapChain->ResizeBuffers(2, (UINT)newWidth, (UINT)newHeight, DXGI_FORMAT_B8G8R8A8_UNORM, 0);
+	if (FAILED(hr))
+		return;
+
+	ViewportInfo = { 0.0f, 0.0f, (float)newWidth, (float)newHeight, 0.0f, 1.0f };
+	CreateFrameBuffer();
+	CreateDepthBuffer();
+}
+
 //=============================================================================
 // Rendering Pipeline
 //=============================================================================

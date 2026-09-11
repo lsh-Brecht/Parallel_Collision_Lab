@@ -28,6 +28,10 @@ struct FInputState
 	int  MouseY;
 	int  WheelDelta;
 
+	bool bResized;
+	int  NewWidth;
+	int  NewHeight;
+
 	void Clear() { *this = {}; }
 };
 
@@ -48,10 +52,13 @@ public:
 	void  GetClientSize(int& width, int& height) const;
 
 private:
-	HWND      hWnd          = nullptr;
-	HINSTANCE hInstance     = nullptr;
-	bool      bShiftHeld    = false;
-	bool      bSpaceWasDown = false;
+	HWND      hWnd           = nullptr;
+	HINSTANCE hInstance      = nullptr;
+	bool      bShiftHeld     = false;
+	bool      bSpaceWasDown  = false;
+	bool      bPendingResize = false;
+	int       PendingWidth   = 0;
+	int       PendingHeight  = 0;
 
 	static LRESULT CALLBACK WndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam);
 };

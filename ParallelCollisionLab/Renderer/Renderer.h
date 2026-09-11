@@ -59,6 +59,7 @@ public:
 public:
 	bool Init(HWND hWnd);
 	void Shutdown();
+	void OnResize(int newWidth, int newHeight);
 
 	void BeginFrame(const FMatrix4x4& viewProj);
 	void EndFrame();

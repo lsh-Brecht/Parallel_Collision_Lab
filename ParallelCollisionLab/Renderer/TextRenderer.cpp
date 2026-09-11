@@ -33,8 +33,22 @@ bool FTextRenderer::Init(IDXGISwapChain* pSwapChain)
 	TextFormat->SetTextAlignment(DWRITE_TEXT_ALIGNMENT_LEADING);
 	TextFormat->SetParagraphAlignment(DWRITE_PARAGRAPH_ALIGNMENT_NEAR);
 
+	return CreateRenderTarget(pSwapChain);
+}
+
+void FTextRenderer::ReleaseRenderTarget()
+{
+	if (TextBrush)       { TextBrush->Release();       TextBrush = nullptr; }
+	if (D2DRenderTarget) { D2DRenderTarget->Release(); D2DRenderTarget = nullptr; }
+}
+
+bool FTextRenderer::CreateRenderTarget(IDXGISwapChain* pSwapChain)
+{
+	if (!pSwapChain || !D2DFactory)
+		return false;
+
 	IDXGISurface* pSurface = nullptr;
-	hr = pSwapChain->GetBuffer(0, IID_PPV_ARGS(&pSurface));
+	HRESULT hr = pSwapChain->GetBuffer(0, IID_PPV_ARGS(&pSurface));
 	if (FAILED(hr))
 		return false;
 
@@ -61,8 +75,7 @@ bool FTextRenderer::Init(IDXGISwapChain* pSwapChain)
 
 void FTextRenderer::Shutdown()
 {
-	if (TextBrush)       { TextBrush->Release();       TextBrush = nullptr; }
-	if (D2DRenderTarget) { D2DRenderTarget->Release(); D2DRenderTarget = nullptr; }
+	ReleaseRenderTarget();
 	if (TextFormat)      { TextFormat->Release();      TextFormat = nullptr; }
 	if (DWriteFactory)   { DWriteFactory->Release();   DWriteFactory = nullptr; }
 	if (D2DFactory)      { D2DFactory->Release();      D2DFactory = nullptr; }

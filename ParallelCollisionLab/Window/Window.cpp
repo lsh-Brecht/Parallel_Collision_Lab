@@ -28,6 +28,11 @@ bool FWindow::Init(HINSTANCE _hInstance, int width, int height, const wchar_t* t
 		nullptr, nullptr, hInstance, nullptr
 	);
 
+	if (hWnd)
+	{
+		SetWindowLongPtrW(hWnd, GWLP_USERDATA, reinterpret_cast<LONG_PTR>(this));
+	}
+
 	return (hWnd != nullptr);
 }
 
@@ -150,6 +155,14 @@ bool FWindow::PumpMessages(FInputState& outInput)
 			bSpaceWasDown = false;
 	}
 
+	if (bPendingResize)
+	{
+		outInput.bResized  = true;
+		outInput.NewWidth  = PendingWidth;
+		outInput.NewHeight = PendingHeight;
+		bPendingResize     = false;
+	}
+
 	return true;
 }
 
@@ -181,8 +194,19 @@ bool FWindow::IsMinimized() const
 //=============================================================================
 LRESULT CALLBACK FWindow::WndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam)
 {
+	FWindow* pThis = reinterpret_cast<FWindow*>(GetWindowLongPtrW(hWnd, GWLP_USERDATA));
+
 	switch (msg)
 	{
+	case WM_SIZE:
+		if (pThis && wParam != SIZE_MINIMIZED)
+		{
+			pThis->bPendingResize = true;
+			pThis->PendingWidth   = LOWORD(lParam);
+			pThis->PendingHeight  = HIWORD(lParam);
+		}
+		return 0;
+
 	case WM_DESTROY:
 		PostQuitMessage(0);
 		return 0;
