@@ -67,6 +67,9 @@
     <ClInclude Include="Core\Sphere.h">
       <Filter>Header Files\Core</Filter>
     </ClInclude>
+    <ClInclude Include="Core\CPUInfo.h">
+      <Filter>Header Files\Core</Filter>
+    </ClInclude>
     <ClInclude Include="Renderer\Renderer.h">
       <Filter>Header Files\Renderer</Filter>
     </ClInclude>

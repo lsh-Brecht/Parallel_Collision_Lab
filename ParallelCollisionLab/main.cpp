@@ -3,6 +3,7 @@
 #include "Renderer/TextRenderer.h"
 #include "Renderer/Trackball.h"
 #include "Core/Sphere.h"
+#include "Core/CPUInfo.h"
 #include "Collision/NestedLoop/NestedLoopSolver.h"
 #include "Collision/NestedLoop/NestedLoopMTSolver.h"
 #include "Collision/UniformGrid/UniformGridSolver.h"
@@ -58,6 +59,8 @@ static float GetDeltaTime()
 int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE, LPSTR, int)
 {
 	srand((unsigned int)time(nullptr));
+
+	FCPUInfo cpuInfo = QueryCPUInfo();
 
 	FWindow window;
 	if (!window.Init(hInstance, 768, 768, L"Parallel Collision Lab"))
@@ -250,6 +253,9 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE, LPSTR, int)
 			std::wstring strCollisions = FormatCommas(stats.ActualCollisionCount);
 
 			swprintf_s(hudText,
+			           L"CPU               : %s\n"
+			           L"Cache             : %s\n"
+			           L"\n"
 			           L"Balls             : %s\n"
 			           L"Algorithm         : %s\n"
 			           L"Execution         : %s\n"
@@ -265,6 +271,8 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE, LPSTR, int)
 			           L"Actual Collisions : %s\n"
 			           L"\n"
 			           L"[1] Naive ST  [2] Naive MT  [3] Grid ST  (Tab: Cycle)",
+			           cpuInfo.GetSummaryString().c_str(),
+			           cpuInfo.GetCacheString().c_str(),
 			           strBalls.c_str(),
 			           activeSolver->GetAlgorithmName(),
 			           activeSolver->GetExecutionMode(),
@@ -307,7 +315,7 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE, LPSTR, int)
 				renderer.RenderSphere(s.GetModelMatrix(), s.Color, sphereVB, sphereVCount);
 			}
 
-			textRenderer.DrawTextOverlay(hudText, 10.0f, 10.0f, 520.0f, 280.0f);
+			textRenderer.DrawTextOverlay(hudText, 10.0f, 10.0f, 550.0f, 340.0f);
 		}
 
 		QueryPerformanceCounter(&renderEnd);
