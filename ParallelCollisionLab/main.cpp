@@ -315,7 +315,7 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE, LPSTR, int)
 				renderer.RenderSphere(s.GetModelMatrix(), s.Color, sphereVB, sphereVCount);
 			}
 
-			textRenderer.DrawTextOverlay(hudText, 10.0f, 10.0f, 550.0f, 340.0f);
+			textRenderer.DrawTextOverlay(hudText, 10.0f, 10.0f, 700.0f, 380.0f);
 		}
 
 		QueryPerformanceCounter(&renderEnd);

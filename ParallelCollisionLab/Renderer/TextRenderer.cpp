@@ -32,6 +32,7 @@ bool FTextRenderer::Init(IDXGISwapChain* pSwapChain)
 
 	TextFormat->SetTextAlignment(DWRITE_TEXT_ALIGNMENT_LEADING);
 	TextFormat->SetParagraphAlignment(DWRITE_PARAGRAPH_ALIGNMENT_NEAR);
+	TextFormat->SetWordWrapping(DWRITE_WORD_WRAPPING_NO_WRAP);
 
 	return CreateRenderTarget(pSwapChain);
 }
