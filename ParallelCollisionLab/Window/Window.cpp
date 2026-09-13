@@ -7,7 +7,7 @@
 //=============================================================================
 // Window Lifecycle
 //=============================================================================
-bool FWindow::Init(HINSTANCE _hInstance, int width, int height, const wchar_t* title)
+bool FWindow::Init(HINSTANCE _hInstance, int width, int height, const wchar_t* title, int posX, int posY)
 {
 	hInstance = _hInstance;
 
@@ -23,7 +23,7 @@ bool FWindow::Init(HINSTANCE _hInstance, int width, int height, const wchar_t* t
 		L"ParallelCollisionLabClass",
 		title,
 		WS_OVERLAPPEDWINDOW | WS_VISIBLE,
-		CW_USEDEFAULT, CW_USEDEFAULT,
+		posX, posY,
 		width, height,
 		nullptr, nullptr, hInstance, nullptr
 	);

@@ -63,7 +63,7 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE, LPSTR, int)
 	FCPUInfo cpuInfo = QueryCPUInfo();
 
 	FWindow window;
-	if (!window.Init(hInstance, 768, 768, L"Parallel Collision Lab"))
+	if (!window.Init(hInstance, 1024, 1024, L"Parallel Collision Lab"))
 		return -1;
 
 	URenderer renderer;

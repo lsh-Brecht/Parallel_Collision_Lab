@@ -44,7 +44,7 @@ struct FInputState
 class FWindow
 {
 public:
-	bool Init(HINSTANCE hInstance, int width, int height, const wchar_t* title);
+	bool Init(HINSTANCE hInstance, int width, int height, const wchar_t* title, int posX = 10, int posY = 10);
 	void Shutdown();
 
 	bool PumpMessages(FInputState& outInput);
