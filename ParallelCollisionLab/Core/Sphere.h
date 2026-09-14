@@ -26,10 +26,10 @@ inline std::vector<FVertexSimple> CreateUnitSphereVertices()
 			float phi0 = 2.0f * (float)M_PI * (float)j / (float)SPHERE_SLICES;
 			float phi1 = 2.0f * (float)M_PI * (float)(j + 1) / (float)SPHERE_SLICES;
 
-			FVertexSimple p0 = { sinf(theta0) * cosf(phi0), sinf(theta0) * sinf(phi0), cosf(theta0) };
-			FVertexSimple p1 = { sinf(theta1) * cosf(phi0), sinf(theta1) * sinf(phi0), cosf(theta1) };
-			FVertexSimple p2 = { sinf(theta1) * cosf(phi1), sinf(theta1) * sinf(phi1), cosf(theta1) };
-			FVertexSimple p3 = { sinf(theta0) * cosf(phi1), sinf(theta0) * sinf(phi1), cosf(theta0) };
+			FVertexSimple p0 = { sinf(theta0) * cosf(phi0), cosf(theta0), -sinf(theta0) * sinf(phi0) };
+			FVertexSimple p1 = { sinf(theta1) * cosf(phi0), cosf(theta1), -sinf(theta1) * sinf(phi0) };
+			FVertexSimple p2 = { sinf(theta1) * cosf(phi1), cosf(theta1), -sinf(theta1) * sinf(phi1) };
+			FVertexSimple p3 = { sinf(theta0) * cosf(phi1), cosf(theta0), -sinf(theta0) * sinf(phi1) };
 
 			verts.push_back(p0);
 			verts.push_back(p1);
