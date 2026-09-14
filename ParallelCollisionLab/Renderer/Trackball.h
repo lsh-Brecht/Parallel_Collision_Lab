@@ -27,7 +27,7 @@ public:
 	FVector3 cam0Eye;
 	FVector3 cam0Up;
 
-	static constexpr float MinDistance = 5.0f;
+	static constexpr float MinDistance = 1.0f;
 	static constexpr float MaxDistance = 15.0f;
 
 	void Begin(const FVector3& eye, const FVector3& up, const FVector2& m, int inMode)
