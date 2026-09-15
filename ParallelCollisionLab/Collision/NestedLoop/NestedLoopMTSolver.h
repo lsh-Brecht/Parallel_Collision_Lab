@@ -6,6 +6,7 @@
 #include <mutex>
 #include <condition_variable>
 #include <algorithm>
+#include <cmath>
 #include "../ICollisionSolver.h"
 #include "../CollisionTypes.h"
 #include "../NarrowPhase.h"
@@ -162,14 +163,26 @@ private:
         }
     }
 
+    static int GetSplitIndex(int count, int t, int T)
+    {
+        if (t <= 0) return 0;
+        if (t >= T) return count;
+        double fraction = static_cast<double>(t) / static_cast<double>(T);
+        double root = std::sqrt(1.0 - fraction);
+        int idx = static_cast<int>(std::round(count * (1.0 - root)));
+        if (idx < 0) idx = 0;
+        if (idx > count) idx = count;
+        return idx;
+    }
+
     void DoNarrowPhaseChunk(int threadIdx)
     {
         if (!m_CurrentSpheres) return;
         const std::vector<FSphere>& spheres = *m_CurrentSpheres;
         const int count = static_cast<int>(spheres.size());
 
-        const int startI = (count * threadIdx) / m_ThreadCount;
-        const int endI   = (count * (threadIdx + 1)) / m_ThreadCount;
+        const int startI = GetSplitIndex(count, threadIdx, m_ThreadCount);
+        const int endI   = GetSplitIndex(count, threadIdx + 1, m_ThreadCount);
 
         std::vector<FCollisionManifold>& localManifolds = m_ThreadManifolds[threadIdx];
 
