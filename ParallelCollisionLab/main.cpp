@@ -7,6 +7,8 @@
 #include "Collision/NestedLoop/NestedLoopSolver.h"
 #include "Collision/NestedLoop/NestedLoopMTSolver.h"
 #include "Collision/UniformGrid/UniformGridSolver.h"
+#include "Collision/Benchmark.h"
+#include "Window/BenchmarkWindow.h"
 
 #include <ctime>
 #include <memory>
@@ -103,6 +105,7 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE, LPSTR, int)
 	solvers.push_back(std::make_unique<NestedLoopMTSolver>());
 	solvers.push_back(std::make_unique<UniformGridSolver>());
 	size_t currentSolverIdx = 0;
+	FBenchmarkReport benchmarkReport;
 
 	InitTimer();
 
@@ -166,23 +169,37 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE, LPSTR, int)
 		if (input.Reset)
 		{
 			spheres = CreateSpheres(numSpheres, boxHalfSize);
+			benchmarkReport.bValid = false;
 		}
 		else if (input.Toggle)
 		{
 			numSpheres = (numSpheres == MAX_SPHERES) ? MIN_SPHERES : MAX_SPHERES;
 			spheres    = CreateSpheres(numSpheres, boxHalfSize);
+			benchmarkReport.bValid = false;
 		}
 		else if (input.Add || input.AddMany)
 		{
 			int delta  = input.AddMany ? 16 : 1;
 			numSpheres = min(numSpheres + delta, MAX_SPHERES);
 			spheres    = CreateSpheres(numSpheres, boxHalfSize);
+			benchmarkReport.bValid = false;
 		}
 		else if (input.Sub || input.SubMany)
 		{
 			int delta  = input.SubMany ? 16 : 1;
 			numSpheres = max(numSpheres - delta, MIN_SPHERES);
 			spheres    = CreateSpheres(numSpheres, boxHalfSize);
+			benchmarkReport.bValid = false;
+		}
+
+		if (input.Benchmark)
+		{
+			benchmarkReport = RunBenchmark(solvers, spheres, boxHalfSize);
+			if (benchmarkReport.bValid)
+			{
+				std::wstring detailedReport = benchmarkReport.GenerateDetailedReport(cpuInfo);
+				ShowBenchmarkWindow(window.GetHWND(), detailedReport, numSpheres);
+			}
 		}
 
 		if (input.SelectSolver >= 0 && input.SelectSolver < static_cast<int>(solvers.size()))
@@ -278,7 +295,7 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE, LPSTR, int)
 
 			swprintf_s(hudBottomText,
 			           L"Candidate Pairs : %s | Collisions: %s\n"
-			           L"[1] Naive ST  [2] Naive MT  [3] Grid ST  (Tab: Cycle)",
+			           L"[1] Naive ST  [2] Naive MT  [3] Grid ST  [B] Benchmark  (Tab: Cycle)",
 			           strCandidates.c_str(),
 			           strCollisions.c_str());
 

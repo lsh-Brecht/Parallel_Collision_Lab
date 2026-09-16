@@ -170,6 +170,10 @@ bool FWindow::PumpMessages(FInputState& outInput)
 			case VK_TAB:
 				outInput.CycleSolver = true;
 				break;
+
+			case 'B':
+				outInput.Benchmark = true;
+				break;
 			}
 		}
 

@@ -156,6 +156,7 @@
     <ClInclude Include="Renderer\TextRenderer.h" />
     <ClInclude Include="Renderer\Trackball.h" />
     <ClInclude Include="Window\Window.h" />
+    <ClInclude Include="Window\BenchmarkWindow.h" />
     <ClInclude Include="Collision\ICollisionSolver.h" />
     <ClInclude Include="Collision\CollisionTypes.h" />
     <ClInclude Include="Collision\NarrowPhase.h" />
@@ -163,6 +164,7 @@
     <ClInclude Include="Collision\NestedLoop\NestedLoopSolver.h" />
     <ClInclude Include="Collision\NestedLoop\NestedLoopMTSolver.h" />
     <ClInclude Include="Collision\UniformGrid\UniformGridSolver.h" />
+    <ClInclude Include="Collision\Benchmark.h" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

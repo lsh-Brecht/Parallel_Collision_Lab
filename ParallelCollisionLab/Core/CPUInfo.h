@@ -17,10 +17,33 @@ struct FCPUInfo
     size_t       L2CacheBytes  = 0;
     size_t       L3CacheBytes  = 0;
 
+    std::wstring GetCleanBrandName() const
+    {
+        std::wstring s = BrandName;
+        size_t pos = s.find(L"-Core Processor");
+        if (pos != std::wstring::npos)
+        {
+            size_t spacePos = s.rfind(L' ', pos);
+            if (spacePos != std::wstring::npos)
+            {
+                s = s.substr(0, spacePos);
+            }
+        }
+        else
+        {
+            pos = s.find(L" Processor");
+            if (pos != std::wstring::npos)
+            {
+                s = s.substr(0, pos);
+            }
+        }
+        return s;
+    }
+
     std::wstring GetSummaryString() const
     {
         wchar_t buf[128];
-        swprintf_s(buf, L"%s (%dC / %dT)", BrandName.c_str(), PhysicalCores, LogicalCores);
+        swprintf_s(buf, L"%s (%dC / %dT)", GetCleanBrandName().c_str(), PhysicalCores, LogicalCores);
         return buf;
     }
 

@@ -82,6 +82,9 @@
     <ClInclude Include="Window\Window.h">
       <Filter>Header Files\Window</Filter>
     </ClInclude>
+    <ClInclude Include="Window\BenchmarkWindow.h">
+      <Filter>Header Files\Window</Filter>
+    </ClInclude>
     <ClInclude Include="Collision\ICollisionSolver.h">
       <Filter>Header Files\Collision</Filter>
     </ClInclude>
@@ -102,6 +105,9 @@
     </ClInclude>
     <ClInclude Include="Collision\UniformGrid\UniformGridSolver.h">
       <Filter>Header Files\Collision\UniformGrid</Filter>
+    </ClInclude>
+    <ClInclude Include="Collision\Benchmark.h">
+      <Filter>Header Files\Collision</Filter>
     </ClInclude>
   </ItemGroup>
 </Project>
