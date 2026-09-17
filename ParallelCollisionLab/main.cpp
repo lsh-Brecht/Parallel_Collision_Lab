@@ -104,7 +104,7 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE, LPSTR, int)
 	std::vector<std::unique_ptr<ICollisionSolver>> solvers;
 	solvers.push_back(std::make_unique<NestedLoopSolver>());
 	solvers.push_back(std::make_unique<NestedLoopMTSolver>());
-	solvers.push_back(std::make_unique<UniformGridSolver>());
+	solvers.push_back(std::make_unique<UniformGridSolver>(boxHalfSize));
 	size_t currentSolverIdx = 0;
 	FBenchmarkReport benchmarkReport;
 

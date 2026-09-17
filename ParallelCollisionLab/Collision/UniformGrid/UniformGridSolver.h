@@ -15,12 +15,15 @@
 class UniformGridSolver : public ICollisionSolver
 {
 public:
-    UniformGridSolver()
+    UniformGridSolver(float boxHalfSize = 2.0f)
+        : m_BoxHalfSize(boxHalfSize)
     {
         QueryPerformanceFrequency(&m_TimerFreq);
         m_Manifolds.reserve(512);
         m_ActiveCells.reserve(1024);
     }
+
+    void SetBoxHalfSize(float boxHalfSize) { m_BoxHalfSize = boxHalfSize; }
 
     void BuildGrid(const std::vector<FSphere>& spheres)
     {
@@ -36,21 +39,28 @@ public:
             }
         }
 
-        // Domain bounds slightly enlarged beyond Cornell Box ([-2.0, 2.0])
-        m_MinX = -2.1f; m_MinY = -2.1f; m_MinZ = -2.1f;
-        const float maxX =  2.1f, maxY =  2.1f, maxZ =  2.1f;
-        const float boxW = maxX - m_MinX;
+        const float boxW = m_BoxHalfSize * 2.0f;
 
-        // Cell size >= 2 * maxRadius guarantees interacting spheres are in same or adjacent cells
-        m_CellSize = maxRadius * 2.0f;
-        if (m_CellSize < 0.05f) m_CellSize = 0.05f;
+        // Target cell size >= 2 * maxRadius
+        float targetCellSize = maxRadius * 2.0f;
+        if (targetCellSize < 0.05f) targetCellSize = 0.05f;
 
-        m_DimX = static_cast<int>(ceilf(boxW / m_CellSize));
-        m_DimY = static_cast<int>(ceilf(boxW / m_CellSize));
-        m_DimZ = static_cast<int>(ceilf(boxW / m_CellSize));
-        if (m_DimX < 1) m_DimX = 1; else if (m_DimX > 64) m_DimX = 64;
-        if (m_DimY < 1) m_DimY = 1; else if (m_DimY > 64) m_DimY = 64;
-        if (m_DimZ < 1) m_DimZ = 1; else if (m_DimZ > 64) m_DimZ = 64;
+        // Fit integer number of cells into boxW
+        // Since dim <= boxW / targetCellSize, cellSize = boxW / dim >= targetCellSize
+        int dim = static_cast<int>(floorf(boxW / targetCellSize));
+        if (dim < 1)  dim = 1;
+        if (dim > 64) dim = 64;
+
+        m_DimX = dim;
+        m_DimY = dim;
+        m_DimZ = dim;
+
+        // Exact uniform cell size so dim * m_CellSize == boxW with zero remainder
+        m_CellSize = boxW / static_cast<float>(dim);
+
+        m_MinX = -m_BoxHalfSize;
+        m_MinY = -m_BoxHalfSize;
+        m_MinZ = -m_BoxHalfSize;
 
         int totalCells = m_DimX * m_DimY * m_DimZ;
 
@@ -307,18 +317,19 @@ public:
     const std::vector<FCollisionManifold>& GetManifolds() const { return m_Manifolds; }
 
 private:
-    LARGE_INTEGER                   m_TimerFreq = {};
-    FCollisionStats                 m_Stats     = {};
+    LARGE_INTEGER                   m_TimerFreq   = {};
+    FCollisionStats                 m_Stats       = {};
     std::vector<FCollisionManifold> m_Manifolds;
 
-    // Grid parameters
-    float m_MinX     = -2.1f;
-    float m_MinY     = -2.1f;
-    float m_MinZ     = -2.1f;
-    float m_CellSize = 0.1f;
-    int   m_DimX     = 1;
-    int   m_DimY     = 1;
-    int   m_DimZ     = 1;
+    // Grid domain & cell parameters
+    float m_BoxHalfSize = 2.0f;
+    float m_MinX        = -2.0f;
+    float m_MinY        = -2.0f;
+    float m_MinZ        = -2.0f;
+    float m_CellSize    = 0.1f;
+    int   m_DimX        = 1;
+    int   m_DimY        = 1;
+    int   m_DimZ        = 1;
 
     // Head-Next linked list grid
     std::vector<int> m_CellHead;    // size: dimX * dimY * dimZ
