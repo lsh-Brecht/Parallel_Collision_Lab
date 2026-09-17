@@ -8,11 +8,21 @@ bool URenderer::Init(HWND hWnd)
 	CreateRasterizerState();
 	CreateShader();
 	CreateConstantBuffers();
+
+	DynamicLineCapacity = 65536;
+	D3D11_BUFFER_DESC desc = {};
+	desc.ByteWidth = (UINT)(sizeof(FVertexSimple) * DynamicLineCapacity);
+	desc.Usage = D3D11_USAGE_DYNAMIC;
+	desc.BindFlags = D3D11_BIND_VERTEX_BUFFER;
+	desc.CPUAccessFlags = D3D11_CPU_ACCESS_WRITE;
+	Device->CreateBuffer(&desc, nullptr, &DynamicLineVB);
+
 	return true;
 }
 
 void URenderer::Shutdown()
 {
+	if (DynamicLineVB) { DynamicLineVB->Release(); DynamicLineVB = nullptr; }
 	ReleaseConstantBuffers();
 	ReleaseShader();
 	ReleaseRasterizerState();
@@ -78,6 +88,44 @@ void URenderer::RenderSphere(const FMatrix4x4& model, const FVector4& color,
 	UINT offset = 0;
 	DeviceContext->IASetVertexBuffers(0, 1, &pVB, &Stride, &offset);
 	DeviceContext->Draw(vertexCount, 0);
+}
+
+void URenderer::RenderDynamicLines(const std::vector<FVertexSimple>& lines, const FVector4& color)
+{
+	if (lines.empty() || !DeviceContext)
+		return;
+
+	UINT count = static_cast<UINT>(lines.size());
+	if (count > DynamicLineCapacity || !DynamicLineVB)
+	{
+		if (DynamicLineVB) { DynamicLineVB->Release(); DynamicLineVB = nullptr; }
+		DynamicLineCapacity = max(count * 2, 65536u);
+		D3D11_BUFFER_DESC desc = {};
+		desc.ByteWidth = (UINT)(sizeof(FVertexSimple) * DynamicLineCapacity);
+		desc.Usage = D3D11_USAGE_DYNAMIC;
+		desc.BindFlags = D3D11_BIND_VERTEX_BUFFER;
+		desc.CPUAccessFlags = D3D11_CPU_ACCESS_WRITE;
+		Device->CreateBuffer(&desc, nullptr, &DynamicLineVB);
+	}
+
+	D3D11_MAPPED_SUBRESOURCE msr;
+	HRESULT hr = DeviceContext->Map(DynamicLineVB, 0, D3D11_MAP_WRITE_DISCARD, 0, &msr);
+	if (SUCCEEDED(hr))
+	{
+		memcpy(msr.pData, lines.data(), sizeof(FVertexSimple) * count);
+		DeviceContext->Unmap(DynamicLineVB, 0);
+
+		FPerObjectConstants perObj;
+		perObj.Model = FMatrix4x4::Identity();
+		perObj.Color = color;
+		UpdateConstantBuffer(CBPerObject, perObj);
+
+		UINT offset = 0;
+		DeviceContext->IASetPrimitiveTopology(D3D11_PRIMITIVE_TOPOLOGY_LINELIST);
+		DeviceContext->IASetVertexBuffers(0, 1, &DynamicLineVB, &Stride, &offset);
+		DeviceContext->Draw(count, 0);
+		DeviceContext->IASetPrimitiveTopology(D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
+	}
 }
 
 void URenderer::EndFrame()

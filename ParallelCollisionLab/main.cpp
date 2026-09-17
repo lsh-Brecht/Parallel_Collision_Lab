@@ -99,6 +99,7 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE, LPSTR, int)
 	FVector3 up = defaultUp;
 
 	bool bPaused = false;
+	bool bShowGridVis = false;
 
 	std::vector<std::unique_ptr<ICollisionSolver>> solvers;
 	solvers.push_back(std::make_unique<NestedLoopSolver>());
@@ -128,6 +129,9 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE, LPSTR, int)
 
 		if (input.Wireframe)
 			renderer.ToggleWireframe();
+
+		if (input.ToggleGridVis)
+			bShowGridVis = !bShowGridVis;
 
 		if (input.bRButtonPressed || (input.bLButtonPressed && input.bShiftDown))
 		{
@@ -243,8 +247,10 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE, LPSTR, int)
 		static double   narrowAccumMs    = 0.0;
 		static double   resolveAccumMs   = 0.0;
 		static double   lastRenderTimeMs = 0.0;
-		static wchar_t  hudTopText[512]    = L"Initializing...";
-		static wchar_t  hudBottomText[256] = L"";
+		static wchar_t      hudTopText[512]    = L"Initializing...";
+		static wchar_t      hudBottomText[256] = L"";
+		static std::wstring strCandidates      = L"0";
+		static std::wstring strCollisions      = L"0";
 
 		const FCollisionStats& stats = activeSolver->GetLastStats();
 
@@ -266,9 +272,9 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE, LPSTR, int)
 			double avgNarrowMs  = narrowAccumMs / (double)frameAccum;
 			double avgResolveMs = resolveAccumMs / (double)frameAccum;
 
-			std::wstring strBalls      = FormatCommas(spheres.size());
-			std::wstring strCandidates = FormatCommas(stats.CandidatePairCount);
-			std::wstring strCollisions = FormatCommas(stats.ActualCollisionCount);
+			std::wstring strBalls = FormatCommas(spheres.size());
+			strCandidates         = FormatCommas(stats.CandidatePairCount);
+			strCollisions         = FormatCommas(stats.ActualCollisionCount);
 
 			swprintf_s(hudTopText,
 			           L"CPU         : %s\n"
@@ -293,12 +299,6 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE, LPSTR, int)
 			           avgNarrowMs,
 			           avgResolveMs);
 
-			swprintf_s(hudBottomText,
-			           L"Candidate Pairs : %s | Collisions: %s\n"
-			           L"[1] Naive ST  [2] Naive MT  [3] Grid ST  [B] Benchmark  (Tab: Cycle)",
-			           strCandidates.c_str(),
-			           strCollisions.c_str());
-
 			timeAccum      = 0.0;
 			frameAccum     = 0;
 			updateAccumMs  = 0.0;
@@ -307,6 +307,13 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE, LPSTR, int)
 			narrowAccumMs  = 0.0;
 			resolveAccumMs = 0.0;
 		}
+
+		swprintf_s(hudBottomText,
+		           L"Candidate Pairs : %s | Collisions: %s\n"
+		           L"[1] Naive ST  [2] Naive MT  [3] Grid ST  [B] Benchmark  [G] Grid: %s  (Tab: Cycle)",
+		           strCandidates.c_str(),
+		           strCollisions.c_str(),
+		           bShowGridVis ? L"ON" : L"OFF");
 
 		LARGE_INTEGER renderStart, renderEnd;
 		QueryPerformanceCounter(&renderStart);
@@ -327,6 +334,37 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE, LPSTR, int)
 			for (const FSphere& s : spheres)
 			{
 				renderer.RenderSphere(s.GetModelMatrix(), s.Color, sphereVB, sphereVCount);
+			}
+
+			if (bShowGridVis)
+			{
+				UniformGridSolver* gridSolver = dynamic_cast<UniformGridSolver*>(activeSolver);
+				if (!gridSolver)
+				{
+					for (auto& s : solvers)
+					{
+						gridSolver = dynamic_cast<UniformGridSolver*>(s.get());
+						if (gridSolver)
+						{
+							gridSolver->BuildGrid(spheres);
+							break;
+						}
+					}
+				}
+
+				if (gridSolver)
+				{
+					static std::vector<FVertexSimple> wallGridLines;
+					static std::vector<FVertexSimple> activeCellLines;
+
+					// Subtle background grid on Cornell Box walls and floor
+					gridSolver->GenerateFloorAndWallGridLines(wallGridLines, boxHalfSize);
+					renderer.RenderDynamicLines(wallGridLines, FVector4(0.22f, 0.30f, 0.38f, 0.5f));
+
+					// Bright cyan wireframe around active occupied cells
+					gridSolver->GenerateActiveCellLines(activeCellLines);
+					renderer.RenderDynamicLines(activeCellLines, FVector4(0.0f, 0.95f, 1.0f, 1.0f));
+				}
 			}
 
 			int clientW = 0, clientH = 0;

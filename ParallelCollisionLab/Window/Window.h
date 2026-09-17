@@ -18,6 +18,7 @@ struct FInputState
 	bool ResetCamera;
 	bool Quit;
 	bool Benchmark;
+	bool ToggleGridVis;
 
 	int  SelectSolver;
 	bool CycleSolver;

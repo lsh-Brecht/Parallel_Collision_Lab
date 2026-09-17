@@ -67,10 +67,15 @@ public:
 	void RenderSphere(const FMatrix4x4& model, const FVector4& color,
 	                  ID3D11Buffer* pVB, UINT vertexCount);
 
+	void RenderDynamicLines(const std::vector<FVertexSimple>& lines, const FVector4& color);
+
 	void ToggleWireframe() { bWireframe = !bWireframe; }
 
 	ID3D11Buffer* CreateVertexBuffer(const std::vector<FVertexSimple>& vertices);
 	void          ReleaseVertexBuffer(ID3D11Buffer* pBuffer);
+
+	ID3D11Buffer* DynamicLineVB       = nullptr;
+	UINT          DynamicLineCapacity = 0;
 
 private:
 	void CreateDeviceAndSwapChain(HWND hWnd);

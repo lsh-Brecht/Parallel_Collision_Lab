@@ -22,16 +22,10 @@ public:
         m_ActiveCells.reserve(1024);
     }
 
-    void Solve(std::vector<FSphere>& spheres) override
+    void BuildGrid(const std::vector<FSphere>& spheres)
     {
         const int count = static_cast<int>(spheres.size());
-        m_Stats = {};
-        if (count < 2) return;
-
-        LARGE_INTEGER t0, t1, t2, t3;
-
-        // 1. Broad Phase: Grid Setup & Sphere Hashing
-        QueryPerformanceCounter(&t0);
+        if (count == 0) return;
 
         float maxRadius = 0.0f;
         for (int i = 0; i < count; ++i)
@@ -43,22 +37,22 @@ public:
         }
 
         // Domain bounds slightly enlarged beyond Cornell Box ([-2.0, 2.0])
-        const float minX = -2.1f, minY = -2.1f, minZ = -2.1f;
+        m_MinX = -2.1f; m_MinY = -2.1f; m_MinZ = -2.1f;
         const float maxX =  2.1f, maxY =  2.1f, maxZ =  2.1f;
-        const float boxW = maxX - minX;
+        const float boxW = maxX - m_MinX;
 
         // Cell size >= 2 * maxRadius guarantees interacting spheres are in same or adjacent cells
-        float cellSize = maxRadius * 2.0f;
-        if (cellSize < 0.05f) cellSize = 0.05f;
+        m_CellSize = maxRadius * 2.0f;
+        if (m_CellSize < 0.05f) m_CellSize = 0.05f;
 
-        int dimX = static_cast<int>(ceilf(boxW / cellSize));
-        int dimY = static_cast<int>(ceilf(boxW / cellSize));
-        int dimZ = static_cast<int>(ceilf(boxW / cellSize));
-        if (dimX < 1) dimX = 1; else if (dimX > 64) dimX = 64;
-        if (dimY < 1) dimY = 1; else if (dimY > 64) dimY = 64;
-        if (dimZ < 1) dimZ = 1; else if (dimZ > 64) dimZ = 64;
+        m_DimX = static_cast<int>(ceilf(boxW / m_CellSize));
+        m_DimY = static_cast<int>(ceilf(boxW / m_CellSize));
+        m_DimZ = static_cast<int>(ceilf(boxW / m_CellSize));
+        if (m_DimX < 1) m_DimX = 1; else if (m_DimX > 64) m_DimX = 64;
+        if (m_DimY < 1) m_DimY = 1; else if (m_DimY > 64) m_DimY = 64;
+        if (m_DimZ < 1) m_DimZ = 1; else if (m_DimZ > 64) m_DimZ = 64;
 
-        int totalCells = dimX * dimY * dimZ;
+        int totalCells = m_DimX * m_DimY * m_DimZ;
 
         if (static_cast<int>(m_CellHead.size()) != totalCells)
         {
@@ -80,20 +74,20 @@ public:
             m_SphereNext.resize(count);
         }
 
-        const float invCell = 1.0f / cellSize;
+        const float invCell = 1.0f / m_CellSize;
 
         // Insert spheres into grid
         for (int i = 0; i < count; ++i)
         {
-            int cx = static_cast<int>((spheres[i].Center.x - minX) * invCell);
-            int cy = static_cast<int>((spheres[i].Center.y - minY) * invCell);
-            int cz = static_cast<int>((spheres[i].Center.z - minZ) * invCell);
+            int cx = static_cast<int>((spheres[i].Center.x - m_MinX) * invCell);
+            int cy = static_cast<int>((spheres[i].Center.y - m_MinY) * invCell);
+            int cz = static_cast<int>((spheres[i].Center.z - m_MinZ) * invCell);
 
-            if (cx < 0) cx = 0; else if (cx >= dimX) cx = dimX - 1;
-            if (cy < 0) cy = 0; else if (cy >= dimY) cy = dimY - 1;
-            if (cz < 0) cz = 0; else if (cz >= dimZ) cz = dimZ - 1;
+            if (cx < 0) cx = 0; else if (cx >= m_DimX) cx = m_DimX - 1;
+            if (cy < 0) cy = 0; else if (cy >= m_DimY) cy = m_DimY - 1;
+            if (cz < 0) cz = 0; else if (cz >= m_DimZ) cz = m_DimZ - 1;
 
-            int cellID = cx + dimX * (cy + dimY * cz);
+            int cellID = cx + m_DimX * (cy + m_DimY * cz);
             if (m_CellHead[cellID] == -1)
             {
                 m_ActiveCells.push_back(cellID);
@@ -101,7 +95,19 @@ public:
             m_SphereNext[i] = m_CellHead[cellID];
             m_CellHead[cellID] = i;
         }
+    }
 
+    void Solve(std::vector<FSphere>& spheres) override
+    {
+        const int count = static_cast<int>(spheres.size());
+        m_Stats = {};
+        if (count < 2) return;
+
+        LARGE_INTEGER t0, t1, t2, t3;
+
+        // 1. Broad Phase: Grid Setup & Sphere Hashing
+        QueryPerformanceCounter(&t0);
+        BuildGrid(spheres);
         QueryPerformanceCounter(&t1);
 
         // 2. Narrow Phase: Same-cell & 13 Forward Neighbors collision test
@@ -120,14 +126,14 @@ public:
             { -1, +1, +1 }, {  0, +1, +1 }, { +1, +1, +1 }
         };
 
-        const int dimXY = dimX * dimY;
+        const int dimXY = m_DimX * m_DimY;
 
         for (int cellID : m_ActiveCells)
         {
             int cz  = cellID / dimXY;
             int rem = cellID % dimXY;
-            int cy  = rem / dimX;
-            int cx  = rem % dimX;
+            int cy  = rem / m_DimX;
+            int cx  = rem % m_DimX;
 
             // A. Pairs within the same cell (i < j)
             for (int i = m_CellHead[cellID]; i != -1; i = m_SphereNext[i])
@@ -158,12 +164,12 @@ public:
                 int ny = cy + offset.y;
                 int nz = cz + offset.z;
 
-                if (nx < 0 || nx >= dimX || ny < 0 || ny >= dimY || nz < 0 || nz >= dimZ)
+                if (nx < 0 || nx >= m_DimX || ny < 0 || ny >= m_DimY || nz < 0 || nz >= m_DimZ)
                 {
                     continue;
                 }
 
-                int nCellID = nx + dimX * (ny + dimY * nz);
+                int nCellID = nx + m_DimX * (ny + m_DimY * nz);
                 if (m_CellHead[nCellID] == -1)
                 {
                     continue; // Skip empty neighbor cells instantly
@@ -207,6 +213,91 @@ public:
         m_Stats.TotalSolveTimeMs   = static_cast<double>(t3.QuadPart - t0.QuadPart) * toMs;
     }
 
+    void GenerateActiveCellLines(std::vector<FVertexSimple>& outLines) const
+    {
+        outLines.clear();
+        outLines.reserve(m_ActiveCells.size() * 24);
+
+        const int dimXY = m_DimX * m_DimY;
+
+        for (int cellID : m_ActiveCells)
+        {
+            int cz  = cellID / dimXY;
+            int rem = cellID % dimXY;
+            int cy  = rem / m_DimX;
+            int cx  = rem % m_DimX;
+
+            float x0 = m_MinX + (float)cx * m_CellSize;
+            float y0 = m_MinY + (float)cy * m_CellSize;
+            float z0 = m_MinZ + (float)cz * m_CellSize;
+            float x1 = x0 + m_CellSize;
+            float y1 = y0 + m_CellSize;
+            float z1 = z0 + m_CellSize;
+
+            FVertexSimple v0 = { x0, y0, z0 };
+            FVertexSimple v1 = { x1, y0, z0 };
+            FVertexSimple v2 = { x1, y1, z0 };
+            FVertexSimple v3 = { x0, y1, z0 };
+            FVertexSimple v4 = { x0, y0, z1 };
+            FVertexSimple v5 = { x1, y0, z1 };
+            FVertexSimple v6 = { x1, y1, z1 };
+            FVertexSimple v7 = { x0, y1, z1 };
+
+            // Bottom 4 edges
+            outLines.push_back(v0); outLines.push_back(v1);
+            outLines.push_back(v1); outLines.push_back(v2);
+            outLines.push_back(v2); outLines.push_back(v3);
+            outLines.push_back(v3); outLines.push_back(v0);
+
+            // Top 4 edges
+            outLines.push_back(v4); outLines.push_back(v5);
+            outLines.push_back(v5); outLines.push_back(v6);
+            outLines.push_back(v6); outLines.push_back(v7);
+            outLines.push_back(v7); outLines.push_back(v4);
+
+            // Vertical 4 edges
+            outLines.push_back(v0); outLines.push_back(v4);
+            outLines.push_back(v1); outLines.push_back(v5);
+            outLines.push_back(v2); outLines.push_back(v6);
+            outLines.push_back(v3); outLines.push_back(v7);
+        }
+    }
+
+    void GenerateFloorAndWallGridLines(std::vector<FVertexSimple>& outLines, float L = 2.0f) const
+    {
+        outLines.clear();
+        if (m_CellSize <= 0.001f) return;
+
+        // Floor grid (y = -L)
+        for (float x = -L; x <= L + 0.001f; x += m_CellSize)
+        {
+            outLines.push_back({ x, -L, -L });
+            outLines.push_back({ x, -L,  L });
+        }
+        for (float z = -L; z <= L + 0.001f; z += m_CellSize)
+        {
+            outLines.push_back({ -L, -L, z });
+            outLines.push_back({  L, -L, z });
+        }
+
+        // Back wall grid (z = L)
+        for (float x = -L; x <= L + 0.001f; x += m_CellSize)
+        {
+            outLines.push_back({ x, -L, L });
+            outLines.push_back({ x,  L, L });
+        }
+        for (float y = -L; y <= L + 0.001f; y += m_CellSize)
+        {
+            outLines.push_back({ -L, y, L });
+            outLines.push_back({  L, y, L });
+        }
+    }
+
+    int   GetActiveCellCount() const { return static_cast<int>(m_ActiveCells.size()); }
+    int   GetTotalCellCount()  const { return m_DimX * m_DimY * m_DimZ; }
+    float GetCellSize()        const { return m_CellSize; }
+    void  GetGridDims(int& dx, int& dy, int& dz) const { dx = m_DimX; dy = m_DimY; dz = m_DimZ; }
+
     const wchar_t* GetName()          const override { return L"UniformGrid (ST)"; }
     const wchar_t* GetAlgorithmName() const override { return L"Uniform Grid"; }
     const wchar_t* GetExecutionMode() const override { return L"Single Thread"; }
@@ -219,6 +310,15 @@ private:
     LARGE_INTEGER                   m_TimerFreq = {};
     FCollisionStats                 m_Stats     = {};
     std::vector<FCollisionManifold> m_Manifolds;
+
+    // Grid parameters
+    float m_MinX     = -2.1f;
+    float m_MinY     = -2.1f;
+    float m_MinZ     = -2.1f;
+    float m_CellSize = 0.1f;
+    int   m_DimX     = 1;
+    int   m_DimY     = 1;
+    int   m_DimZ     = 1;
 
     // Head-Next linked list grid
     std::vector<int> m_CellHead;    // size: dimX * dimY * dimZ

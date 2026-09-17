@@ -174,6 +174,10 @@ bool FWindow::PumpMessages(FInputState& outInput)
 			case 'B':
 				outInput.Benchmark = true;
 				break;
+
+			case 'G':
+				outInput.ToggleGridVis = true;
+				break;
 			}
 		}
 
