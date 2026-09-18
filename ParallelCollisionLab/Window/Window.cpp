@@ -178,6 +178,14 @@ bool FWindow::PumpMessages(FInputState& outInput)
 			case 'G':
 				outInput.ToggleGridVis = true;
 				break;
+
+			case VK_OEM_4: // '[' key
+				outInput.DecThread = true;
+				break;
+
+			case VK_OEM_6: // ']' key
+				outInput.IncThread = true;
+				break;
 			}
 		}
 

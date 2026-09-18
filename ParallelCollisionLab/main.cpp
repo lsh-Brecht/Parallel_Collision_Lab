@@ -101,9 +101,13 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE, LPSTR, int)
 	bool bPaused = false;
 	bool bShowGridVis = false;
 
+	int maxHardwareThreads = static_cast<int>(std::thread::hardware_concurrency());
+	if (maxHardwareThreads <= 0) maxHardwareThreads = 4;
+	int configuredThreads = maxHardwareThreads;
+
 	std::vector<std::unique_ptr<ICollisionSolver>> solvers;
 	solvers.push_back(std::make_unique<NestedLoopSolver>());
-	solvers.push_back(std::make_unique<NestedLoopMTSolver>());
+	solvers.push_back(std::make_unique<NestedLoopMTSolver>(configuredThreads));
 	solvers.push_back(std::make_unique<UniformGridSolver>(boxHalfSize));
 	size_t currentSolverIdx = 0;
 	FBenchmarkReport benchmarkReport;
@@ -189,6 +193,21 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE, LPSTR, int)
 			int delta  = input.SubMany ? 16 : 1;
 			numSpheres = max(numSpheres - delta, MIN_SPHERES);
 			spheres    = CreateSpheres(numSpheres, boxHalfSize);
+			benchmarkReport.bValid = false;
+		}
+
+		if (input.DecThread || input.IncThread)
+		{
+			int delta = input.bShiftDown ? 4 : 1;
+			if (input.DecThread)
+				configuredThreads = max(1, configuredThreads - delta);
+			else
+				configuredThreads = min(64, configuredThreads + delta);
+
+			for (auto& s : solvers)
+			{
+				s->SetThreadCount(configuredThreads);
+			}
 			benchmarkReport.bValid = false;
 		}
 
@@ -305,10 +324,11 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE, LPSTR, int)
 		}
 
 		swprintf_s(hudBottomText,
-		           L"Candidate Pairs : %s | Collisions: %s\n"
+		           L"Candidate Pairs : %s | Collisions: %s | Threads: %d (Hotkeys: [ / ] )\n"
 		           L"[1] Naive ST  [2] Naive MT  [3] Grid ST  [B] Benchmark  [G] Grid: %s  (Tab: Cycle)",
 		           strCandidates.c_str(),
 		           strCollisions.c_str(),
+		           configuredThreads,
 		           bShowGridVis ? L"ON" : L"OFF");
 
 		LARGE_INTEGER renderStart, renderEnd;
@@ -368,7 +388,7 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE, LPSTR, int)
 			float bottomY = static_cast<float>(clientH) - 55.0f;
 
 			textRenderer.DrawTextOverlay(hudTopText, 10.0f, 10.0f, 700.0f, 220.0f);
-			textRenderer.DrawTextOverlay(hudBottomText, 10.0f, bottomY, 700.0f, 50.0f);
+			textRenderer.DrawTextOverlay(hudBottomText, 10.0f, bottomY, 780.0f, 50.0f);
 		}
 
 		QueryPerformanceCounter(&renderEnd);

@@ -23,13 +23,38 @@ public:
         QueryPerformanceFrequency(&m_TimerFreq);
 
         unsigned int hwThreads = std::thread::hardware_concurrency();
-        m_ThreadCount = (threadCount > 0) ? threadCount : (hwThreads > 0 ? static_cast<int>(hwThreads) : 4);
+        int initialCount = (threadCount > 0) ? threadCount : (hwThreads > 0 ? static_cast<int>(hwThreads) : 4);
+        InitThreadPool(initialCount);
+    }
 
+    ~NestedLoopMTSolver() override
+    {
+        ShutdownThreadPool();
+    }
+
+    void SetThreadCount(int threadCount) override
+    {
+        if (threadCount <= 0 || threadCount == m_ThreadCount)
+            return;
+
+        ShutdownThreadPool();
+        InitThreadPool(threadCount);
+    }
+
+    void InitThreadPool(int threadCount)
+    {
+        m_ThreadCount = threadCount;
+        m_ThreadManifolds.clear();
         m_ThreadManifolds.resize(m_ThreadCount);
         for (auto& vec : m_ThreadManifolds)
         {
             vec.reserve(256);
         }
+
+        m_Stop = false;
+        m_Iteration = 0;
+        m_CompletedCount = 0;
+        m_Workers.clear();
 
         // Spawn background worker threads (main thread acts as worker 0)
         for (int t = 1; t < m_ThreadCount; ++t)
@@ -38,7 +63,7 @@ public:
         }
     }
 
-    ~NestedLoopMTSolver() override
+    void ShutdownThreadPool()
     {
         {
             std::unique_lock<std::mutex> lock(m_Mutex);
@@ -53,6 +78,7 @@ public:
                 worker.join();
             }
         }
+        m_Workers.clear();
     }
 
     void Solve(std::vector<FSphere>& spheres) override

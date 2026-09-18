@@ -93,7 +93,7 @@ struct FBenchmarkReport
             wchar_t noteBuf[256];
             double eff = (Items[1].Speedup / static_cast<double>(Items[1].ThreadCount)) * 100.0;
             swprintf_s(noteBuf,
-                L"- Multi-threading Speedup: %.2fx on %d hardware threads\r\n"
+                L"- Multi-threading Speedup: %.2fx on %d threads\r\n"
                 L"- Parallel Scaling Efficiency: %.1f%% vs ideal linear speedup\r\n",
                 Items[1].Speedup, Items[1].ThreadCount, eff);
             out += noteBuf;

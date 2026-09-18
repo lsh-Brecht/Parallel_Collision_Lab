@@ -19,6 +19,8 @@ struct FInputState
 	bool Quit;
 	bool Benchmark;
 	bool ToggleGridVis;
+	bool DecThread;
+	bool IncThread;
 
 	int  SelectSolver;
 	bool CycleSolver;
