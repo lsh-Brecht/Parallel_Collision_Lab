@@ -82,7 +82,7 @@ public:
         // Bottom HUD updates dynamically every frame for instant hotkey feedback
         swprintf_s(m_HudBottomText,
                    L"Candidate Pairs : %s | Collisions: %s | Threads: %d (Hotkeys: [ / ])\n"
-                   L"[1] Naive ST  [2] Naive MT  [3] Grid ST  [B] Benchmark  [G] Grid: %s  (Tab: Cycle)",
+                   L"[1] Naive ST  [2] Naive MT  [3] Grid ST  [4] Grid MT  [B] Benchmark  [G] Grid: %s  (Tab: Cycle)",
                    m_CachedCandidates.c_str(),
                    m_CachedCollisions.c_str(),
                    configuredThreads,
@@ -93,7 +93,7 @@ public:
     {
         float bottomY = static_cast<float>(clientH) - 55.0f;
         textRenderer.DrawTextOverlay(m_HudTopText, 10.0f, 10.0f, 700.0f, 220.0f);
-        textRenderer.DrawTextOverlay(m_HudBottomText, 10.0f, bottomY, 780.0f, 50.0f);
+        textRenderer.DrawTextOverlay(m_HudBottomText, 10.0f, bottomY, 850.0f, 50.0f);
     }
 
 private:

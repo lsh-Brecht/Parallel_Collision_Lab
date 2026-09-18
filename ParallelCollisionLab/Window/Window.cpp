@@ -167,6 +167,12 @@ bool FWindow::PumpMessages(FInputState& outInput)
 				outInput.SelectSolver = 2;
 				break;
 
+			case '4':
+			case VK_NUMPAD4:
+			case VK_F4:
+				outInput.SelectSolver = 3;
+				break;
+
 			case VK_TAB:
 				outInput.CycleSolver = true;
 				break;

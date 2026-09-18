@@ -93,10 +93,20 @@ struct FBenchmarkReport
             wchar_t noteBuf[256];
             double eff = (Items[1].Speedup / static_cast<double>(Items[1].ThreadCount)) * 100.0;
             swprintf_s(noteBuf,
-                L"- Multi-threading Speedup: %.2fx on %d threads\r\n"
-                L"- Parallel Scaling Efficiency: %.1f%% vs ideal linear speedup\r\n",
+                L"- Naive MT Speedup: %.2fx on %d threads (Scaling Efficiency: %.1f%%)\r\n",
                 Items[1].Speedup, Items[1].ThreadCount, eff);
             out += noteBuf;
+        }
+        if (Items.size() >= 4 && Items[3].AvgNarrowMs > 1e-6 && Items[2].AvgNarrowMs > 1e-6)
+        {
+            wchar_t gridNoteBuf[256];
+            double gridMtSpeedup = Items[2].AvgNarrowMs / Items[3].AvgNarrowMs;
+            double gridMtEff = (gridMtSpeedup / static_cast<double>(Items[3].ThreadCount)) * 100.0;
+            swprintf_s(gridNoteBuf,
+                L"- Grid MT vs Grid ST Speedup: %.2fx on %d threads (Scaling Efficiency: %.1f%%)\r\n"
+                L"- Overall Maximum Speedup (Grid MT vs Naive ST): %.2fx\r\n",
+                gridMtSpeedup, Items[3].ThreadCount, gridMtEff, Items[3].Speedup);
+            out += gridNoteBuf;
         }
         out += L"================================================================================\r\n";
 

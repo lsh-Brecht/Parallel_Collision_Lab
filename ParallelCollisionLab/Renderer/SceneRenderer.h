@@ -8,7 +8,7 @@
 #include "../Core/Sphere.h"
 #include "../Core/Timer.h"
 #include "../Core/SimulationWorld.h"
-#include "../Collision/UniformGrid/UniformGridSolver.h"
+#include "../Collision/UniformGrid/IUniformGridVisualizer.h"
 
 //=============================================================================
 // FSceneRenderer - Manages 3D geometry buffers and draws walls, spheres, and grid
@@ -69,26 +69,26 @@ public:
 private:
     void RenderGridVisualization(URenderer& renderer, const FSimulationWorld& world)
     {
-        UniformGridSolver* gridSolver = dynamic_cast<UniformGridSolver*>(world.GetActiveSolver());
-        if (!gridSolver)
+        IUniformGridVisualizer* gridVis = dynamic_cast<IUniformGridVisualizer*>(world.GetActiveSolver());
+        if (!gridVis)
         {
             for (auto& s : world.GetSolvers())
             {
-                gridSolver = dynamic_cast<UniformGridSolver*>(s.get());
-                if (gridSolver)
+                gridVis = dynamic_cast<IUniformGridVisualizer*>(s.get());
+                if (gridVis)
                 {
-                    gridSolver->BuildGrid(world.GetSpheres());
+                    gridVis->BuildGrid(world.GetSpheres());
                     break;
                 }
             }
         }
 
-        if (gridSolver)
+        if (gridVis)
         {
-            gridSolver->GenerateFloorAndWallGridLines(m_WallGridLines, world.GetBoxHalfSize());
+            gridVis->GenerateFloorAndWallGridLines(m_WallGridLines, world.GetBoxHalfSize());
             renderer.RenderDynamicLines(m_WallGridLines, Config::GRID_WALL_COLOR);
 
-            gridSolver->GenerateActiveCellLines(m_ActiveCellLines);
+            gridVis->GenerateActiveCellLines(m_ActiveCellLines);
             renderer.RenderDynamicLines(m_ActiveCellLines, Config::GRID_ACTIVE_COLOR);
         }
     }

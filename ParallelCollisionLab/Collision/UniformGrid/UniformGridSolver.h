@@ -8,11 +8,12 @@
 #include "../CollisionTypes.h"
 #include "../NarrowPhase.h"
 #include "../Resolution.h"
+#include "IUniformGridVisualizer.h"
 
 //=============================================================================
 // UniformGridSolver - Spatial partitioning grid collision solver (Single Thread)
 //=============================================================================
-class UniformGridSolver : public ICollisionSolver
+class UniformGridSolver : public ICollisionSolver, public IUniformGridVisualizer
 {
 public:
     UniformGridSolver(float boxHalfSize = 2.0f)
@@ -25,7 +26,7 @@ public:
 
     void SetBoxHalfSize(float boxHalfSize) { m_BoxHalfSize = boxHalfSize; }
 
-    void BuildGrid(const std::vector<FSphere>& spheres)
+    void BuildGrid(const std::vector<FSphere>& spheres) override
     {
         const int count = static_cast<int>(spheres.size());
         if (count == 0) return;
@@ -223,7 +224,7 @@ public:
         m_Stats.TotalSolveTimeMs   = static_cast<double>(t3.QuadPart - t0.QuadPart) * toMs;
     }
 
-    void GenerateActiveCellLines(std::vector<FVertexSimple>& outLines) const
+    void GenerateActiveCellLines(std::vector<FVertexSimple>& outLines) const override
     {
         outLines.clear();
         outLines.reserve(m_ActiveCells.size() * 24);
@@ -273,7 +274,7 @@ public:
         }
     }
 
-    void GenerateFloorAndWallGridLines(std::vector<FVertexSimple>& outLines, float L = 2.0f) const
+    void GenerateFloorAndWallGridLines(std::vector<FVertexSimple>& outLines, float L = 2.0f) const override
     {
         outLines.clear();
         if (m_CellSize <= 0.001f || m_DimX < 1) return;
