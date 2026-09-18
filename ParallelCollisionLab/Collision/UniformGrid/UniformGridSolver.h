@@ -276,30 +276,43 @@ public:
     void GenerateFloorAndWallGridLines(std::vector<FVertexSimple>& outLines, float L = 2.0f) const
     {
         outLines.clear();
-        if (m_CellSize <= 0.001f) return;
+        if (m_CellSize <= 0.001f || m_DimX < 1) return;
+
+        // Slight offset inward to completely eliminate Z-fighting against wall surfaces
+        const float eps = 0.005f;
+        const float floorY = -L + eps;
+        const float backZ  =  L - eps;
 
         // Floor grid (y = -L)
-        for (float x = -L; x <= L + 0.001f; x += m_CellSize)
+        // Lines along X (from z = -L to +L)
+        for (int i = 0; i <= m_DimX; ++i)
         {
-            outLines.push_back({ x, -L, -L });
-            outLines.push_back({ x, -L,  L });
+            float x = -L + static_cast<float>(i) * m_CellSize;
+            outLines.push_back({ x, floorY, -L });
+            outLines.push_back({ x, floorY,  L });
         }
-        for (float z = -L; z <= L + 0.001f; z += m_CellSize)
+        // Lines along Z (from x = -L to +L)
+        for (int k = 0; k <= m_DimZ; ++k)
         {
-            outLines.push_back({ -L, -L, z });
-            outLines.push_back({  L, -L, z });
+            float z = -L + static_cast<float>(k) * m_CellSize;
+            outLines.push_back({ -L, floorY, z });
+            outLines.push_back({  L, floorY, z });
         }
 
         // Back wall grid (z = L)
-        for (float x = -L; x <= L + 0.001f; x += m_CellSize)
+        // Vertical lines (from y = -L to +L)
+        for (int i = 0; i <= m_DimX; ++i)
         {
-            outLines.push_back({ x, -L, L });
-            outLines.push_back({ x,  L, L });
+            float x = -L + static_cast<float>(i) * m_CellSize;
+            outLines.push_back({ x, -L, backZ });
+            outLines.push_back({ x,  L, backZ });
         }
-        for (float y = -L; y <= L + 0.001f; y += m_CellSize)
+        // Horizontal lines (from x = -L to +L)
+        for (int j = 0; j <= m_DimY; ++j)
         {
-            outLines.push_back({ -L, y, L });
-            outLines.push_back({  L, y, L });
+            float y = -L + static_cast<float>(j) * m_CellSize;
+            outLines.push_back({ -L, y, backZ });
+            outLines.push_back({  L, y, backZ });
         }
     }
 
