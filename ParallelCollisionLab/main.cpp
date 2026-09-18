@@ -1,71 +1,33 @@
 #include "Window/Window.h"
+#include "Window/BenchmarkWindow.h"
 #include "Renderer/Renderer.h"
 #include "Renderer/TextRenderer.h"
 #include "Renderer/Trackball.h"
+#include "Renderer/HUDTracker.h"
+#include "Core/AppConfig.h"
+#include "Core/Timer.h"
 #include "Core/Sphere.h"
 #include "Core/CPUInfo.h"
 #include "Collision/NestedLoop/NestedLoopSolver.h"
 #include "Collision/NestedLoop/NestedLoopMTSolver.h"
 #include "Collision/UniformGrid/UniformGridSolver.h"
 #include "Collision/Benchmark.h"
-#include "Window/BenchmarkWindow.h"
 
 #include <ctime>
 #include <memory>
-#include <string>
-
-static std::wstring FormatCommas(uint64_t val)
-{
-	std::wstring s = std::to_wstring(val);
-	int insertPos = static_cast<int>(s.length()) - 3;
-	while (insertPos > 0)
-	{
-		s.insert(insertPos, L",");
-		insertPos -= 3;
-	}
-	return s;
-}
-
-//=============================================================================
-// Timer
-//=============================================================================
-static LARGE_INTEGER g_Frequency;
-static LARGE_INTEGER g_LastTime;
-
-static void InitTimer()
-{
-	QueryPerformanceFrequency(&g_Frequency);
-	QueryPerformanceCounter(&g_LastTime);
-}
-
-static float GetDeltaTime()
-{
-	LARGE_INTEGER now;
-	QueryPerformanceCounter(&now);
-	float dt = (float)(now.QuadPart - g_LastTime.QuadPart) / (float)g_Frequency.QuadPart;
-	g_LastTime = now;
-
-	// Temporary solution: clamp dt to ~30 FPS (0.033s) to mitigate frame hitch
-	// and avoid tunneling, rather than using sub-stepping. (Low FPS will cause slow-motion)
-	if (dt > 0.033f)
-	{
-		dt = 0.033f;
-	}
-
-	return dt;
-}
+#include <vector>
 
 //=============================================================================
 // WinMain
 //=============================================================================
 int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE, LPSTR, int)
 {
-	srand((unsigned int)time(nullptr));
+	srand(static_cast<unsigned int>(time(nullptr)));
 
 	FCPUInfo cpuInfo = QueryCPUInfo();
 
 	FWindow window;
-	if (!window.Init(hInstance, 1024, 1024, L"Parallel Collision Lab"))
+	if (!window.Init(hInstance, Config::WINDOW_WIDTH, Config::WINDOW_HEIGHT, Config::WINDOW_TITLE))
 		return -1;
 
 	URenderer renderer;
@@ -74,54 +36,48 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE, LPSTR, int)
 	FTextRenderer textRenderer;
 	textRenderer.Init(renderer.SwapChain);
 
-	const float boxHalfSize = 2.0f;
+	FHUDTracker hudTracker(cpuInfo);
+	FTimer      timer;
 
+	// Geometry Buffers
 	std::vector<FVertexSimple> unitSphereVerts = CreateUnitSphereVertices();
 	ID3D11Buffer* sphereVB     = renderer.CreateVertexBuffer(unitSphereVerts);
-	const UINT    sphereVCount = (UINT)unitSphereVerts.size();
+	const UINT    sphereVCount = static_cast<UINT>(unitSphereVerts.size());
 
-	ID3D11Buffer* leftWallVB   = renderer.CreateVertexBuffer(CreateWallVertices(0, boxHalfSize));
-	ID3D11Buffer* rightWallVB  = renderer.CreateVertexBuffer(CreateWallVertices(1, boxHalfSize));
-	ID3D11Buffer* otherWallsVB = renderer.CreateVertexBuffer(CreateWallVertices(2, boxHalfSize));
+	ID3D11Buffer* leftWallVB   = renderer.CreateVertexBuffer(CreateWallVertices(0, Config::BOX_HALF_SIZE));
+	ID3D11Buffer* rightWallVB  = renderer.CreateVertexBuffer(CreateWallVertices(1, Config::BOX_HALF_SIZE));
+	ID3D11Buffer* otherWallsVB = renderer.CreateVertexBuffer(CreateWallVertices(2, Config::BOX_HALF_SIZE));
 
-	const FVector4 leftWallColor(0.630f, 0.065f, 0.050f, 1.0f);
-	const FVector4 rightWallColor(0.137f, 0.447f, 0.090f, 1.0f);
-	const FVector4 otherWallsColor(0.725f, 0.710f, 0.680f, 1.0f);
-
+	// Simulation State
 	int numSpheres = MIN_SPHERES;
-	std::vector<FSphere> spheres = CreateSpheres(numSpheres, boxHalfSize);
-
-	FTrackball trackball;
-	const FVector3 defaultEye(0.0f, 0.0f, -10.0f);
-	const FVector3 defaultUp(0.0f, 1.0f, 0.0f);
-	FVector3 eye = defaultEye;
-	FVector3 at(0.0f, 0.0f, 0.0f);
-	FVector3 up = defaultUp;
-
-	bool bPaused = false;
-	bool bShowGridVis = false;
+	std::vector<FSphere> spheres = CreateSpheres(numSpheres, Config::BOX_HALF_SIZE);
 
 	int maxHardwareThreads = static_cast<int>(std::thread::hardware_concurrency());
-	if (maxHardwareThreads <= 0) maxHardwareThreads = 4;
-	int configuredThreads = maxHardwareThreads;
+	int configuredThreads  = (maxHardwareThreads > 0) ? maxHardwareThreads : 4;
 
 	std::vector<std::unique_ptr<ICollisionSolver>> solvers;
 	solvers.push_back(std::make_unique<NestedLoopSolver>());
 	solvers.push_back(std::make_unique<NestedLoopMTSolver>(configuredThreads));
-	solvers.push_back(std::make_unique<UniformGridSolver>(boxHalfSize));
+	solvers.push_back(std::make_unique<UniformGridSolver>(Config::BOX_HALF_SIZE));
 	size_t currentSolverIdx = 0;
 	FBenchmarkReport benchmarkReport;
 
-	InitTimer();
+	// Camera & Trackball
+	FTrackball trackball;
+	FVector3 eye = Config::CAMERA_DEFAULT_EYE;
+	FVector3 at  = Config::CAMERA_DEFAULT_AT;
+	FVector3 up  = Config::CAMERA_DEFAULT_UP;
 
+	bool bPaused          = false;
+	bool bShowGridVis     = false;
+	double lastRenderTimeMs = 0.0;
+
+	// Main Loop
 	bool bRunning = true;
 	while (bRunning)
 	{
 		FInputState input;
-		if (!window.PumpMessages(input))
-			break;
-
-		if (input.Quit)
+		if (!window.PumpMessages(input) || input.Quit)
 			break;
 
 		if (input.bResized && input.NewWidth > 0 && input.NewHeight > 0)
@@ -137,73 +93,67 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE, LPSTR, int)
 		if (input.ToggleGridVis)
 			bShowGridVis = !bShowGridVis;
 
+		// Mouse Trackball Interaction
 		if (input.bRButtonPressed || (input.bLButtonPressed && input.bShiftDown))
 		{
 			int w, h;
 			window.GetClientSize(w, h);
-			FVector2 npos = CursorToNDC(input.MouseX, input.MouseY, w, h);
-			trackball.Begin(eye, up, npos, 2);
+			trackball.Begin(eye, up, CursorToNDC(input.MouseX, input.MouseY, w, h), 2);
 		}
 		else if (input.bLButtonPressed)
 		{
 			int w, h;
 			window.GetClientSize(w, h);
-			FVector2 npos = CursorToNDC(input.MouseX, input.MouseY, w, h);
-			trackball.Begin(eye, up, npos, 1);
+			trackball.Begin(eye, up, CursorToNDC(input.MouseX, input.MouseY, w, h), 1);
 		}
 		if (input.bMouseMoving && trackball.IsTracking())
 		{
 			int w, h;
 			window.GetClientSize(w, h);
-			FVector2 npos = CursorToNDC(input.MouseX, input.MouseY, w, h);
-			trackball.Update(npos, at, eye, up);
+			trackball.Update(CursorToNDC(input.MouseX, input.MouseY, w, h), at, eye, up);
 		}
 		if (input.bLButtonReleased || input.bRButtonReleased)
 		{
 			trackball.End();
 		}
-
 		if (input.ResetCamera)
 		{
-			eye = defaultEye;
-			up  = defaultUp;
+			eye = Config::CAMERA_DEFAULT_EYE;
+			up  = Config::CAMERA_DEFAULT_UP;
 			trackball.End();
 		}
 
+		// Simulation Controls
 		if (input.Reset)
 		{
-			spheres = CreateSpheres(numSpheres, boxHalfSize);
+			spheres = CreateSpheres(numSpheres, Config::BOX_HALF_SIZE);
 			benchmarkReport.bValid = false;
 		}
 		else if (input.Toggle)
 		{
 			numSpheres = (numSpheres == MAX_SPHERES) ? MIN_SPHERES : MAX_SPHERES;
-			spheres    = CreateSpheres(numSpheres, boxHalfSize);
+			spheres    = CreateSpheres(numSpheres, Config::BOX_HALF_SIZE);
 			benchmarkReport.bValid = false;
 		}
 		else if (input.Add || input.AddMany)
 		{
-			int delta  = input.AddMany ? 16 : 1;
-			numSpheres = min(numSpheres + delta, MAX_SPHERES);
-			spheres    = CreateSpheres(numSpheres, boxHalfSize);
+			numSpheres = min(numSpheres + (input.AddMany ? 16 : 1), MAX_SPHERES);
+			spheres    = CreateSpheres(numSpheres, Config::BOX_HALF_SIZE);
 			benchmarkReport.bValid = false;
 		}
 		else if (input.Sub || input.SubMany)
 		{
-			int delta  = input.SubMany ? 16 : 1;
-			numSpheres = max(numSpheres - delta, MIN_SPHERES);
-			spheres    = CreateSpheres(numSpheres, boxHalfSize);
+			numSpheres = max(numSpheres - (input.SubMany ? 16 : 1), MIN_SPHERES);
+			spheres    = CreateSpheres(numSpheres, Config::BOX_HALF_SIZE);
 			benchmarkReport.bValid = false;
 		}
 
+		// Thread Count Adjustment
 		if (input.DecThread || input.IncThread)
 		{
 			int delta = input.bShiftDown ? 4 : 1;
-			if (input.DecThread)
-				configuredThreads = max(1, configuredThreads - delta);
-			else
-				configuredThreads = min(64, configuredThreads + delta);
-
+			configuredThreads = input.DecThread ? max(1, configuredThreads - delta)
+			                                    : min(64, configuredThreads + delta);
 			for (auto& s : solvers)
 			{
 				s->SetThreadCount(configuredThreads);
@@ -211,9 +161,10 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE, LPSTR, int)
 			benchmarkReport.bValid = false;
 		}
 
+		// Benchmark
 		if (input.Benchmark)
 		{
-			benchmarkReport = RunBenchmark(solvers, spheres, boxHalfSize);
+			benchmarkReport = RunBenchmark(solvers, spheres, Config::BOX_HALF_SIZE);
 			if (benchmarkReport.bValid)
 			{
 				std::wstring detailedReport = benchmarkReport.GenerateDetailedReport(cpuInfo);
@@ -221,6 +172,7 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE, LPSTR, int)
 			}
 		}
 
+		// Solver Selection
 		if (input.SelectSolver >= 0 && input.SelectSolver < static_cast<int>(solvers.size()))
 		{
 			currentSolverIdx = static_cast<size_t>(input.SelectSolver);
@@ -233,8 +185,9 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE, LPSTR, int)
 		if (input.Pause)
 			bPaused = !bPaused;
 
-		float dt = GetDeltaTime();
+		float dt = timer.Tick();
 
+		// Physics Update
 		LARGE_INTEGER updateStart, updateEnd;
 		QueryPerformanceCounter(&updateStart);
 
@@ -245,92 +198,20 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE, LPSTR, int)
 			for (FSphere& s : spheres)
 			{
 				s.Update(dt);
-				s.BoxCollisionCheck(boxHalfSize);
+				s.BoxCollisionCheck(Config::BOX_HALF_SIZE);
 			}
-
 			activeSolver->Solve(spheres);
 		}
 
 		QueryPerformanceCounter(&updateEnd);
-		double updateTimeMs = (double)(updateEnd.QuadPart - updateStart.QuadPart) * 1000.0 / (double)g_Frequency.QuadPart;
+		double updateTimeMs = FTimer::GetElapsedMs(updateStart, updateEnd, timer.GetFrequency());
 
-		static double   timeAccum        = 0.0;
-		static int      frameAccum       = 0;
-		static double   updateAccumMs    = 0.0;
-		static double   renderAccumMs    = 0.0;
-		static double   broadAccumMs     = 0.0;
-		static double   narrowAccumMs    = 0.0;
-		static double   resolveAccumMs   = 0.0;
-		static double   lastRenderTimeMs = 0.0;
-		static wchar_t      hudTopText[512]    = L"Initializing...";
-		static wchar_t      hudBottomText[256] = L"";
-		static std::wstring strCandidates      = L"0";
-		static std::wstring strCollisions      = L"0";
+		// Performance Profiling & Statistics Update
+		hudTracker.Update(dt, updateTimeMs, lastRenderTimeMs,
+		                  activeSolver->GetLastStats(), spheres.size(),
+		                  activeSolver, configuredThreads, bShowGridVis);
 
-		const FCollisionStats& stats = activeSolver->GetLastStats();
-
-		timeAccum      += dt;
-		frameAccum     += 1;
-		updateAccumMs  += updateTimeMs;
-		renderAccumMs  += lastRenderTimeMs;
-		broadAccumMs   += stats.BroadPhaseTimeMs;
-		narrowAccumMs  += stats.NarrowPhaseTimeMs;
-		resolveAccumMs += stats.ResolutionTimeMs;
-
-		if (timeAccum >= 0.25)
-		{
-			double currentFPS   = (double)frameAccum / timeAccum;
-			double frameTimeMs  = (timeAccum / (double)frameAccum) * 1000.0;
-			double avgUpdateMs  = updateAccumMs / (double)frameAccum;
-			double avgRenderMs  = renderAccumMs / (double)frameAccum;
-			double avgBroadMs   = broadAccumMs / (double)frameAccum;
-			double avgNarrowMs  = narrowAccumMs / (double)frameAccum;
-			double avgResolveMs = resolveAccumMs / (double)frameAccum;
-
-			std::wstring strBalls = FormatCommas(spheres.size());
-			strCandidates         = FormatCommas(stats.CandidatePairCount);
-			strCollisions         = FormatCommas(stats.ActualCollisionCount);
-
-			swprintf_s(hudTopText,
-			           L"CPU         : %s\n"
-			           L"Cache       : %s\n"
-			           L"\n"
-			           L"Balls       : %s | Threads: %d\n"
-			           L"Algorithm   : %s [%s]\n"
-			           L"\n"
-			           L"Frame Time  : %.1f ms (%.1f FPS) | Render: %.2f ms\n"
-			           L"Broad Phase : %.3f ms\n"
-			           L"Narrow Phase: %.2f ms\n"
-			           L"Resolution  : %.3f ms",
-			           cpuInfo.GetSummaryString().c_str(),
-			           cpuInfo.GetCacheString().c_str(),
-			           strBalls.c_str(),
-			           activeSolver->GetThreadCount(),
-			           activeSolver->GetAlgorithmName(),
-			           activeSolver->GetExecutionMode(),
-			           frameTimeMs, currentFPS,
-			           avgRenderMs,
-			           avgBroadMs,
-			           avgNarrowMs,
-			           avgResolveMs);
-
-			timeAccum      = 0.0;
-			frameAccum     = 0;
-			updateAccumMs  = 0.0;
-			renderAccumMs  = 0.0;
-			broadAccumMs   = 0.0;
-			narrowAccumMs  = 0.0;
-			resolveAccumMs = 0.0;
-		}
-
-		swprintf_s(hudBottomText,
-		           L"Candidate Pairs : %s | Collisions: %s | Threads: %d (Hotkeys: [ / ] )\n"
-		           L"[1] Naive ST  [2] Naive MT  [3] Grid ST  [B] Benchmark  [G] Grid: %s  (Tab: Cycle)",
-		           strCandidates.c_str(),
-		           strCollisions.c_str(),
-		           configuredThreads,
-		           bShowGridVis ? L"ON" : L"OFF");
-
+		// Render Pipeline
 		LARGE_INTEGER renderStart, renderEnd;
 		QueryPerformanceCounter(&renderStart);
 
@@ -338,20 +219,21 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE, LPSTR, int)
 		{
 			float aspect = window.GetAspectRatio();
 			FMatrix4x4 view = FMatrix4x4::LookAtLH(eye, at, up);
-			FMatrix4x4 proj = FMatrix4x4::PerspectiveFovLH(50.0f * (float)M_PI / 180.0f, aspect, 0.1f, 100.0f);
+			FMatrix4x4 proj = FMatrix4x4::PerspectiveFovLH(Config::CAMERA_FOV_DEG * (float)M_PI / 180.0f, aspect, Config::CAMERA_NEAR, Config::CAMERA_FAR);
 			FMatrix4x4 viewProj = proj * view;
 
 			renderer.BeginFrame(viewProj);
 
-			renderer.RenderSphere(FMatrix4x4::Identity(), leftWallColor, leftWallVB, 6);
-			renderer.RenderSphere(FMatrix4x4::Identity(), rightWallColor, rightWallVB, 6);
-			renderer.RenderSphere(FMatrix4x4::Identity(), otherWallsColor, otherWallsVB, 24);
+			renderer.RenderSphere(FMatrix4x4::Identity(), Config::WALL_LEFT_COLOR, leftWallVB, 6);
+			renderer.RenderSphere(FMatrix4x4::Identity(), Config::WALL_RIGHT_COLOR, rightWallVB, 6);
+			renderer.RenderSphere(FMatrix4x4::Identity(), Config::WALL_OTHER_COLOR, otherWallsVB, 24);
 
 			for (const FSphere& s : spheres)
 			{
 				renderer.RenderSphere(s.GetModelMatrix(), s.Color, sphereVB, sphereVCount);
 			}
 
+			// 3D Uniform Grid Visualization
 			if (bShowGridVis)
 			{
 				UniformGridSolver* gridSolver = dynamic_cast<UniformGridSolver*>(activeSolver);
@@ -373,33 +255,26 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE, LPSTR, int)
 					static std::vector<FVertexSimple> wallGridLines;
 					static std::vector<FVertexSimple> activeCellLines;
 
-					// Blueprint grid on Cornell Box walls and floor (vibrant sky/royal blue)
-					gridSolver->GenerateFloorAndWallGridLines(wallGridLines, boxHalfSize);
-					renderer.RenderDynamicLines(wallGridLines, FVector4(0.0f, 0.0f, 0.0f, 0.0f));
+					gridSolver->GenerateFloorAndWallGridLines(wallGridLines, Config::BOX_HALF_SIZE);
+					renderer.RenderDynamicLines(wallGridLines, Config::GRID_WALL_COLOR);
 
-					// Bright cyan wireframe around active occupied cells
 					gridSolver->GenerateActiveCellLines(activeCellLines);
-					renderer.RenderDynamicLines(activeCellLines, FVector4(0.0f, 0.95f, 1.0f, 1.0f));
+					renderer.RenderDynamicLines(activeCellLines, Config::GRID_ACTIVE_COLOR);
 				}
 			}
 
 			int clientW = 0, clientH = 0;
 			window.GetClientSize(clientW, clientH);
-			float bottomY = static_cast<float>(clientH) - 55.0f;
+			hudTracker.Draw(textRenderer, clientW, clientH);
 
-			textRenderer.DrawTextOverlay(hudTopText, 10.0f, 10.0f, 700.0f, 220.0f);
-			textRenderer.DrawTextOverlay(hudBottomText, 10.0f, bottomY, 780.0f, 50.0f);
+			renderer.EndFrame();
 		}
 
 		QueryPerformanceCounter(&renderEnd);
-		lastRenderTimeMs = (double)(renderEnd.QuadPart - renderStart.QuadPart) * 1000.0 / (double)g_Frequency.QuadPart;
-
-		if (!window.IsMinimized())
-		{
-			renderer.EndFrame();
-		}
+		lastRenderTimeMs = FTimer::GetElapsedMs(renderStart, renderEnd, timer.GetFrequency());
 	}
 
+	// Cleanup
 	renderer.ReleaseVertexBuffer(leftWallVB);
 	renderer.ReleaseVertexBuffer(rightWallVB);
 	renderer.ReleaseVertexBuffer(otherWallsVB);
