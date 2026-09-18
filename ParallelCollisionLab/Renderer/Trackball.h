@@ -113,7 +113,9 @@ private:
 			return;
 
 		FVector3 n = toAt * (1.0f / dist);
-		float zoom = dist - p1.y * dist * 1.0f;
+		// Drag top-left (dx < 0, dy > 0) -> Zoom In; Drag bottom-right (dx > 0, dy < 0) -> Zoom Out
+		float delta = (p1.y - p1.x) * 0.75f;
+		float zoom = dist - delta * dist;
 		zoom = (std::max)(MinDistance, (std::min)(MaxDistance, zoom));
 
 		outEye = at - n * zoom;
