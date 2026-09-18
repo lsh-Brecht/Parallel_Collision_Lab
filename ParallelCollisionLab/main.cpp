@@ -158,10 +158,6 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE, LPSTR, int)
 		{
 			trackball.End();
 		}
-		if (input.WheelDelta != 0)
-		{
-			trackball.ApplyWheelZoom(input.WheelDelta, at, eye);
-		}
 
 		if (input.ResetCamera)
 		{
@@ -357,9 +353,9 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE, LPSTR, int)
 					static std::vector<FVertexSimple> wallGridLines;
 					static std::vector<FVertexSimple> activeCellLines;
 
-					// Subtle background grid on Cornell Box walls and floor
+					// Blueprint grid on Cornell Box walls and floor (vibrant sky/royal blue)
 					gridSolver->GenerateFloorAndWallGridLines(wallGridLines, boxHalfSize);
-					renderer.RenderDynamicLines(wallGridLines, FVector4(0.22f, 0.30f, 0.38f, 0.5f));
+					renderer.RenderDynamicLines(wallGridLines, FVector4(0.0f, 0.0f, 0.0f, 0.0f));
 
 					// Bright cyan wireframe around active occupied cells
 					gridSolver->GenerateActiveCellLines(activeCellLines);

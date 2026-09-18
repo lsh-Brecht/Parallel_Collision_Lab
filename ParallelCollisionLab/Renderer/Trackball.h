@@ -60,19 +60,6 @@ public:
 		}
 	}
 
-	void ApplyWheelZoom(int wheelDelta, const FVector3& at, FVector3& eye)
-	{
-		FVector3 toAt = at - eye;
-		float dist = toAt.Length();
-		if (dist < 0.0001f)
-			return;
-
-		FVector3 n = toAt * (1.0f / dist);
-		float newDist = dist - (float)wheelDelta * 0.002f;
-		newDist = (std::max)(MinDistance, (std::min)(MaxDistance, newDist));
-		eye = at - n * newDist;
-	}
-
 private:
 	void UpdateRotating(const FVector2& m, const FVector3& at, FVector3& outEye, FVector3& outUp)
 	{
@@ -126,7 +113,7 @@ private:
 			return;
 
 		FVector3 n = toAt * (1.0f / dist);
-		float zoom = dist - p1.y * dist * 3.0f;
+		float zoom = dist - p1.y * dist * 1.0f;
 		zoom = (std::max)(MinDistance, (std::min)(MaxDistance, zoom));
 
 		outEye = at - n * zoom;
