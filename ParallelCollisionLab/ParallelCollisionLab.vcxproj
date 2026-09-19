@@ -149,10 +149,21 @@
     </FxCompile>
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="Collision\BVH\AABB.h" />
+    <ClInclude Include="Collision\BVH\BVHNode.h" />
+    <ClInclude Include="Collision\BVH\IBVHVisualizer.h" />
+    <ClInclude Include="Collision\UniformGrid\IUniformGridVisualizer.h" />
+    <ClInclude Include="Collision\UniformGrid\UniformGridMTSolver.h" />
+    <ClInclude Include="Core\AppConfig.h" />
+    <ClInclude Include="Core\AppController.h" />
     <ClInclude Include="Core\Common.h" />
+    <ClInclude Include="Core\SimulationWorld.h" />
     <ClInclude Include="Core\Sphere.h" />
     <ClInclude Include="Core\CPUInfo.h" />
+    <ClInclude Include="Core\Timer.h" />
+    <ClInclude Include="Renderer\HUDTracker.h" />
     <ClInclude Include="Renderer\Renderer.h" />
+    <ClInclude Include="Renderer\SceneRenderer.h" />
     <ClInclude Include="Renderer\TextRenderer.h" />
     <ClInclude Include="Renderer\Trackball.h" />
     <ClInclude Include="Window\Window.h" />
