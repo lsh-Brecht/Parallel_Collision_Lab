@@ -41,6 +41,7 @@ public:
         m_CurrentSolverIdx = 0;
 
         m_Spheres = CreateSpheres(initialSpheres, m_BoxHalfSize);
+        RebuildActiveVisualizer();
     }
 
     double Update(float dt, bool bPaused, int64_t timerFreq)
@@ -71,6 +72,7 @@ public:
     {
         m_Spheres = CreateSpheres(static_cast<int>(m_Spheres.size()), m_BoxHalfSize);
         m_BenchmarkReport.bValid = false;
+        RebuildActiveVisualizer();
     }
 
     void ToggleSphereCount()
@@ -78,6 +80,7 @@ public:
         int count = (m_Spheres.size() == MAX_SPHERES) ? MIN_SPHERES : MAX_SPHERES;
         m_Spheres = CreateSpheres(count, m_BoxHalfSize);
         m_BenchmarkReport.bValid = false;
+        RebuildActiveVisualizer();
     }
 
     void AddSpheres(int delta)
@@ -85,6 +88,7 @@ public:
         int count = (std::min)(static_cast<int>(m_Spheres.size()) + delta, MAX_SPHERES);
         m_Spheres = CreateSpheres(count, m_BoxHalfSize);
         m_BenchmarkReport.bValid = false;
+        RebuildActiveVisualizer();
     }
 
     void SubSpheres(int delta)
@@ -92,6 +96,7 @@ public:
         int count = (std::max)(static_cast<int>(m_Spheres.size()) - delta, MIN_SPHERES);
         m_Spheres = CreateSpheres(count, m_BoxHalfSize);
         m_BenchmarkReport.bValid = false;
+        RebuildActiveVisualizer();
     }
 
     void AdjustThreadCount(int delta)
@@ -109,6 +114,7 @@ public:
         if (idx < m_Solvers.size())
         {
             m_CurrentSolverIdx = idx;
+            RebuildActiveVisualizer();
         }
     }
 
@@ -117,6 +123,20 @@ public:
         if (!m_Solvers.empty())
         {
             m_CurrentSolverIdx = (m_CurrentSolverIdx + 1) % m_Solvers.size();
+            RebuildActiveVisualizer();
+        }
+    }
+
+    void RebuildActiveVisualizer()
+    {
+        ICollisionSolver* activeSolver = GetActiveSolver();
+        if (auto* bvh = dynamic_cast<IBVHVisualizer*>(activeSolver))
+        {
+            bvh->BuildBVH(m_Spheres);
+        }
+        else if (auto* grid = dynamic_cast<IUniformGridVisualizer*>(activeSolver))
+        {
+            grid->BuildGrid(m_Spheres);
         }
     }
 

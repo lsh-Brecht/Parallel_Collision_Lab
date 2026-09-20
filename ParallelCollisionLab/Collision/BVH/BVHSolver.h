@@ -147,6 +147,11 @@ public:
         m_MaxDepth = 0;
 
         BuildSubtree(spheres, 0, count, 0);
+
+        if (m_VisualizerDepth > m_MaxDepth)
+        {
+            m_VisualizerDepth = m_MaxDepth;
+        }
     }
 
     void GenerateVisualizerLineGroups(std::vector<FBVHLineGroup>& outGroups) const override
@@ -179,7 +184,10 @@ public:
         }
     }
 
-    int  GetVisualizerDepth() const override { return m_VisualizerDepth; }
+    int  GetVisualizerDepth() const override
+    {
+        return (std::max)(0, (std::min)(m_VisualizerDepth, m_MaxDepth));
+    }
     int  GetMaxTreeDepth()    const override { return m_MaxDepth; }
     void SetVisualizerDepth(int depth) override
     {
@@ -187,11 +195,25 @@ public:
     }
     void IncrementVisualizerDepth() override
     {
-        if (m_VisualizerDepth < m_MaxDepth) m_VisualizerDepth++;
+        if (m_VisualizerDepth > m_MaxDepth)
+        {
+            m_VisualizerDepth = m_MaxDepth;
+        }
+        else if (m_VisualizerDepth < m_MaxDepth)
+        {
+            m_VisualizerDepth++;
+        }
     }
     void DecrementVisualizerDepth() override
     {
-        if (m_VisualizerDepth > 0) m_VisualizerDepth--;
+        if (m_VisualizerDepth > m_MaxDepth)
+        {
+            m_VisualizerDepth = m_MaxDepth;
+        }
+        if (m_VisualizerDepth > 0)
+        {
+            m_VisualizerDepth--;
+        }
     }
 
     EBVHVisualizerMode GetVisualizerMode() const override { return m_VisualizerMode; }
