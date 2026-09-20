@@ -116,6 +116,18 @@ struct FBenchmarkReport
                 Items[4].Speedup, Items[4].AvgNarrowMs, Items[0].AvgNarrowMs);
             out += bvhNoteBuf;
         }
+        if (Items.size() >= 6 && Items[5].AvgNarrowMs > 1e-6 && Items[4].AvgNarrowMs > 1e-6)
+        {
+            wchar_t bvhMtNoteBuf[256];
+            double bvhMtSpeedup = Items[4].AvgNarrowMs / Items[5].AvgNarrowMs;
+            double bvhMtEff = (bvhMtSpeedup / static_cast<double>(Items[5].ThreadCount)) * 100.0;
+            swprintf_s(bvhMtNoteBuf,
+                L"- BVH MT vs BVH ST Speedup: %.2fx on %d threads (Scaling Efficiency: %.1f%%)\r\n"
+                L"- Overall BVH MT vs Naive ST Speedup: %.2fx (Narrow Phase: %.2f ms vs %.2f ms)\r\n",
+                bvhMtSpeedup, Items[5].ThreadCount, bvhMtEff,
+                Items[5].Speedup, Items[5].AvgNarrowMs, Items[0].AvgNarrowMs);
+            out += bvhMtNoteBuf;
+        }
         out += L"================================================================================\r\n";
 
         return out;
