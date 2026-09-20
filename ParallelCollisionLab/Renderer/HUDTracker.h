@@ -79,7 +79,6 @@ public:
             m_ResolveAccumMs = 0.0;
         }
 
-        // Bottom HUD updates dynamically every frame for instant hotkey feedback
         swprintf_s(m_HudBottomText,
                    L"Candidate Pairs : %s | Collisions: %s | Threads: %d (Hotkeys: [ / ])\n"
                    L"[1] Naive ST  [2] Naive MT  [3] Grid ST  [4] Grid MT  [B] Benchmark  [G] Grid: %s  (Tab: Cycle)",

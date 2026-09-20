@@ -46,7 +46,6 @@ public:
     virtual void               CycleVisualizerMode() = 0;
     virtual const wchar_t*     GetVisualizerModeName() const = 0;
 
-    // Helper: Appends 12 edges (24 vertices) of an AABB to a line vertex buffer
     static void AppendAABBWireframe(std::vector<FVertexSimple>& lines, const FAABB& aabb)
     {
         const float x0 = aabb.Min.x, y0 = aabb.Min.y, z0 = aabb.Min.z;
@@ -61,39 +60,35 @@ public:
         FVertexSimple v6 = { x1, y1, z1 };
         FVertexSimple v7 = { x0, y1, z1 };
 
-        // Bottom 4 edges (z0)
         lines.push_back(v0); lines.push_back(v1);
         lines.push_back(v1); lines.push_back(v2);
         lines.push_back(v2); lines.push_back(v3);
         lines.push_back(v3); lines.push_back(v0);
 
-        // Top 4 edges (z1)
         lines.push_back(v4); lines.push_back(v5);
         lines.push_back(v5); lines.push_back(v6);
         lines.push_back(v6); lines.push_back(v7);
         lines.push_back(v7); lines.push_back(v4);
 
-        // Vertical 4 edges
         lines.push_back(v0); lines.push_back(v4);
         lines.push_back(v1); lines.push_back(v5);
         lines.push_back(v2); lines.push_back(v6);
         lines.push_back(v3); lines.push_back(v7);
     }
 
-    // Helper: Vibrant depth color palette (Red -> Orange -> Yellow -> Green -> Cyan -> Blue -> Purple)
     static FVector4 GetDepthColor(int depth)
     {
         static const FVector4 PALETTE[] = {
-            FVector4(1.00f, 0.25f, 0.25f, 1.0f), // Depth 0: Coral Red (Root)
-            FVector4(1.00f, 0.55f, 0.05f, 1.0f), // Depth 1: Amber Orange
-            FVector4(1.00f, 0.88f, 0.10f, 1.0f), // Depth 2: Bright Yellow
-            FVector4(0.65f, 0.95f, 0.15f, 1.0f), // Depth 3: Lime Chartreuse
-            FVector4(0.15f, 0.95f, 0.35f, 1.0f), // Depth 4: Spring Green
-            FVector4(0.10f, 0.88f, 0.95f, 1.0f), // Depth 5: Aqua Cyan
-            FVector4(0.25f, 0.60f, 1.00f, 1.0f), // Depth 6: Sky Blue
-            FVector4(0.40f, 0.35f, 1.00f, 1.0f), // Depth 7: Royal Blue
-            FVector4(0.75f, 0.25f, 0.95f, 1.0f), // Depth 8: Violet Purple
-            FVector4(0.95f, 0.20f, 0.65f, 1.0f)  // Depth 9+: Magenta
+            FVector4(1.00f, 0.25f, 0.25f, 1.0f),
+            FVector4(1.00f, 0.55f, 0.05f, 1.0f),
+            FVector4(1.00f, 0.88f, 0.10f, 1.0f),
+            FVector4(0.65f, 0.95f, 0.15f, 1.0f),
+            FVector4(0.15f, 0.95f, 0.35f, 1.0f),
+            FVector4(0.10f, 0.88f, 0.95f, 1.0f),
+            FVector4(0.25f, 0.60f, 1.00f, 1.0f),
+            FVector4(0.40f, 0.35f, 1.00f, 1.0f),
+            FVector4(0.75f, 0.25f, 0.95f, 1.0f),
+            FVector4(0.95f, 0.20f, 0.65f, 1.0f)
         };
         const int count = sizeof(PALETTE) / sizeof(PALETTE[0]);
         return PALETTE[depth % count];

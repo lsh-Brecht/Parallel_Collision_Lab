@@ -43,18 +43,15 @@ public:
 
         renderer.BeginFrame(viewProj);
 
-        // 1. Draw Cornell Box Walls
         renderer.RenderSphere(FMatrix4x4::Identity(), Config::WALL_LEFT_COLOR, m_LeftWallVB, 6);
         renderer.RenderSphere(FMatrix4x4::Identity(), Config::WALL_RIGHT_COLOR, m_RightWallVB, 6);
         renderer.RenderSphere(FMatrix4x4::Identity(), Config::WALL_OTHER_COLOR, m_OtherWallsVB, 24);
 
-        // 2. Draw Spheres
         for (const FSphere& s : world.GetSpheres())
         {
             renderer.RenderSphere(s.GetModelMatrix(), s.Color, m_SphereVB, m_SphereVCount);
         }
 
-        // 3. Draw 3D Uniform Grid Lines (if enabled)
         if (bShowGridVis)
         {
             RenderGridVisualization(renderer, world);

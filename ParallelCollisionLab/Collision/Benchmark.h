@@ -130,7 +130,6 @@ inline FBenchmarkReport RunBenchmark(
         return report;
     }
 
-    // Adaptive sample count: 100 for smaller ball counts, 50 for large ball counts
     report.WarmupRuns = 10;
     report.SampleRuns = (report.BallCount <= 256) ? 100 : 50;
 
@@ -141,7 +140,6 @@ inline FBenchmarkReport RunBenchmark(
         ICollisionSolver* solver = solvers[s].get();
         if (!solver) continue;
 
-        // 1. Warm-up runs (prime CPU caches, trigger turbo boost)
         std::vector<FSphere> testSpheres = baseSpheres;
         for (int w = 0; w < report.WarmupRuns; ++w)
         {
@@ -153,7 +151,6 @@ inline FBenchmarkReport RunBenchmark(
             solver->Solve(testSpheres);
         }
 
-        // 2. Reset spheres to identical initial state for measurement
         testSpheres = baseSpheres;
 
         double totalNarrowMs = 0.0;
@@ -205,7 +202,6 @@ inline FBenchmarkReport RunBenchmark(
 
     report.bValid = true;
 
-    // Build formatted summary text
     wchar_t buf[2048];
     int offset = swprintf_s(buf,
         L"=== BENCHMARK (%d Balls, %d Runs) ===\n",
@@ -231,7 +227,6 @@ inline FBenchmarkReport RunBenchmark(
 
     report.DisplayText = buf;
 
-    // Also output to debugger / console for easy clipboard copying
     OutputDebugStringW(L"\n============================================================\n");
     OutputDebugStringW(report.DisplayText.c_str());
     OutputDebugStringW(L"\n============================================================\n\n");

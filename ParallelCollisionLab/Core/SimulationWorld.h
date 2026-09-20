@@ -65,7 +65,6 @@ public:
         return FTimer::GetElapsedMs(t0, t1, timerFreq);
     }
 
-    // Sphere count operations
     void ResetSpheres()
     {
         m_Spheres = CreateSpheres(static_cast<int>(m_Spheres.size()), m_BoxHalfSize);
@@ -93,7 +92,6 @@ public:
         m_BenchmarkReport.bValid = false;
     }
 
-    // Thread count adjustment
     void AdjustThreadCount(int delta)
     {
         m_ConfiguredThreads = (std::max)(1, (std::min)(64, m_ConfiguredThreads + delta));
@@ -104,7 +102,6 @@ public:
         m_BenchmarkReport.bValid = false;
     }
 
-    // Solver selection
     void SelectSolver(size_t idx)
     {
         if (idx < m_Solvers.size())
@@ -121,14 +118,12 @@ public:
         }
     }
 
-    // Benchmark
     FBenchmarkReport RunBenchmarkSuite()
     {
         m_BenchmarkReport = RunBenchmark(m_Solvers, m_Spheres, m_BoxHalfSize);
         return m_BenchmarkReport;
     }
 
-    // Getters
     const std::vector<FSphere>& GetSpheres() const { return m_Spheres; }
     std::vector<FSphere>&       GetSpheres()       { return m_Spheres; }
     int                         GetSphereCount() const { return static_cast<int>(m_Spheres.size()); }

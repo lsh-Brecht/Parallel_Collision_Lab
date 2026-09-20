@@ -26,12 +26,10 @@ public:
 
         LARGE_INTEGER t0, t1, t2, t3;
 
-        // Broad Phase
         QueryPerformanceCounter(&t0);
         m_Stats.CandidatePairCount = static_cast<uint64_t>(count) * (count - 1) / 2;
         QueryPerformanceCounter(&t1);
 
-        // Narrow Phase
         m_Manifolds.clear();
         for (int i = 0; i < count; ++i)
         {
@@ -55,7 +53,6 @@ public:
         m_Stats.ActualCollisionCount = static_cast<uint64_t>(m_Manifolds.size());
         QueryPerformanceCounter(&t2);
 
-        // Resolution
         ResolveCollisions(spheres, m_Manifolds);
         QueryPerformanceCounter(&t3);
 

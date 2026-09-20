@@ -64,7 +64,6 @@ public:
         m_CompletedCount = 0;
         m_Workers.clear();
 
-        // Spawn background worker threads (main thread acts as worker 0)
         for (int t = 1; t < m_ThreadCount; ++t)
         {
             m_Workers.emplace_back(&UniformGridMTSolver::WorkerLoop, this, t);
@@ -105,7 +104,6 @@ public:
 
         const float boxW = m_BoxHalfSize * 2.0f;
 
-        // Target cell size >= 2 * maxRadius
         float targetCellSize = maxRadius * 2.0f;
         if (targetCellSize < 0.05f) targetCellSize = 0.05f;
 
@@ -117,7 +115,6 @@ public:
         m_DimY = dim;
         m_DimZ = dim;
 
-        // Exact uniform cell size so dim * m_CellSize == boxW with zero remainder
         m_CellSize = boxW / static_cast<float>(dim);
 
         m_MinX = -m_BoxHalfSize;
@@ -133,7 +130,6 @@ public:
         }
         else
         {
-            // O(active) fast clear of modified cells only
             for (int c : m_ActiveCells)
             {
                 m_CellHead[c] = -1;
@@ -148,7 +144,6 @@ public:
 
         const float invCell = 1.0f / m_CellSize;
 
-        // Insert spheres into grid
         for (int i = 0; i < count; ++i)
         {
             int cx = static_cast<int>((spheres[i].Center.x - m_MinX) * invCell);
@@ -177,12 +172,10 @@ public:
 
         LARGE_INTEGER t0, t1, t2, t3;
 
-        // 1. Broad Phase: Grid Setup & Sphere Hashing
         QueryPerformanceCounter(&t0);
         BuildGrid(spheres);
         QueryPerformanceCounter(&t1);
 
-        // 2. Narrow Phase: Multi-threaded interleaved cell traversal
         m_CurrentSpheres = &spheres;
         for (auto& vec : m_ThreadManifolds)
         {
@@ -202,10 +195,8 @@ public:
             }
             m_CvStart.notify_all();
 
-            // Main thread processes thread 0's interleaved slice
             DoNarrowPhaseChunk(0);
 
-            // Wait for all background workers
             {
                 std::unique_lock<std::mutex> lock(m_Mutex);
                 m_CvDone.wait(lock, [&]() {
@@ -214,7 +205,6 @@ public:
             }
         }
 
-        // Merge manifolds and candidate pairs from all threads
         size_t totalManifolds = 0;
         uint64_t totalCandidates = 0;
         for (int t = 0; t < m_ThreadCount; ++t)
@@ -234,7 +224,6 @@ public:
         m_Stats.ActualCollisionCount = static_cast<uint64_t>(m_Manifolds.size());
         QueryPerformanceCounter(&t2);
 
-        // 3. Resolution Phase
         ResolveCollisions(spheres, m_Manifolds);
         QueryPerformanceCounter(&t3);
 
@@ -275,19 +264,16 @@ public:
             FVertexSimple v6 = { x1, y1, z1 };
             FVertexSimple v7 = { x0, y1, z1 };
 
-            // Bottom 4 edges
             outLines.push_back(v0); outLines.push_back(v1);
             outLines.push_back(v1); outLines.push_back(v2);
             outLines.push_back(v2); outLines.push_back(v3);
             outLines.push_back(v3); outLines.push_back(v0);
 
-            // Top 4 edges
             outLines.push_back(v4); outLines.push_back(v5);
             outLines.push_back(v5); outLines.push_back(v6);
             outLines.push_back(v6); outLines.push_back(v7);
             outLines.push_back(v7); outLines.push_back(v4);
 
-            // Vertical 4 edges
             outLines.push_back(v0); outLines.push_back(v4);
             outLines.push_back(v1); outLines.push_back(v5);
             outLines.push_back(v2); outLines.push_back(v6);
@@ -300,12 +286,10 @@ public:
         outLines.clear();
         if (m_CellSize <= 0.001f || m_DimX < 1) return;
 
-        // Slight offset inward to completely eliminate Z-fighting against wall surfaces
         const float eps = 0.002f;
         const float floorY = -L + eps;
         const float backZ  =  L - eps;
 
-        // Floor grid (y = -L)
         for (int i = 0; i <= m_DimX; ++i)
         {
             float x = -L + static_cast<float>(i) * m_CellSize;
@@ -378,10 +362,8 @@ private:
 
         struct FOffset { int x, y, z; };
         static const FOffset FORWARD_NEIGHBORS[13] = {
-            // dz = 0
             { +1,  0,  0 },
             { -1, +1,  0 }, {  0, +1,  0 }, { +1, +1,  0 },
-            // dz = +1
             { -1, -1, +1 }, {  0, -1, +1 }, { +1, -1, +1 },
             { -1,  0, +1 }, {  0,  0, +1 }, { +1,  0, +1 },
             { -1, +1, +1 }, {  0, +1, +1 }, { +1, +1, +1 }
@@ -392,7 +374,6 @@ private:
         std::vector<FCollisionManifold>& localManifolds = m_ThreadManifolds[threadIdx];
         uint64_t candidatePairs = 0;
 
-        // Interleaved striding across active cells: threadIdx, threadIdx + T, threadIdx + 2T...
         for (size_t idx = static_cast<size_t>(threadIdx); idx < numActive; idx += static_cast<size_t>(m_ThreadCount))
         {
             int cellID = m_ActiveCells[idx];
@@ -402,7 +383,6 @@ private:
             int cy  = rem / m_DimX;
             int cx  = rem % m_DimX;
 
-            // A. Pairs within the same cell (i < j)
             for (int i = m_CellHead[cellID]; i != -1; i = m_SphereNext[i])
             {
                 const FVector3 posA = spheres[i].Center;
@@ -424,7 +404,6 @@ private:
                 }
             }
 
-            // B. Pairs with 13 forward neighbor cells
             for (const auto& offset : FORWARD_NEIGHBORS)
             {
                 int nx = cx + offset.x;
@@ -439,7 +418,7 @@ private:
                 int nCellID = nx + m_DimX * (ny + m_DimY * nz);
                 if (m_CellHead[nCellID] == -1)
                 {
-                    continue; // Skip empty neighbor cells instantly
+                    continue;
                 }
 
                 for (int i = m_CellHead[cellID]; i != -1; i = m_SphereNext[i])
@@ -474,7 +453,6 @@ private:
     FCollisionStats                 m_Stats       = {};
     std::vector<FCollisionManifold> m_Manifolds;
 
-    // Grid parameters
     float m_BoxHalfSize = 2.0f;
     float m_MinX        = -2.0f;
     float m_MinY        = -2.0f;
@@ -484,12 +462,10 @@ private:
     int   m_DimY        = 1;
     int   m_DimZ        = 1;
 
-    // Head-Next linked list grid
     std::vector<int> m_CellHead;
     std::vector<int> m_SphereNext;
     std::vector<int> m_ActiveCells;
 
-    // Multi-threading state
     std::vector<std::vector<FCollisionManifold>> m_ThreadManifolds;
     std::vector<uint64_t>                        m_ThreadCandidates;
     const std::vector<FSphere>*                  m_CurrentSpheres = nullptr;

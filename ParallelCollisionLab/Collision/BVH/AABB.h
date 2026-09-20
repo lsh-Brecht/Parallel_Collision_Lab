@@ -96,9 +96,9 @@ struct FAABB
     int GetLongestAxis() const
     {
         FVector3 d = GetExtent();
-        if (d.x >= d.y && d.x >= d.z) return 0; // X
-        if (d.y >= d.z)               return 1; // Y
-        return 2;                               // Z
+        if (d.x >= d.y && d.x >= d.z) return 0;
+        if (d.y >= d.z)               return 1;
+        return 2;
     }
 
     bool IsValid() const

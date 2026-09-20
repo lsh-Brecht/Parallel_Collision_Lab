@@ -44,16 +44,13 @@ public:
 
         LARGE_INTEGER t0, t1, t2, t3;
 
-        // 1. Broad Phase: Build BVH tree
         QueryPerformanceCounter(&t0);
         BuildBVH(spheres);
         QueryPerformanceCounter(&t1);
 
-        // 2. Narrow Phase: Stack-based query-against-tree
         m_Manifolds.clear();
         uint64_t candidatePairs = 0;
 
-        // Local static stack for tree traversal (max depth <= 16, stack of 64 is plenty)
         int stack[64];
 
         for (int i = 0; i < count; ++i)
@@ -63,7 +60,7 @@ public:
             const FAABB&   boxA = m_SphereBounds[i];
 
             int stackPtr = 0;
-            stack[stackPtr++] = 0; // Root node
+            stack[stackPtr++] = 0;
 
             while (stackPtr > 0)
             {
@@ -72,13 +69,12 @@ public:
 
                 if (!boxA.Intersects(node.Bounds))
                 {
-                    continue; // Prune non-overlapping subtree
+                    continue;
                 }
 
                 if (node.IsLeaf())
                 {
                     int j = node.GetSphereIndex();
-                    // Guarantee strictly unique pairs and avoid self-collision
                     if (i < j)
                     {
                         candidatePairs++;
@@ -96,7 +92,6 @@ public:
                 }
                 else
                 {
-                    // Push children onto traversal stack
                     stack[stackPtr++] = node.RightChild;
                     stack[stackPtr++] = node.LeftChild;
                 }
@@ -107,7 +102,6 @@ public:
         m_Stats.ActualCollisionCount = static_cast<uint64_t>(m_Manifolds.size());
         QueryPerformanceCounter(&t2);
 
-        // 3. Resolution Phase
         ResolveCollisions(spheres, m_Manifolds);
         QueryPerformanceCounter(&t3);
 
@@ -140,7 +134,6 @@ public:
             return;
         }
 
-        // 1. Prepare indices and sphere bounding boxes
         m_SphereIndices.resize(count);
         m_SphereBounds.resize(count);
         for (int i = 0; i < count; ++i)
@@ -149,12 +142,10 @@ public:
             m_SphereBounds[i]  = FAABB::FromSphere(spheres[i].Center, spheres[i].Radius);
         }
 
-        // 2. Pre-allocate contiguous flat node vector (2N - 1 max nodes)
         m_Nodes.clear();
         m_Nodes.reserve(count * 2);
         m_MaxDepth = 0;
 
-        // 3. Recursive top-down median split
         BuildSubtree(spheres, 0, count, 0);
     }
 
@@ -233,18 +224,16 @@ private:
         m_MaxDepth = (std::max)(m_MaxDepth, currentDepth);
 
         const int nodeIdx = static_cast<int>(m_Nodes.size());
-        m_Nodes.emplace_back(); // Allocate node in contiguous array
+        m_Nodes.emplace_back();
 
         const int count = end - start;
         if (count == 1)
         {
-            // Leaf node: stores direct sphere index
             int sIdx = m_SphereIndices[start];
             m_Nodes[nodeIdx].SetLeaf(sIdx, m_SphereBounds[sIdx]);
             return nodeIdx;
         }
 
-        // Calculate centroid bounds and total envelope bounds
         FAABB centroidBounds;
         FAABB totalBounds;
         for (int i = start; i < end; ++i)
@@ -257,7 +246,6 @@ private:
         const int axis = centroidBounds.GetLongestAxis();
         const int mid  = start + count / 2;
 
-        // O(count) median partitioning using std::nth_element
         std::nth_element(
             m_SphereIndices.begin() + start,
             m_SphereIndices.begin() + mid,
@@ -271,11 +259,9 @@ private:
             }
         );
 
-        // Recursively build children subtrees
         int leftChild  = BuildSubtree(spheres, start, mid, currentDepth + 1);
         int rightChild = BuildSubtree(spheres, mid, end, currentDepth + 1);
 
-        // Internal node: store child indices and unified bounding box
         m_Nodes[nodeIdx].SetInternal(leftChild, rightChild, totalBounds);
         return nodeIdx;
     }
@@ -330,13 +316,11 @@ private:
     FCollisionStats                 m_Stats            = {};
     std::vector<FCollisionManifold> m_Manifolds;
 
-    // Contiguous Flat BVH Array
     std::vector<FBVHNode>           m_Nodes;
     std::vector<int>                m_SphereIndices;
     std::vector<FAABB>              m_SphereBounds;
     int                             m_MaxDepth         = 0;
 
-    // Visualizer State
-    int                             m_VisualizerDepth  = 3; // Default visible depth level
+    int                             m_VisualizerDepth  = 3;
     EBVHVisualizerMode              m_VisualizerMode   = EBVHVisualizerMode::LOD;
 };

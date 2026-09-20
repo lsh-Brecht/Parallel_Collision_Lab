@@ -42,12 +42,9 @@ public:
 
         const float boxW = m_BoxHalfSize * 2.0f;
 
-        // Target cell size >= 2 * maxRadius
         float targetCellSize = maxRadius * 2.0f;
         if (targetCellSize < 0.05f) targetCellSize = 0.05f;
 
-        // Fit integer number of cells into boxW
-        // Since dim <= boxW / targetCellSize, cellSize = boxW / dim >= targetCellSize
         int dim = static_cast<int>(floorf(boxW / targetCellSize));
         if (dim < 1)  dim = 1;
         if (dim > 64) dim = 64;
@@ -56,7 +53,6 @@ public:
         m_DimY = dim;
         m_DimZ = dim;
 
-        // Exact uniform cell size so dim * m_CellSize == boxW with zero remainder
         m_CellSize = boxW / static_cast<float>(dim);
 
         m_MinX = -m_BoxHalfSize;
@@ -72,7 +68,6 @@ public:
         }
         else
         {
-            // O(active) fast clear of modified cells only
             for (int c : m_ActiveCells)
             {
                 m_CellHead[c] = -1;
@@ -87,7 +82,6 @@ public:
 
         const float invCell = 1.0f / m_CellSize;
 
-        // Insert spheres into grid
         for (int i = 0; i < count; ++i)
         {
             int cx = static_cast<int>((spheres[i].Center.x - m_MinX) * invCell);
@@ -116,22 +110,17 @@ public:
 
         LARGE_INTEGER t0, t1, t2, t3;
 
-        // 1. Broad Phase: Grid Setup & Sphere Hashing
         QueryPerformanceCounter(&t0);
         BuildGrid(spheres);
         QueryPerformanceCounter(&t1);
 
-        // 2. Narrow Phase: Same-cell & 13 Forward Neighbors collision test
         m_Manifolds.clear();
         uint64_t candidatePairs = 0;
 
-        // 13 lexicographically positive neighbor offsets (dz >= 0)
         struct FOffset { int x, y, z; };
         static const FOffset FORWARD_NEIGHBORS[13] = {
-            // dz = 0
             { +1,  0,  0 },
             { -1, +1,  0 }, {  0, +1,  0 }, { +1, +1,  0 },
-            // dz = +1
             { -1, -1, +1 }, {  0, -1, +1 }, { +1, -1, +1 },
             { -1,  0, +1 }, {  0,  0, +1 }, { +1,  0, +1 },
             { -1, +1, +1 }, {  0, +1, +1 }, { +1, +1, +1 }
@@ -146,7 +135,6 @@ public:
             int cy  = rem / m_DimX;
             int cx  = rem % m_DimX;
 
-            // A. Pairs within the same cell (i < j)
             for (int i = m_CellHead[cellID]; i != -1; i = m_SphereNext[i])
             {
                 const FVector3 posA = spheres[i].Center;
@@ -168,7 +156,6 @@ public:
                 }
             }
 
-            // B. Pairs with forward neighbor cells
             for (const auto& offset : FORWARD_NEIGHBORS)
             {
                 int nx = cx + offset.x;
@@ -183,7 +170,7 @@ public:
                 int nCellID = nx + m_DimX * (ny + m_DimY * nz);
                 if (m_CellHead[nCellID] == -1)
                 {
-                    continue; // Skip empty neighbor cells instantly
+                    continue;
                 }
 
                 for (int i = m_CellHead[cellID]; i != -1; i = m_SphereNext[i])
@@ -213,7 +200,6 @@ public:
         m_Stats.ActualCollisionCount = static_cast<uint64_t>(m_Manifolds.size());
         QueryPerformanceCounter(&t2);
 
-        // 3. Resolution Phase
         ResolveCollisions(spheres, m_Manifolds);
         QueryPerformanceCounter(&t3);
 
@@ -254,19 +240,16 @@ public:
             FVertexSimple v6 = { x1, y1, z1 };
             FVertexSimple v7 = { x0, y1, z1 };
 
-            // Bottom 4 edges
             outLines.push_back(v0); outLines.push_back(v1);
             outLines.push_back(v1); outLines.push_back(v2);
             outLines.push_back(v2); outLines.push_back(v3);
             outLines.push_back(v3); outLines.push_back(v0);
 
-            // Top 4 edges
             outLines.push_back(v4); outLines.push_back(v5);
             outLines.push_back(v5); outLines.push_back(v6);
             outLines.push_back(v6); outLines.push_back(v7);
             outLines.push_back(v7); outLines.push_back(v4);
 
-            // Vertical 4 edges
             outLines.push_back(v0); outLines.push_back(v4);
             outLines.push_back(v1); outLines.push_back(v5);
             outLines.push_back(v2); outLines.push_back(v6);
@@ -279,20 +262,16 @@ public:
         outLines.clear();
         if (m_CellSize <= 0.001f || m_DimX < 1) return;
 
-        // Slight offset inward to completely eliminate Z-fighting against wall surfaces
         const float eps = 0.005f;
         const float floorY = -L + eps;
         const float backZ  =  L - eps;
 
-        // Floor grid (y = -L)
-        // Lines along X (from z = -L to +L)
         for (int i = 0; i <= m_DimX; ++i)
         {
             float x = -L + static_cast<float>(i) * m_CellSize;
             outLines.push_back({ x, floorY, -L });
             outLines.push_back({ x, floorY,  L });
         }
-        // Lines along Z (from x = -L to +L)
         for (int k = 0; k <= m_DimZ; ++k)
         {
             float z = -L + static_cast<float>(k) * m_CellSize;
@@ -300,15 +279,12 @@ public:
             outLines.push_back({  L, floorY, z });
         }
 
-        // Back wall grid (z = L)
-        // Vertical lines (from y = -L to +L)
         for (int i = 0; i <= m_DimX; ++i)
         {
             float x = -L + static_cast<float>(i) * m_CellSize;
             outLines.push_back({ x, -L, backZ });
             outLines.push_back({ x,  L, backZ });
         }
-        // Horizontal lines (from x = -L to +L)
         for (int j = 0; j <= m_DimY; ++j)
         {
             float y = -L + static_cast<float>(j) * m_CellSize;
@@ -335,7 +311,6 @@ private:
     FCollisionStats                 m_Stats       = {};
     std::vector<FCollisionManifold> m_Manifolds;
 
-    // Grid domain & cell parameters
     float m_BoxHalfSize = 2.0f;
     float m_MinX        = -2.0f;
     float m_MinY        = -2.0f;
@@ -345,8 +320,7 @@ private:
     int   m_DimY        = 1;
     int   m_DimZ        = 1;
 
-    // Head-Next linked list grid
-    std::vector<int> m_CellHead;    // size: dimX * dimY * dimZ
-    std::vector<int> m_SphereNext;  // size: count
-    std::vector<int> m_ActiveCells; // non-empty cell indices
+    std::vector<int> m_CellHead;
+    std::vector<int> m_SphereNext;
+    std::vector<int> m_ActiveCells;
 };

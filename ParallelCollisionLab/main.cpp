@@ -51,14 +51,11 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE, LPSTR, int)
 			textRenderer.CreateRenderTarget(renderer.SwapChain);
 		}
 
-		// 1. Process User Inputs
 		controller.ProcessInput(input, world, window, renderer, textRenderer, cpuInfo);
 
-		// 2. Physics & Collision Simulation
 		float dt = timer.Tick();
 		double updateMs = world.Update(dt, controller.IsPaused(), timer.GetFrequency());
 
-		// 3. Performance Profiler & HUD Statistics
 		hudTracker.Update(dt, updateMs, sceneRenderer.GetLastRenderTimeMs(),
 		                  world.GetActiveSolver()->GetLastStats(),
 		                  world.GetSphereCount(),
@@ -66,7 +63,6 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE, LPSTR, int)
 		                  world.GetThreadCount(),
 		                  controller.IsGridVisEnabled());
 
-		// 4. Render Scene
 		if (!window.IsMinimized())
 		{
 			FMatrix4x4 viewProj = controller.GetViewProj(window.GetAspectRatio());
@@ -80,7 +76,6 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE, LPSTR, int)
 		}
 	}
 
-	// Cleanup
 	sceneRenderer.Shutdown(renderer);
 	textRenderer.Shutdown();
 	renderer.Shutdown();

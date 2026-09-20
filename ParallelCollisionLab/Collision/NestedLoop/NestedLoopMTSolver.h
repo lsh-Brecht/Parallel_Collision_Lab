@@ -89,12 +89,10 @@ public:
 
         LARGE_INTEGER t0, t1, t2, t3;
 
-        // Broad Phase
         QueryPerformanceCounter(&t0);
         m_Stats.CandidatePairCount = static_cast<uint64_t>(count) * (count - 1) / 2;
         QueryPerformanceCounter(&t1);
 
-        // Narrow Phase
         m_CurrentSpheres = &spheres;
         for (auto& vec : m_ThreadManifolds)
         {
@@ -114,10 +112,8 @@ public:
             }
             m_CvStart.notify_all();
 
-            // Main thread processes chunk 0
             DoNarrowPhaseChunk(0);
 
-            // Wait for all background workers to finish
             {
                 std::unique_lock<std::mutex> lock(m_Mutex);
                 m_CvDone.wait(lock, [&]() {
@@ -126,7 +122,6 @@ public:
             }
         }
 
-        // Merge manifolds from all threads
         size_t totalManifolds = 0;
         for (int t = 0; t < m_ThreadCount; ++t)
         {
@@ -141,7 +136,6 @@ public:
         m_Stats.ActualCollisionCount = static_cast<uint64_t>(m_Manifolds.size());
         QueryPerformanceCounter(&t2);
 
-        // Resolution
         ResolveCollisions(spheres, m_Manifolds);
         QueryPerformanceCounter(&t3);
 
