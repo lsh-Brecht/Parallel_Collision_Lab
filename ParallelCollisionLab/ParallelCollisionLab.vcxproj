@@ -152,6 +152,7 @@
     <ClInclude Include="Collision\BVH\AABB.h" />
     <ClInclude Include="Collision\BVH\BVHNode.h" />
     <ClInclude Include="Collision\BVH\IBVHVisualizer.h" />
+    <ClInclude Include="Collision\BVH\BVHSolver.h" />
     <ClInclude Include="Collision\UniformGrid\IUniformGridVisualizer.h" />
     <ClInclude Include="Collision\UniformGrid\UniformGridMTSolver.h" />
     <ClInclude Include="Core\AppConfig.h" />

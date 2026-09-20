@@ -22,6 +22,10 @@ struct FInputState
 	bool DecThread;
 	bool IncThread;
 
+	bool IncBvhDepth;
+	bool DecBvhDepth;
+	bool CycleBvhMode;
+
 	int  SelectSolver;
 	bool CycleSolver;
 

@@ -108,6 +108,14 @@ struct FBenchmarkReport
                 gridMtSpeedup, Items[3].ThreadCount, gridMtEff, Items[3].Speedup);
             out += gridNoteBuf;
         }
+        if (Items.size() >= 5 && Items[4].AvgNarrowMs > 1e-6)
+        {
+            wchar_t bvhNoteBuf[256];
+            swprintf_s(bvhNoteBuf,
+                L"- BVH (ST) vs Naive ST Speedup: %.2fx (Narrow Phase: %.2f ms vs %.2f ms)\r\n",
+                Items[4].Speedup, Items[4].AvgNarrowMs, Items[0].AvgNarrowMs);
+            out += bvhNoteBuf;
+        }
         out += L"================================================================================\r\n";
 
         return out;

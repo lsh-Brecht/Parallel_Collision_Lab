@@ -15,6 +15,7 @@
 #include "../Collision/NestedLoop/NestedLoopMTSolver.h"
 #include "../Collision/UniformGrid/UniformGridSolver.h"
 #include "../Collision/UniformGrid/UniformGridMTSolver.h"
+#include "../Collision/BVH/BVHSolver.h"
 #include "../Collision/Benchmark.h"
 
 //=============================================================================
@@ -36,6 +37,7 @@ public:
         m_Solvers.push_back(std::make_unique<NestedLoopMTSolver>(m_ConfiguredThreads));
         m_Solvers.push_back(std::make_unique<UniformGridSolver>(m_BoxHalfSize));
         m_Solvers.push_back(std::make_unique<UniformGridMTSolver>(m_ConfiguredThreads, m_BoxHalfSize));
+        m_Solvers.push_back(std::make_unique<BVHSolver>());
         m_CurrentSolverIdx = 0;
 
         m_Spheres = CreateSpheres(initialSpheres, m_BoxHalfSize);

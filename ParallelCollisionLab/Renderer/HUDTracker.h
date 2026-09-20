@@ -6,6 +6,7 @@
 #include "../Core/CPUInfo.h"
 #include "../Core/AppConfig.h"
 #include "../Collision/ICollisionSolver.h"
+#include "../Collision/BVH/IBVHVisualizer.h"
 
 //=============================================================================
 // FHUDTracker - Real-time performance statistics accumulator & HUD renderer
@@ -79,20 +80,35 @@ public:
             m_ResolveAccumMs = 0.0;
         }
 
-        swprintf_s(m_HudBottomText,
-                   L"Candidate Pairs : %s | Collisions: %s | Threads: %d (Hotkeys: [ / ])\n"
-                   L"[1] Naive ST  [2] Naive MT  [3] Grid ST  [4] Grid MT  [B] Benchmark  [G] Grid: %s  (Tab: Cycle)",
-                   m_CachedCandidates.c_str(),
-                   m_CachedCollisions.c_str(),
-                   configuredThreads,
-                   bShowGridVis ? L"ON" : L"OFF");
+        const IBVHVisualizer* bvhVis = dynamic_cast<const IBVHVisualizer*>(activeSolver);
+        if (bvhVis && bShowGridVis)
+        {
+            swprintf_s(m_HudBottomText,
+                       L"Candidate Pairs : %s | Collisions: %s | BVH Depth: %d/%d (PgUp/PgDn) | Mode: %s (V)\n"
+                       L"[1] Naive ST  [2] Naive MT  [3] Grid ST  [4] Grid MT  [5] BVH ST  [B] Bench  [G] Vis: ON  (Tab: Cycle)",
+                       m_CachedCandidates.c_str(),
+                       m_CachedCollisions.c_str(),
+                       bvhVis->GetVisualizerDepth(),
+                       bvhVis->GetMaxTreeDepth(),
+                       bvhVis->GetVisualizerModeName());
+        }
+        else
+        {
+            swprintf_s(m_HudBottomText,
+                       L"Candidate Pairs : %s | Collisions: %s | Threads: %d (Hotkeys: [ / ])\n"
+                       L"[1] Naive ST  [2] Naive MT  [3] Grid ST  [4] Grid MT  [5] BVH ST  [B] Benchmark  [G] Grid: %s  (Tab: Cycle)",
+                       m_CachedCandidates.c_str(),
+                       m_CachedCollisions.c_str(),
+                       configuredThreads,
+                       bShowGridVis ? L"ON" : L"OFF");
+        }
     }
 
     void Draw(FTextRenderer& textRenderer, int clientW, int clientH)
     {
         float bottomY = static_cast<float>(clientH) - 55.0f;
         textRenderer.DrawTextOverlay(m_HudTopText, 10.0f, 10.0f, 700.0f, 220.0f);
-        textRenderer.DrawTextOverlay(m_HudBottomText, 10.0f, bottomY, 850.0f, 50.0f);
+        textRenderer.DrawTextOverlay(m_HudBottomText, 10.0f, bottomY, 920.0f, 50.0f);
     }
 
 private:
@@ -122,5 +138,5 @@ private:
     std::wstring m_CachedCollisions = L"0";
 
     wchar_t      m_HudTopText[512]    = {};
-    wchar_t      m_HudBottomText[256] = {};
+    wchar_t      m_HudBottomText[512] = {};
 };

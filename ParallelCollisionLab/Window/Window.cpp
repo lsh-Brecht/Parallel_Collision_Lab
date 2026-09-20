@@ -173,6 +173,12 @@ bool FWindow::PumpMessages(FInputState& outInput)
 				outInput.SelectSolver = 3;
 				break;
 
+			case '5':
+			case VK_NUMPAD5:
+			case VK_F5:
+				outInput.SelectSolver = 4;
+				break;
+
 			case VK_TAB:
 				outInput.CycleSolver = true;
 				break;
@@ -183,6 +189,18 @@ bool FWindow::PumpMessages(FInputState& outInput)
 
 			case 'G':
 				outInput.ToggleGridVis = true;
+				break;
+
+			case 'V':
+				outInput.CycleBvhMode = true;
+				break;
+
+			case VK_PRIOR:
+				outInput.IncBvhDepth = true;
+				break;
+
+			case VK_NEXT:
+				outInput.DecBvhDepth = true;
 				break;
 
 			case VK_OEM_4:

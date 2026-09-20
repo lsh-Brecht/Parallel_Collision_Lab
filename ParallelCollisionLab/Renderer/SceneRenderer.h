@@ -9,6 +9,7 @@
 #include "../Core/Timer.h"
 #include "../Core/SimulationWorld.h"
 #include "../Collision/UniformGrid/IUniformGridVisualizer.h"
+#include "../Collision/BVH/IBVHVisualizer.h"
 
 //=============================================================================
 // FSceneRenderer - Manages 3D geometry buffers and draws walls, spheres, and grid
@@ -66,6 +67,20 @@ public:
 private:
     void RenderGridVisualization(URenderer& renderer, const FSimulationWorld& world)
     {
+        IBVHVisualizer* bvhVis = dynamic_cast<IBVHVisualizer*>(world.GetActiveSolver());
+        if (bvhVis)
+        {
+            bvhVis->GenerateVisualizerLineGroups(m_BvhLineGroups);
+            for (const auto& group : m_BvhLineGroups)
+            {
+                if (!group.Lines.empty())
+                {
+                    renderer.RenderDynamicLines(group.Lines, group.Color);
+                }
+            }
+            return;
+        }
+
         IUniformGridVisualizer* gridVis = dynamic_cast<IUniformGridVisualizer*>(world.GetActiveSolver());
         if (!gridVis)
         {
@@ -101,4 +116,5 @@ private:
 
     std::vector<FVertexSimple> m_WallGridLines;
     std::vector<FVertexSimple> m_ActiveCellLines;
+    std::vector<FBVHLineGroup> m_BvhLineGroups;
 };

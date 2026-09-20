@@ -6,9 +6,9 @@
 #include "../Renderer/Trackball.h"
 #include "../Renderer/TextRenderer.h"
 #include "Common.h"
-#include "AppConfig.h"
 #include "SimulationWorld.h"
 #include "CPUInfo.h"
+#include "../Collision/BVH/IBVHVisualizer.h"
 
 //=============================================================================
 // FAppController - Translates user input into camera and simulation actions
@@ -93,6 +93,27 @@ public:
         else if (input.CycleSolver)
         {
             world.CycleSolver();
+        }
+
+        // BVH Visualizer Controls
+        if (input.IncBvhDepth || input.DecBvhDepth || input.CycleBvhMode)
+        {
+            IBVHVisualizer* bvhVis = dynamic_cast<IBVHVisualizer*>(world.GetActiveSolver());
+            if (!bvhVis)
+            {
+                for (auto& s : world.GetSolvers())
+                {
+                    bvhVis = dynamic_cast<IBVHVisualizer*>(s.get());
+                    if (bvhVis) break;
+                }
+            }
+
+            if (bvhVis)
+            {
+                if (input.IncBvhDepth)  bvhVis->IncrementVisualizerDepth();
+                if (input.DecBvhDepth)  bvhVis->DecrementVisualizerDepth();
+                if (input.CycleBvhMode) bvhVis->CycleVisualizerMode();
+            }
         }
 
         // Pause
