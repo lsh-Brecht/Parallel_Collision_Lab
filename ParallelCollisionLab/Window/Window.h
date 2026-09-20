@@ -19,6 +19,7 @@ struct FInputState
 	bool Quit;
 	bool Benchmark;
 	bool ToggleGridVis;
+	bool ToggleHUD;
 	bool DecThread;
 	bool IncThread;
 

@@ -85,7 +85,7 @@ public:
         {
             swprintf_s(m_HudBottomText,
                        L"Candidate Pairs : %s | Collisions: %s | BVH Depth: %d/%d (PgUp/PgDn) | Mode: %s (V)\n"
-                       L"[1] Naive ST  [2] Naive MT  [3] Grid ST  [4] Grid MT  [5] BVH ST  [B] Bench  [G] Vis: ON  (Tab: Cycle)",
+                       L"[1] Naive ST  [2] Naive MT  [3] Grid ST  [4] Grid MT  [5] BVH ST  [B] Bench  [G] Vis: ON  [H] HUD  (Tab: Cycle)",
                        m_CachedCandidates.c_str(),
                        m_CachedCollisions.c_str(),
                        bvhVis->GetVisualizerDepth(),
@@ -96,7 +96,7 @@ public:
         {
             swprintf_s(m_HudBottomText,
                        L"Candidate Pairs : %s | Collisions: %s | Threads: %d (Hotkeys: [ / ])\n"
-                       L"[1] Naive ST  [2] Naive MT  [3] Grid ST  [4] Grid MT  [5] BVH ST  [B] Benchmark  [G] Grid: %s  (Tab: Cycle)",
+                       L"[1] Naive ST  [2] Naive MT  [3] Grid ST  [4] Grid MT  [5] BVH ST  [B] Bench  [G] Grid: %s  [H] HUD  (Tab: Cycle)",
                        m_CachedCandidates.c_str(),
                        m_CachedCollisions.c_str(),
                        configuredThreads,
@@ -108,7 +108,7 @@ public:
     {
         float bottomY = static_cast<float>(clientH) - 55.0f;
         textRenderer.DrawTextOverlay(m_HudTopText, 10.0f, 10.0f, 700.0f, 220.0f);
-        textRenderer.DrawTextOverlay(m_HudBottomText, 10.0f, bottomY, 920.0f, 50.0f);
+        textRenderer.DrawTextOverlay(m_HudBottomText, 10.0f, bottomY, 980.0f, 50.0f);
     }
 
 private:

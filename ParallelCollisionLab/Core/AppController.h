@@ -27,6 +27,9 @@ public:
         if (input.ToggleGridVis)
             m_bShowGridVis = !m_bShowGridVis;
 
+        if (input.ToggleHUD)
+            m_bShowHUD = !m_bShowHUD;
+
         // Camera Trackball Interaction
         if (input.bRButtonPressed || (input.bLButtonPressed && input.bShiftDown))
         {
@@ -145,6 +148,7 @@ public:
 
     bool IsPaused()         const { return m_bPaused; }
     bool IsGridVisEnabled() const { return m_bShowGridVis; }
+    bool IsHUDEnabled()     const { return m_bShowHUD; }
 
 private:
     FTrackball m_Trackball;
@@ -154,4 +158,5 @@ private:
 
     bool       m_bPaused      = false;
     bool       m_bShowGridVis = false;
+    bool       m_bShowHUD     = true;
 };

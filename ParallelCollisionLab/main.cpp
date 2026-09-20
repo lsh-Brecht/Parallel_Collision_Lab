@@ -68,9 +68,12 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE, LPSTR, int)
 			FMatrix4x4 viewProj = controller.GetViewProj(window.GetAspectRatio());
 			sceneRenderer.Render(renderer, world, viewProj, controller.IsGridVisEnabled(), timer.GetFrequency());
 
-			int clientW = 0, clientH = 0;
-			window.GetClientSize(clientW, clientH);
-			hudTracker.Draw(textRenderer, clientW, clientH);
+			if (controller.IsHUDEnabled())
+			{
+				int clientW = 0, clientH = 0;
+				window.GetClientSize(clientW, clientH);
+				hudTracker.Draw(textRenderer, clientW, clientH);
+			}
 
 			renderer.EndFrame();
 		}

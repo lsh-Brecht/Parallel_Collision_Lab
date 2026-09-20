@@ -191,6 +191,10 @@ bool FWindow::PumpMessages(FInputState& outInput)
 				outInput.ToggleGridVis = true;
 				break;
 
+			case 'H':
+				outInput.ToggleHUD = true;
+				break;
+
 			case 'V':
 				outInput.CycleBvhMode = true;
 				break;
