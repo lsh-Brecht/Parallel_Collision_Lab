@@ -66,6 +66,11 @@ public:
             activeSolver->Solve(m_Spheres);
         }
 
+        for (FSphere& s : m_Spheres)
+        {
+            s.BoxCollisionCheck(m_BoxHalfSize);
+        }
+
         QueryPerformanceCounter(&t1);
         return FTimer::GetElapsedMs(t0, t1, timerFreq);
     }

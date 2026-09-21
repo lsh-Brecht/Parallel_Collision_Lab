@@ -127,12 +127,41 @@ struct FSphere
 
 	void BoxCollisionCheck(float L)
 	{
-		if (Center.x + Radius >  L && Velocity.x > 0.0f) Velocity.x *= -1.0f;
-		if (Center.x - Radius < -L && Velocity.x < 0.0f) Velocity.x *= -1.0f;
-		if (Center.y + Radius >  L && Velocity.y > 0.0f) Velocity.y *= -1.0f;
-		if (Center.y - Radius < -L && Velocity.y < 0.0f) Velocity.y *= -1.0f;
-		if (Center.z + Radius >  L && Velocity.z > 0.0f) Velocity.z *= -1.0f;
-		if (Center.z - Radius < -L && Velocity.z < 0.0f) Velocity.z *= -1.0f;
+		const float maxX = L - Radius;
+		if (Center.x > maxX)
+		{
+			Center.x = maxX;
+			if (Velocity.x > 0.0f) Velocity.x = -fabsf(Velocity.x);
+		}
+		else if (Center.x < -maxX)
+		{
+			Center.x = -maxX;
+			if (Velocity.x < 0.0f) Velocity.x = fabsf(Velocity.x);
+		}
+
+		const float maxY = L - Radius;
+		if (Center.y > maxY)
+		{
+			Center.y = maxY;
+			if (Velocity.y > 0.0f) Velocity.y = -fabsf(Velocity.y);
+		}
+		else if (Center.y < -maxY)
+		{
+			Center.y = -maxY;
+			if (Velocity.y < 0.0f) Velocity.y = fabsf(Velocity.y);
+		}
+
+		const float maxZ = L - Radius;
+		if (Center.z > maxZ)
+		{
+			Center.z = maxZ;
+			if (Velocity.z > 0.0f) Velocity.z = -fabsf(Velocity.z);
+		}
+		else if (Center.z < -maxZ)
+		{
+			Center.z = -maxZ;
+			if (Velocity.z < 0.0f) Velocity.z = fabsf(Velocity.z);
+		}
 	}
 
 	float CollisionCheck(const FSphere& other) const
@@ -184,6 +213,14 @@ inline std::vector<FSphere> CreateSpheres(int numSpheres, float L, bool bMultiSc
 
 	float scale = cbrtf((float)MIN_SPHERES) / cbrtf((float)numSpheres);
 
+	int numLarge  = 0;
+	int numMedium = 0;
+	if (bMultiScale)
+	{
+		numLarge  = (numSpheres >= 64) ? 2 : 1;
+		numMedium = (numSpheres >= 128) ? 6 : (numSpheres >= 32 ? 2 : 1);
+	}
+
 	for (int i = 0; i < numSpheres; ++i)
 	{
 		FSphere c;
@@ -202,18 +239,17 @@ inline std::vector<FSphere> CreateSpheres(int numSpheres, float L, bool bMultiSc
 			}
 			else
 			{
-				float rRatio = static_cast<float>(i) / static_cast<float>(numSpheres);
-				if (rRatio < 0.015f || (numSpheres < 64 && i == 0))
+				if (i < numLarge)
 				{
-					c.Radius = RandF(0.35f, 0.48f);
+					c.Radius = RandF(0.24f, 0.30f);
 				}
-				else if (rRatio < 0.10f || (numSpheres < 64 && i <= 2))
+				else if (i < numLarge + numMedium)
 				{
-					c.Radius = RandF(0.12f, 0.20f);
+					c.Radius = RandF(0.07f, 0.11f);
 				}
 				else
 				{
-					c.Radius = RandF(0.025f, 0.055f) * (scale * 1.35f);
+					c.Radius = RandF(0.06f, 0.16f) * scale;
 				}
 			}
 
