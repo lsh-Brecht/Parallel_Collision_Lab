@@ -24,7 +24,8 @@ public:
     void Update(float dt, double updateTimeMs, double renderTimeMs,
                 const FCollisionStats& stats, size_t ballCount,
                 const ICollisionSolver* activeSolver,
-                int configuredThreads, bool bShowGridVis)
+                int configuredThreads, bool bShowGridVis,
+                bool bMultiScale = false)
     {
         m_TimeAccum      += dt;
         m_FrameAccum     += 1;
@@ -52,7 +53,7 @@ public:
                        L"CPU         : %s\n"
                        L"Cache       : %s\n"
                        L"\n"
-                       L"Balls       : %s | Threads: %d\n"
+                       L"Balls       : %s [%s] | Threads: %d\n"
                        L"Algorithm   : %s [%s]\n"
                        L"\n"
                        L"Frame Time  : %.1f ms (%.1f FPS) | Render: %.2f ms\n"
@@ -62,6 +63,7 @@ public:
                        m_CPUInfo.GetSummaryString().c_str(),
                        m_CPUInfo.GetCacheString().c_str(),
                        strBalls.c_str(),
+                       bMultiScale ? L"Multi-Scale" : L"Uniform",
                        activeSolver ? activeSolver->GetThreadCount() : 1,
                        activeSolver ? activeSolver->GetAlgorithmName() : L"Unknown",
                        activeSolver ? activeSolver->GetExecutionMode() : L"Unknown",
@@ -85,21 +87,23 @@ public:
         {
             swprintf_s(m_HudBottomText,
                        L"Candidate Pairs : %s | Collisions: %s | BVH Depth: %d/%d (PgUp/PgDn) | Mode: %s (V)\n"
-                       L"[1] Naive ST  [2] Naive MT  [3] Grid ST  [4] Grid MT  [5] BVH ST  [6] BVH MT  [B] Bench  [G] Vis: ON  [H] HUD  (Tab: Cycle)",
+                       L"[1..6] Solvers  [M] Size: %s  [B] Bench  [G] Vis: ON  [H] HUD  (Tab: Cycle)",
                        m_CachedCandidates.c_str(),
                        m_CachedCollisions.c_str(),
                        bvhVis->GetVisualizerDepth(),
                        bvhVis->GetMaxTreeDepth(),
-                       bvhVis->GetVisualizerModeName());
+                       bvhVis->GetVisualizerModeName(),
+                       bMultiScale ? L"Multi" : L"Uniform");
         }
         else
         {
             swprintf_s(m_HudBottomText,
                        L"Candidate Pairs : %s | Collisions: %s | Threads: %d (Hotkeys: [ / ])\n"
-                       L"[1] Naive ST  [2] Naive MT  [3] Grid ST  [4] Grid MT  [5] BVH ST  [6] BVH MT  [B] Bench  [G] Grid: %s  [H] HUD  (Tab: Cycle)",
+                       L"[1..6] Solvers  [M] Size: %s  [B] Bench  [G] Grid: %s  [H] HUD  (Tab: Cycle)",
                        m_CachedCandidates.c_str(),
                        m_CachedCollisions.c_str(),
                        configuredThreads,
+                       bMultiScale ? L"Multi" : L"Uniform",
                        bShowGridVis ? L"ON" : L"OFF");
         }
     }

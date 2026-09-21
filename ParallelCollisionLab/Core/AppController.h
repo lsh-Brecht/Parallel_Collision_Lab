@@ -72,6 +72,10 @@ public:
         {
             world.ToggleSphereCount();
         }
+        else if (input.ToggleSphereSize)
+        {
+            world.ToggleSphereSizeMode();
+        }
         else if (input.Add || input.AddMany)
         {
             world.AddSpheres(input.AddMany ? 16 : 1);

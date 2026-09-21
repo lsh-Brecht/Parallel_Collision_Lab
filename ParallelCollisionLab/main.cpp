@@ -61,7 +61,8 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE, LPSTR, int)
 		                  world.GetSphereCount(),
 		                  world.GetActiveSolver(),
 		                  world.GetThreadCount(),
-		                  controller.IsGridVisEnabled());
+		                  controller.IsGridVisEnabled(),
+		                  world.IsMultiScaleSpheres());
 
 		if (!window.IsMinimized())
 		{

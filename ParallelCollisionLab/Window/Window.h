@@ -9,6 +9,7 @@ struct FInputState
 {
 	bool Reset;
 	bool Toggle;
+	bool ToggleSphereSize;
 	bool Add;
 	bool AddMany;
 	bool Sub;

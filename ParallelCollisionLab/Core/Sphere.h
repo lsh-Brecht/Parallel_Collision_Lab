@@ -177,10 +177,12 @@ struct FSphere
 //=============================================================================
 // Sphere Creation
 //=============================================================================
-inline std::vector<FSphere> CreateSpheres(int numSpheres, float L)
+inline std::vector<FSphere> CreateSpheres(int numSpheres, float L, bool bMultiScale = false)
 {
 	std::vector<FSphere> spheres;
 	spheres.reserve(numSpheres);
+
+	float scale = cbrtf((float)MIN_SPHERES) / cbrtf((float)numSpheres);
 
 	for (int i = 0; i < numSpheres; ++i)
 	{
@@ -194,15 +196,34 @@ inline std::vector<FSphere> CreateSpheres(int numSpheres, float L)
 			if (++attempts > 1000)
 				break;
 
-			float scale = cbrtf((float)MIN_SPHERES) / cbrtf((float)numSpheres);
-			c.Radius    = RandF(0.08f, 0.22f) * scale;
-			c.Mass      = c.Radius * c.Radius * c.Radius;
+			if (!bMultiScale)
+			{
+				c.Radius = RandF(0.08f, 0.22f) * scale;
+			}
+			else
+			{
+				float rRatio = static_cast<float>(i) / static_cast<float>(numSpheres);
+				if (rRatio < 0.015f || (numSpheres < 64 && i == 0))
+				{
+					c.Radius = RandF(0.35f, 0.48f);
+				}
+				else if (rRatio < 0.10f || (numSpheres < 64 && i <= 2))
+				{
+					c.Radius = RandF(0.12f, 0.20f);
+				}
+				else
+				{
+					c.Radius = RandF(0.025f, 0.055f) * (scale * 1.35f);
+				}
+			}
+
+			c.Mass = c.Radius * c.Radius * c.Radius;
 
 			float bound = (L - c.Radius) * 0.95f;
+			if (bound < 0.01f) bound = 0.01f;
 			c.Center   = FVector3(RandF(-bound, bound), RandF(-bound, bound), RandF(-bound, bound));
 			c.Velocity = FVector3(RandF(-1.0f, 1.0f), RandF(-1.0f, 1.0f), RandF(-1.0f, 1.0f));
-			// Generate vivid, high-saturation random color via HSV
-			c.Color = HSVtoRGB(RandF(0.0f, 360.0f), RandF(0.85f, 1.0f), RandF(0.85f, 1.0f));
+			c.Color    = HSVtoRGB(RandF(0.0f, 360.0f), RandF(0.85f, 1.0f), RandF(0.85f, 1.0f));
 
 			for (const FSphere& e : spheres)
 			{

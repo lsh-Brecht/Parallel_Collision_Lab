@@ -72,7 +72,7 @@ public:
 
     void ResetSpheres()
     {
-        m_Spheres = CreateSpheres(static_cast<int>(m_Spheres.size()), m_BoxHalfSize);
+        m_Spheres = CreateSpheres(static_cast<int>(m_Spheres.size()), m_BoxHalfSize, m_bMultiScaleSpheres);
         m_BenchmarkReport.bValid = false;
         RebuildActiveVisualizer();
     }
@@ -80,15 +80,25 @@ public:
     void ToggleSphereCount()
     {
         int count = (m_Spheres.size() == MAX_SPHERES) ? MIN_SPHERES : MAX_SPHERES;
-        m_Spheres = CreateSpheres(count, m_BoxHalfSize);
+        m_Spheres = CreateSpheres(count, m_BoxHalfSize, m_bMultiScaleSpheres);
         m_BenchmarkReport.bValid = false;
         RebuildActiveVisualizer();
     }
 
+    void ToggleSphereSizeMode()
+    {
+        m_bMultiScaleSpheres = !m_bMultiScaleSpheres;
+        m_Spheres = CreateSpheres(static_cast<int>(m_Spheres.size()), m_BoxHalfSize, m_bMultiScaleSpheres);
+        m_BenchmarkReport.bValid = false;
+        RebuildActiveVisualizer();
+    }
+
+    bool IsMultiScaleSpheres() const { return m_bMultiScaleSpheres; }
+
     void AddSpheres(int delta)
     {
         int count = (std::min)(static_cast<int>(m_Spheres.size()) + delta, MAX_SPHERES);
-        m_Spheres = CreateSpheres(count, m_BoxHalfSize);
+        m_Spheres = CreateSpheres(count, m_BoxHalfSize, m_bMultiScaleSpheres);
         m_BenchmarkReport.bValid = false;
         RebuildActiveVisualizer();
     }
@@ -96,7 +106,7 @@ public:
     void SubSpheres(int delta)
     {
         int count = (std::max)(static_cast<int>(m_Spheres.size()) - delta, MIN_SPHERES);
-        m_Spheres = CreateSpheres(count, m_BoxHalfSize);
+        m_Spheres = CreateSpheres(count, m_BoxHalfSize, m_bMultiScaleSpheres);
         m_BenchmarkReport.bValid = false;
         RebuildActiveVisualizer();
     }
@@ -170,5 +180,6 @@ private:
     size_t                                         m_CurrentSolverIdx  = 0;
     int                                            m_ConfiguredThreads = 4;
     float                                          m_BoxHalfSize       = 2.0f;
+    bool                                           m_bMultiScaleSpheres = false;
     FBenchmarkReport                               m_BenchmarkReport;
 };
