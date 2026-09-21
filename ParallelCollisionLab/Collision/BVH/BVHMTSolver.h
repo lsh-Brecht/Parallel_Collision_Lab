@@ -111,13 +111,14 @@ public:
         m_Stats = {};
         if (count < 2) return;
 
+        m_CurrentSpheres = &spheres;
+
         LARGE_INTEGER t0, t1, t2, t3;
 
         QueryPerformanceCounter(&t0);
         BuildBVH(spheres);
         QueryPerformanceCounter(&t1);
 
-        m_CurrentSpheres = &spheres;
         for (auto& vec : m_ThreadManifolds)
         {
             vec.clear();
@@ -130,6 +131,7 @@ public:
         }
         else
         {
+            m_Phase = EBVHMTParticlePhase::QuerySpheres;
             {
                 std::unique_lock<std::mutex> lock(m_Mutex);
                 m_CompletedCount = 0;
@@ -202,6 +204,7 @@ public:
             return;
         }
 
+        m_CurrentSpheres = const_cast<std::vector<FSphere>*>(&spheres);
         m_SphereIndices.resize(count);
         m_SphereBounds.resize(count);
         for (int i = 0; i < count; ++i)
@@ -210,11 +213,67 @@ public:
             m_SphereBounds[i]  = FAABB::FromSphere(spheres[i].Center, spheres[i].Radius);
         }
 
-        m_Nodes.clear();
-        m_Nodes.reserve(count * 2);
+        const int totalNodes = 2 * count - 1;
+        m_Nodes.resize(totalNodes);
         m_MaxDepth = 0;
 
-        BuildSubtree(spheres, 0, count, 0);
+        int numTasks = 1;
+        int forkDepth = 0;
+        if (m_ThreadCount >= 8 && count >= 2048)
+        {
+            numTasks = 8;
+            forkDepth = 3;
+        }
+        else if (m_ThreadCount >= 4 && count >= 1024)
+        {
+            numTasks = 4;
+            forkDepth = 2;
+        }
+
+        if (numTasks <= 1 || m_Workers.empty())
+        {
+            int freeNode = 0;
+            BuildSubtreeInPlace(spheres, 0, count, 0, freeNode, m_MaxDepth);
+            if (m_VisualizerDepth > m_MaxDepth)
+            {
+                m_VisualizerDepth = m_MaxDepth;
+            }
+            return;
+        }
+
+        m_BuildTasks.clear();
+        m_BuildTasks.reserve(numTasks);
+
+        int upperNodeCount = (1 << forkDepth) - 1;
+        int nextTaskOffset = upperNodeCount;
+        int upperFreeNode  = 0;
+
+        BuildUpperTreeInPlace(spheres, 0, count, 0, forkDepth, upperFreeNode, nextTaskOffset);
+
+        m_Phase = EBVHMTParticlePhase::BuildSubtrees;
+        {
+            std::unique_lock<std::mutex> lock(m_Mutex);
+            m_CompletedCount = 0;
+            m_Iteration++;
+        }
+        m_CvStart.notify_all();
+
+        ExecuteBuildTasks(0);
+
+        {
+            std::unique_lock<std::mutex> lock(m_Mutex);
+            m_CvDone.wait(lock, [&]() {
+                return m_CompletedCount >= static_cast<int>(m_Workers.size());
+            });
+        }
+
+        for (const auto& task : m_BuildTasks)
+        {
+            if (task.LocalMaxDepth > m_MaxDepth)
+            {
+                m_MaxDepth = task.LocalMaxDepth;
+            }
+        }
 
         if (m_VisualizerDepth > m_MaxDepth)
         {
@@ -306,6 +365,21 @@ public:
     }
 
 private:
+    enum class EBVHMTParticlePhase
+    {
+        BuildSubtrees,
+        QuerySpheres
+    };
+
+    struct FSubtreeBuildTask
+    {
+        int StartSphere;
+        int EndSphere;
+        int NodeOffset;
+        int CurrentDepth;
+        int LocalMaxDepth = 0;
+    };
+
     void WorkerLoop(int threadIdx)
     {
         int lastIteration = 0;
@@ -321,14 +395,21 @@ private:
                 lastIteration = m_Iteration;
             }
 
-            const int count = static_cast<int>(m_CurrentSpheres->size());
-            int chunkSize   = (count + m_ThreadCount - 1) / m_ThreadCount;
-            int startIdx    = threadIdx * chunkSize;
-            int endIdx      = (std::min)(startIdx + chunkSize, count);
-
-            if (startIdx < count)
+            if (m_Phase == EBVHMTParticlePhase::BuildSubtrees)
             {
-                DoQueryChunk(threadIdx, startIdx, endIdx);
+                ExecuteBuildTasks(threadIdx);
+            }
+            else // QuerySpheres
+            {
+                const int count = static_cast<int>(m_CurrentSpheres->size());
+                int chunkSize   = (count + m_ThreadCount - 1) / m_ThreadCount;
+                int startIdx    = threadIdx * chunkSize;
+                int endIdx      = (std::min)(startIdx + chunkSize, count);
+
+                if (startIdx < count)
+                {
+                    DoQueryChunk(threadIdx, startIdx, endIdx);
+                }
             }
 
             {
@@ -339,6 +420,19 @@ private:
                     m_CvDone.notify_one();
                 }
             }
+        }
+    }
+
+    void ExecuteBuildTasks(int threadIdx)
+    {
+        const auto& spheres = *m_CurrentSpheres;
+        int numTasks = static_cast<int>(m_BuildTasks.size());
+        for (int k = threadIdx; k < numTasks; k += m_ThreadCount)
+        {
+            auto& task = m_BuildTasks[k];
+            int freeNode = task.NodeOffset;
+            BuildSubtreeInPlace(spheres, task.StartSphere, task.EndSphere, task.CurrentDepth,
+                                freeNode, task.LocalMaxDepth);
         }
     }
 
@@ -398,14 +492,15 @@ private:
         m_ThreadCandidates[threadIdx] = candidates;
     }
 
-    int BuildSubtree(const std::vector<FSphere>& spheres, int start, int end, int currentDepth)
+    int BuildSubtreeInPlace(const std::vector<FSphere>& spheres,
+                            int start, int end, int currentDepth,
+                            int& freeNode, int& maxDepth)
     {
-        m_MaxDepth = (std::max)(m_MaxDepth, currentDepth);
+        if (currentDepth > maxDepth) maxDepth = currentDepth;
 
-        const int nodeIdx = static_cast<int>(m_Nodes.size());
-        m_Nodes.emplace_back();
+        int nodeIdx = freeNode++;
+        int count   = end - start;
 
-        const int count = end - start;
         if (count == 1)
         {
             int sIdx = m_SphereIndices[start];
@@ -422,27 +517,114 @@ private:
             totalBounds.ExpandBy(m_SphereBounds[sIdx]);
         }
 
-        const int axis = centroidBounds.GetLongestAxis();
-        const int mid  = start + count / 2;
+        int axis = centroidBounds.GetLongestAxis();
+        int mid  = start + count / 2;
 
-        std::nth_element(
-            m_SphereIndices.begin() + start,
-            m_SphereIndices.begin() + mid,
-            m_SphereIndices.begin() + end,
-            [&spheres, axis](int a, int b) {
-                const FVector3& ca = spheres[a].Center;
-                const FVector3& cb = spheres[b].Center;
-                if (axis == 0) return ca.x < cb.x;
-                if (axis == 1) return ca.y < cb.y;
-                return ca.z < cb.z;
-            }
-        );
+        int* pBegin = m_SphereIndices.data() + start;
+        int* pMid   = m_SphereIndices.data() + mid;
+        int* pEnd   = m_SphereIndices.data() + end;
+        const FSphere* pSpheres = spheres.data();
 
-        int leftChild  = BuildSubtree(spheres, start, mid, currentDepth + 1);
-        int rightChild = BuildSubtree(spheres, mid,   end, currentDepth + 1);
+        if (axis == 0)
+        {
+            std::nth_element(pBegin, pMid, pEnd, [pSpheres](int a, int b) {
+                return pSpheres[a].Center.x < pSpheres[b].Center.x;
+            });
+        }
+        else if (axis == 1)
+        {
+            std::nth_element(pBegin, pMid, pEnd, [pSpheres](int a, int b) {
+                return pSpheres[a].Center.y < pSpheres[b].Center.y;
+            });
+        }
+        else
+        {
+            std::nth_element(pBegin, pMid, pEnd, [pSpheres](int a, int b) {
+                return pSpheres[a].Center.z < pSpheres[b].Center.z;
+            });
+        }
+
+        int leftChild  = BuildSubtreeInPlace(spheres, start, mid, currentDepth + 1, freeNode, maxDepth);
+        int rightChild = BuildSubtreeInPlace(spheres, mid,   end, currentDepth + 1, freeNode, maxDepth);
 
         m_Nodes[nodeIdx].SetInternal(leftChild, rightChild, totalBounds);
         return nodeIdx;
+    }
+
+    void BuildUpperTreeInPlace(const std::vector<FSphere>& spheres,
+                               int start, int end, int currentDepth, int forkDepth,
+                               int& upperFreeNode, int& nextTaskOffset)
+    {
+        if (currentDepth > m_MaxDepth) m_MaxDepth = currentDepth;
+
+        int nodeIdx = upperFreeNode++;
+        int count   = end - start;
+
+        FAABB centroidBounds;
+        FAABB totalBounds;
+        for (int i = start; i < end; ++i)
+        {
+            int sIdx = m_SphereIndices[i];
+            centroidBounds.ExpandBy(spheres[sIdx].Center);
+            totalBounds.ExpandBy(m_SphereBounds[sIdx]);
+        }
+
+        int axis = centroidBounds.GetLongestAxis();
+        int mid  = start + count / 2;
+
+        int* pBegin = m_SphereIndices.data() + start;
+        int* pMid   = m_SphereIndices.data() + mid;
+        int* pEnd   = m_SphereIndices.data() + end;
+        const FSphere* pSpheres = spheres.data();
+
+        if (axis == 0)
+        {
+            std::nth_element(pBegin, pMid, pEnd, [pSpheres](int a, int b) {
+                return pSpheres[a].Center.x < pSpheres[b].Center.x;
+            });
+        }
+        else if (axis == 1)
+        {
+            std::nth_element(pBegin, pMid, pEnd, [pSpheres](int a, int b) {
+                return pSpheres[a].Center.y < pSpheres[b].Center.y;
+            });
+        }
+        else
+        {
+            std::nth_element(pBegin, pMid, pEnd, [pSpheres](int a, int b) {
+                return pSpheres[a].Center.z < pSpheres[b].Center.z;
+            });
+        }
+
+        int leftChildIdx  = -1;
+        int rightChildIdx = -1;
+
+        if (currentDepth + 1 == forkDepth)
+        {
+            int leftCount = mid - start;
+            int leftNodeOffset = nextTaskOffset;
+            nextTaskOffset += (2 * leftCount - 1);
+            m_BuildTasks.push_back({ start, mid, leftNodeOffset, currentDepth + 1, currentDepth + 1 });
+            leftChildIdx = leftNodeOffset;
+
+            int rightCount = end - mid;
+            int rightNodeOffset = nextTaskOffset;
+            nextTaskOffset += (2 * rightCount - 1);
+            m_BuildTasks.push_back({ mid, end, rightNodeOffset, currentDepth + 1, currentDepth + 1 });
+            rightChildIdx = rightNodeOffset;
+        }
+        else
+        {
+            leftChildIdx  = upperFreeNode;
+            BuildUpperTreeInPlace(spheres, start, mid, currentDepth + 1, forkDepth,
+                                  upperFreeNode, nextTaskOffset);
+
+            rightChildIdx = upperFreeNode;
+            BuildUpperTreeInPlace(spheres, mid, end, currentDepth + 1, forkDepth,
+                                  upperFreeNode, nextTaskOffset);
+        }
+
+        m_Nodes[nodeIdx].SetInternal(leftChildIdx, rightChildIdx, totalBounds);
     }
 
     void CollectSingleLevelLines(int nodeIdx, int currentDepth, int targetDepth, std::vector<FVertexSimple>& lines) const
@@ -513,4 +695,7 @@ private:
     std::vector<FSphere>*           m_CurrentSpheres   = nullptr;
     std::vector<std::vector<FCollisionManifold>> m_ThreadManifolds;
     std::vector<uint64_t>           m_ThreadCandidates;
+
+    EBVHMTParticlePhase             m_Phase            = EBVHMTParticlePhase::QuerySpheres;
+    std::vector<FSubtreeBuildTask>  m_BuildTasks;
 };

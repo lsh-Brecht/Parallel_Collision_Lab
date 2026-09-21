@@ -104,7 +104,7 @@ inline std::vector<FVertexSimple> CreateWallVertices(int wallType, float L)
 // FSphere
 //=============================================================================
 static const int   MIN_SPHERES  = 16;
-static const int   MAX_SPHERES  = 2048;
+static const int   MAX_SPHERES  = 4096;
 static const float SPEED_FACTOR = 0.8f;
 
 struct FSphere

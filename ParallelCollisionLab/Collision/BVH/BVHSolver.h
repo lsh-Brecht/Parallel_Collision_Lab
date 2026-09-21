@@ -268,18 +268,29 @@ private:
         const int axis = centroidBounds.GetLongestAxis();
         const int mid  = start + count / 2;
 
-        std::nth_element(
-            m_SphereIndices.begin() + start,
-            m_SphereIndices.begin() + mid,
-            m_SphereIndices.begin() + end,
-            [&spheres, axis](int a, int b) {
-                const FVector3& ca = spheres[a].Center;
-                const FVector3& cb = spheres[b].Center;
-                if (axis == 0) return ca.x < cb.x;
-                if (axis == 1) return ca.y < cb.y;
-                return ca.z < cb.z;
-            }
-        );
+        int* pBegin = m_SphereIndices.data() + start;
+        int* pMid   = m_SphereIndices.data() + mid;
+        int* pEnd   = m_SphereIndices.data() + end;
+        const FSphere* pSpheres = spheres.data();
+
+        if (axis == 0)
+        {
+            std::nth_element(pBegin, pMid, pEnd, [pSpheres](int a, int b) {
+                return pSpheres[a].Center.x < pSpheres[b].Center.x;
+            });
+        }
+        else if (axis == 1)
+        {
+            std::nth_element(pBegin, pMid, pEnd, [pSpheres](int a, int b) {
+                return pSpheres[a].Center.y < pSpheres[b].Center.y;
+            });
+        }
+        else
+        {
+            std::nth_element(pBegin, pMid, pEnd, [pSpheres](int a, int b) {
+                return pSpheres[a].Center.z < pSpheres[b].Center.z;
+            });
+        }
 
         int leftChild  = BuildSubtree(spheres, start, mid, currentDepth + 1);
         int rightChild = BuildSubtree(spheres, mid, end, currentDepth + 1);
