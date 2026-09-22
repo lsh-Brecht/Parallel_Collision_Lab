@@ -104,7 +104,7 @@ bool FWindow::PumpMessages(FInputState& outInput)
 			outInput.WheelDelta += GET_WHEEL_DELTA_WPARAM(msg.wParam);
 		}
 
-		if (msg.message == WM_KEYDOWN)
+		if (msg.message == WM_KEYDOWN || msg.message == WM_SYSKEYDOWN)
 		{
 			switch (msg.wParam)
 			{
@@ -282,6 +282,14 @@ LRESULT CALLBACK FWindow::WndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lPa
 
 	switch (msg)
 	{
+	case WM_SYSKEYDOWN:
+	case WM_SYSKEYUP:
+		if (wParam == VK_F10)
+		{
+			return 0;
+		}
+		break;
+
 	case WM_SIZE:
 		if (pThis && wParam != SIZE_MINIMIZED)
 		{

@@ -1,4 +1,5 @@
 #include "Renderer.h"
+#include <string>
 
 bool URenderer::Init(HWND hWnd)
 {
@@ -240,11 +241,30 @@ void URenderer::CreateShader()
 	ID3DBlob* psBlob   = nullptr;
 	ID3DBlob* errBlob  = nullptr;
 
-	const wchar_t* shaderPath = L"Renderer/Shader.hlsl";
-	if (GetFileAttributesW(shaderPath) == INVALID_FILE_ATTRIBUTES)
-	{
-		shaderPath = L"Shader.hlsl";
-	}
+	wchar_t exePath[MAX_PATH] = {};
+	GetModuleFileNameW(nullptr, exePath, MAX_PATH);
+	wchar_t* lastSlash = wcsrchr(exePath, L'\\');
+	std::wstring exeDir = (lastSlash != nullptr) ? std::wstring(exePath, lastSlash + 1) : L"";
+
+	std::wstring candidate1 = exeDir + L"Shader.hlsl";
+	std::wstring candidate2 = exeDir + L"Renderer\\Shader.hlsl";
+	std::wstring candidate3 = L"ParallelCollisionLab/Renderer/Shader.hlsl";
+	std::wstring candidate4 = L"Renderer/Shader.hlsl";
+	std::wstring candidate5 = L"Shader.hlsl";
+
+	std::wstring chosenPath;
+	if (GetFileAttributesW(candidate1.c_str()) != INVALID_FILE_ATTRIBUTES)
+		chosenPath = candidate1;
+	else if (GetFileAttributesW(candidate2.c_str()) != INVALID_FILE_ATTRIBUTES)
+		chosenPath = candidate2;
+	else if (GetFileAttributesW(candidate3.c_str()) != INVALID_FILE_ATTRIBUTES)
+		chosenPath = candidate3;
+	else if (GetFileAttributesW(candidate4.c_str()) != INVALID_FILE_ATTRIBUTES)
+		chosenPath = candidate4;
+	else
+		chosenPath = candidate5;
+
+	const wchar_t* shaderPath = chosenPath.c_str();
 
 	HRESULT hr = D3DCompileFromFile(shaderPath, nullptr, nullptr,
 		"mainVS", "vs_5_0", 0, 0, &vsBlob, &errBlob);
