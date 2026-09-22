@@ -25,7 +25,8 @@ public:
                 const FCollisionStats& stats, size_t ballCount,
                 const ICollisionSolver* activeSolver,
                 int configuredThreads, bool bShowGridVis,
-                bool bMultiScale = false)
+                bool bMultiScale = false,
+                const wchar_t* netStatus = nullptr)
     {
         m_TimeAccum      += dt;
         m_FrameAccum     += 1;
@@ -52,6 +53,7 @@ public:
             swprintf_s(m_HudTopText,
                        L"CPU         : %s\n"
                        L"Cache       : %s\n"
+                       L"Network     : %s\n"
                        L"\n"
                        L"Balls       : %s [%s] | Threads: %d\n"
                        L"Algorithm   : %s [%s]\n"
@@ -62,6 +64,7 @@ public:
                        L"Resolution  : %.3f ms",
                        m_CPUInfo.GetSummaryString().c_str(),
                        m_CPUInfo.GetCacheString().c_str(),
+                       netStatus ? netStatus : L"Standalone",
                        strBalls.c_str(),
                        bMultiScale ? L"Multi-Scale" : L"Uniform",
                        activeSolver ? activeSolver->GetThreadCount() : 1,
@@ -99,7 +102,7 @@ public:
         {
             swprintf_s(m_HudBottomText,
                        L"Candidate Pairs : %s | Collisions: %s | Threads: %d (Hotkeys: [ / ])\n"
-                       L"[1..6] Solvers  [M] Size: %s  [B] Bench  [G] Grid: %s  [H] HUD  (Tab: Cycle)",
+                       L"[1..6] Solvers  [M] Size: %s  [B] Bench  [F9] Server  [F10] Client  [G] Grid: %s",
                        m_CachedCandidates.c_str(),
                        m_CachedCollisions.c_str(),
                        configuredThreads,
@@ -111,7 +114,7 @@ public:
     void Draw(FTextRenderer& textRenderer, int clientW, int clientH)
     {
         float bottomY = static_cast<float>(clientH) - 55.0f;
-        textRenderer.DrawTextOverlay(m_HudTopText, 10.0f, 10.0f, 700.0f, 220.0f);
+        textRenderer.DrawTextOverlay(m_HudTopText, 10.0f, 10.0f, 700.0f, 240.0f);
         textRenderer.DrawTextOverlay(m_HudBottomText, 10.0f, bottomY, 1080.0f, 50.0f);
     }
 

@@ -109,6 +109,7 @@ static const float SPEED_FACTOR = 0.8f;
 
 struct FSphere
 {
+	int32_t  Id = 0;
 	FVector3 Center;
 	FVector3 Velocity;
 	FVector4 Color;
@@ -224,6 +225,7 @@ inline std::vector<FSphere> CreateSpheres(int numSpheres, float L, bool bMultiSc
 	for (int i = 0; i < numSpheres; ++i)
 	{
 		FSphere c;
+		c.Id = i;
 		bool bColliding;
 		int attempts = 0;
 

@@ -8,7 +8,7 @@
 namespace Config
 {
     // Window settings
-    static const int            WINDOW_WIDTH  = 1024;
+    static const int            WINDOW_WIDTH  = 768;
     static const int            WINDOW_HEIGHT = 1024;
     static const wchar_t* const WINDOW_TITLE  = L"Parallel Collision Lab";
 
@@ -34,4 +34,12 @@ namespace Config
 
     // HUD & Profiling
     static const double         HUD_REFRESH_INTERVAL = 0.25;
+
+    // Network Configuration
+    static const uint16_t       DEFAULT_SERVER_PORT  = 32768;
+    static const uint16_t       DEFAULT_CLIENT_PORT  = 32769;
+    static const int            SERVER_WINDOW_POS_X  = 10;
+    static const int            SERVER_WINDOW_POS_Y  = 10;
+    static const int            CLIENT_WINDOW_POS_X  = 765;
+    static const int            CLIENT_WINDOW_POS_Y  = 10;
 }

@@ -178,6 +178,8 @@
     <ClInclude Include="Collision\NestedLoop\NestedLoopMTSolver.h" />
     <ClInclude Include="Collision\UniformGrid\UniformGridSolver.h" />
     <ClInclude Include="Collision\Benchmark.h" />
+    <ClInclude Include="Network\NetworkProtocol.h" />
+    <ClInclude Include="Network\NetworkManager.h" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

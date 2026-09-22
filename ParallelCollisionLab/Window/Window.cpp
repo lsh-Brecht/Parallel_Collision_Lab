@@ -205,6 +205,14 @@ bool FWindow::PumpMessages(FInputState& outInput)
 				outInput.ToggleHUD = true;
 				break;
 
+			case VK_F9:
+				outInput.StartServer = true;
+				break;
+
+			case VK_F10:
+				outInput.StartClient = true;
+				break;
+
 			case 'V':
 				outInput.CycleBvhMode = true;
 				break;

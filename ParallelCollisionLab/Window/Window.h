@@ -1,5 +1,9 @@
 #pragma once
 
+#ifndef WIN32_LEAN_AND_MEAN
+#define WIN32_LEAN_AND_MEAN
+#endif
+
 #include <windows.h>
 
 //=============================================================================
@@ -30,6 +34,9 @@ struct FInputState
 
 	int  SelectSolver;
 	bool CycleSolver;
+
+	bool StartServer;
+	bool StartClient;
 
 	bool bLButtonPressed;
 	bool bLButtonReleased;
@@ -63,6 +70,7 @@ public:
 	float GetAspectRatio() const;
 	bool  IsMinimized()    const;
 	void  GetClientSize(int& width, int& height) const;
+	void  SetTitle(const wchar_t* title) { if (hWnd) SetWindowTextW(hWnd, title); }
 
 private:
 	HWND      hWnd           = nullptr;
