@@ -41,6 +41,7 @@ namespace Network
             m_bConnected = false;
             m_PacketsSent = 0;
             m_PacketsReceived = 0;
+            m_LastSnapshotTick = 0;
         }
 
         //---------------------------------------------------------------------
@@ -306,7 +307,16 @@ namespace Network
                     {
                         const auto* chunk = reinterpret_cast<const FSnapshotChunkPacket*>(recvBuffer);
                         m_bConnected = true;
-                        m_LastSnapshotTick = chunk->ServerTick;
+                        if (m_LastSnapshotTick > 0)
+                        {
+                            int32_t tickDiff = static_cast<int32_t>(chunk->ServerTick - m_LastSnapshotTick);
+                            if (tickDiff < 0)
+                            {
+                                continue; // Past tick packet arrived late, drop it
+                            }
+                        }
+
+                        m_LastSnapshotTick = (std::max)(m_LastSnapshotTick, chunk->ServerTick);
 
                         // Ensure sphere buffer is sized to match
                         if (chunk->TotalSpheres > 0 && chunk->TotalSpheres != spheres.size())
