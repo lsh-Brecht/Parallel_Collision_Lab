@@ -5,6 +5,7 @@
 #include <vector>
 #include <string>
 #include <cstdio>
+#include <cstddef>
 #include <algorithm>
 
 namespace Network
@@ -178,11 +179,17 @@ namespace Network
 
                     if (header->Type == EPacketType::HandshakeRequest)
                     {
+                        if (bytesRead < static_cast<int>(sizeof(FHandshakeRequestPacket)))
+                            continue;
+
                         RegisterClient(senderAddr);
                         SendHandshakeResponse(senderAddr, static_cast<uint16_t>(spheres.size()), boxHalfSize);
                     }
                     else if (header->Type == EPacketType::Heartbeat)
                     {
+                        if (bytesRead < static_cast<int>(sizeof(FPacketHeader)))
+                            continue;
+
                         RegisterClient(senderAddr);
                     }
                 }
@@ -291,21 +298,36 @@ namespace Network
 
                     if (header->Type == EPacketType::HandshakeResponse)
                     {
-                        if (bytesRead >= sizeof(FHandshakeResponsePacket))
-                        {
-                            const auto* resp = reinterpret_cast<const FHandshakeResponsePacket*>(recvBuffer);
-                            m_bConnected = true;
+                        if (bytesRead < static_cast<int>(sizeof(FHandshakeResponsePacket)))
+                            continue;
 
-                            // Adjust sphere count to match server if needed
-                            if (resp->SphereCount > 0 && resp->SphereCount != spheres.size())
-                            {
-                                spheres = CreateSpheres(resp->SphereCount, boxHalfSize);
-                            }
+                        const auto* resp = reinterpret_cast<const FHandshakeResponsePacket*>(recvBuffer);
+                        m_bConnected = true;
+
+                        // Validate sphere count sanity bounds
+                        if (resp->SphereCount >= MIN_SPHERES && resp->SphereCount <= MAX_SPHERES && resp->SphereCount != spheres.size())
+                        {
+                            spheres = CreateSpheres(resp->SphereCount, boxHalfSize);
                         }
                     }
                     else if (header->Type == EPacketType::SnapshotChunk)
                     {
+                        // 1. Validate minimum header size for snapshot chunk
+                        const size_t minChunkHeaderSize = offsetof(FSnapshotChunkPacket, Spheres);
+                        if (bytesRead < static_cast<int>(minChunkHeaderSize))
+                            continue;
+
                         const auto* chunk = reinterpret_cast<const FSnapshotChunkPacket*>(recvBuffer);
+
+                        // 2. Validate CountInPacket and ChunkIndex bounds
+                        if (chunk->CountInPacket > MAX_SPHERES_PER_CHUNK || chunk->TotalChunks == 0 || chunk->ChunkIndex >= chunk->TotalChunks)
+                            continue;
+
+                        // 3. Validate that buffer actually contains all CountInPacket sphere elements
+                        const size_t expectedPacketSize = minChunkHeaderSize + (chunk->CountInPacket * sizeof(FSphereNetData));
+                        if (bytesRead < static_cast<int>(expectedPacketSize))
+                            continue;
+
                         m_bConnected = true;
                         if (m_LastSnapshotTick > 0)
                         {
@@ -318,8 +340,8 @@ namespace Network
 
                         m_LastSnapshotTick = (std::max)(m_LastSnapshotTick, chunk->ServerTick);
 
-                        // Ensure sphere buffer is sized to match
-                        if (chunk->TotalSpheres > 0 && chunk->TotalSpheres != spheres.size())
+                        // Ensure sphere buffer is sized to match (with sanity bounds)
+                        if (chunk->TotalSpheres >= MIN_SPHERES && chunk->TotalSpheres <= MAX_SPHERES && chunk->TotalSpheres != spheres.size())
                         {
                             spheres = CreateSpheres(chunk->TotalSpheres, boxHalfSize);
                         }
