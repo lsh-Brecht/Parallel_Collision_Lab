@@ -18,25 +18,25 @@ namespace Network
         FNetworkServer();
         ~FNetworkServer();
 
-        bool Start(uint16_t port = DEFAULT_SERVER_PORT);
+        bool Start(uint16_t InPort = DEFAULT_SERVER_PORT);
         void Stop();
-        void Update(uint32_t currentTick, const std::vector<FSphere>& spheres, float boxHalfSize, float dt = 0.016f);
+        void Update(uint32_t CurrentTick, const std::vector<FSphere>& Spheres, float BoxHalfSize, float DeltaTime = 0.016f);
 
-        bool IsRunning() const { return m_Socket != INVALID_SOCKET; }
-        size_t GetClientCount() const { return m_Clients.size(); }
-        uint32_t GetPacketsSent() const { return m_PacketsSent; }
-        uint32_t GetPacketsReceived() const { return m_PacketsReceived; }
-
-    private:
-        void RegisterOrRefreshClient(const sockaddr_in& clientAddr);
-        void RemoveClient(const sockaddr_in& clientAddr);
-        void SendHandshakeResponse(const sockaddr_in& target, uint16_t sphereCount, float boxHalfSize);
+        bool IsRunning() const { return ServerSocket != INVALID_SOCKET; }
+        size_t GetClientCount() const { return ConnectedClients.size(); }
+        uint32_t GetPacketsSent() const { return TotalPacketsSent; }
+        uint32_t GetPacketsReceived() const { return TotalPacketsReceived; }
 
     private:
-        SOCKET                        m_Socket = INVALID_SOCKET;
-        uint16_t                      m_Port   = DEFAULT_SERVER_PORT;
-        std::vector<FConnectedClient> m_Clients;
-        uint32_t                      m_PacketsSent     = 0;
-        uint32_t                      m_PacketsReceived = 0;
+        void RegisterOrRefreshClient(const sockaddr_in& ClientAddr);
+        void RemoveClient(const sockaddr_in& ClientAddr);
+        void SendHandshakeResponse(const sockaddr_in& Target, uint16_t SphereCount, float BoxHalfSize);
+
+    private:
+        SOCKET                        ServerSocket         = INVALID_SOCKET;
+        uint16_t                      ListenPort           = DEFAULT_SERVER_PORT;
+        std::vector<FConnectedClient> ConnectedClients;
+        uint32_t                      TotalPacketsSent     = 0;
+        uint32_t                      TotalPacketsReceived = 0;
     };
 }

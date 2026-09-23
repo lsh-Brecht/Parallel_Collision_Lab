@@ -13,14 +13,14 @@ namespace Network
         FNetworkClient();
         ~FNetworkClient();
 
-        bool Connect(const char* serverIp = "127.0.0.1", uint16_t serverPort = DEFAULT_SERVER_PORT);
+        bool Connect(const char* InServerIp = "127.0.0.1", uint16_t InServerPort = DEFAULT_SERVER_PORT);
         void Disconnect();
-        void Update(std::vector<FSphere>& spheres, float boxHalfSize, float dt);
+        void Update(std::vector<FSphere>& Spheres, float BoxHalfSize, float DeltaTime);
 
-        bool IsConnected() const { return m_bConnected; }
-        uint32_t GetLastSnapshotTick() const { return m_LastSnapshotTick; }
-        uint32_t GetPacketsSent() const { return m_PacketsSent; }
-        uint32_t GetPacketsReceived() const { return m_PacketsReceived; }
+        bool IsConnected() const { return bIsConnected; }
+        uint32_t GetLastSnapshotTick() const { return LastReceivedSnapshotTick; }
+        uint32_t GetPacketsSent() const { return TotalPacketsSent; }
+        uint32_t GetPacketsReceived() const { return TotalPacketsReceived; }
 
     private:
         void SendHandshakeRequest();
@@ -28,14 +28,14 @@ namespace Network
         void SendDisconnect();
 
     private:
-        SOCKET      m_Socket           = INVALID_SOCKET;
-        sockaddr_in m_ServerAddr       = {};
-        std::string m_ServerIp         = "127.0.0.1";
-        uint16_t    m_ServerPort       = DEFAULT_SERVER_PORT;
-        bool        m_bConnected       = false;
-        float       m_HandshakeTimer   = 0.0f;
-        uint32_t    m_LastSnapshotTick = 0;
-        uint32_t    m_PacketsSent      = 0;
-        uint32_t    m_PacketsReceived  = 0;
+        SOCKET      ClientSocket             = INVALID_SOCKET;
+        sockaddr_in ServerEndpoint           = {};
+        std::string ServerIpAddress          = "127.0.0.1";
+        uint16_t    ServerPort               = DEFAULT_SERVER_PORT;
+        bool        bIsConnected             = false;
+        float       KeepAliveTimer           = 0.0f;
+        uint32_t    LastReceivedSnapshotTick = 0;
+        uint32_t    TotalPacketsSent         = 0;
+        uint32_t    TotalPacketsReceived     = 0;
     };
 }

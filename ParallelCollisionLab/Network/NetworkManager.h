@@ -23,13 +23,13 @@ namespace Network
 
         void Shutdown();
 
-        bool StartServer(uint16_t port = DEFAULT_SERVER_PORT);
-        bool StartClient(const char* serverIp = "127.0.0.1", uint16_t serverPort = DEFAULT_SERVER_PORT);
+        bool StartServer(uint16_t InPort = DEFAULT_SERVER_PORT);
+        bool StartClient(const char* InServerIp = "127.0.0.1", uint16_t InServerPort = DEFAULT_SERVER_PORT);
 
-        void UpdateServer(uint32_t currentTick, const std::vector<FSphere>& spheres, float boxHalfSize, float dt = 0.016f);
-        void UpdateClient(std::vector<FSphere>& spheres, float boxHalfSize, float dt);
+        void UpdateServer(uint32_t CurrentTick, const std::vector<FSphere>& Spheres, float BoxHalfSize, float DeltaTime = 0.016f);
+        void UpdateClient(std::vector<FSphere>& Spheres, float BoxHalfSize, float DeltaTime);
 
-        ENetworkRole GetRole() const { return m_Role; }
+        ENetworkRole GetRole() const { return CurrentRole; }
         const wchar_t* GetRoleString() const;
 
         bool IsConnected() const;
@@ -39,9 +39,9 @@ namespace Network
         uint32_t GetLastSnapshotTick() const;
 
     private:
-        FWinsockScope   m_WinsockScope;
-        ENetworkRole    m_Role = ENetworkRole::Standalone;
-        FNetworkServer  m_Server;
-        FNetworkClient  m_Client;
+        FWinsockScope   WinsockScope;
+        ENetworkRole    CurrentRole = ENetworkRole::Standalone;
+        FNetworkServer  ServerInstance;
+        FNetworkClient  ClientInstance;
     };
 }

@@ -4,7 +4,7 @@
 namespace Network
 {
     FNetworkServer::FNetworkServer()
-        : m_Socket(INVALID_SOCKET)
+        : ServerSocket(INVALID_SOCKET)
     {
     }
 
@@ -13,57 +13,57 @@ namespace Network
         Stop();
     }
 
-    bool FNetworkServer::Start(uint16_t port)
+    bool FNetworkServer::Start(uint16_t InPort)
     {
         Stop();
 
-        m_Socket = socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP);
-        if (m_Socket == INVALID_SOCKET)
+        ServerSocket = socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP);
+        if (ServerSocket == INVALID_SOCKET)
             return false;
 
         // Non-blocking mode
         u_long nonBlocking = 1;
-        ioctlsocket(m_Socket, FIONBIO, &nonBlocking);
+        ioctlsocket(ServerSocket, FIONBIO, &nonBlocking);
 
         // Socket buffer optimizations
         int bufSize = 512 * 1024;
-        setsockopt(m_Socket, SOL_SOCKET, SO_RCVBUF, reinterpret_cast<const char*>(&bufSize), sizeof(bufSize));
-        setsockopt(m_Socket, SOL_SOCKET, SO_SNDBUF, reinterpret_cast<const char*>(&bufSize), sizeof(bufSize));
+        setsockopt(ServerSocket, SOL_SOCKET, SO_RCVBUF, reinterpret_cast<const char*>(&bufSize), sizeof(bufSize));
+        setsockopt(ServerSocket, SOL_SOCKET, SO_SNDBUF, reinterpret_cast<const char*>(&bufSize), sizeof(bufSize));
 
         sockaddr_in serverAddr = {};
         serverAddr.sin_family      = AF_INET;
         serverAddr.sin_addr.s_addr = htonl(INADDR_ANY);
-        serverAddr.sin_port        = htons(port);
+        serverAddr.sin_port        = htons(InPort);
 
-        if (bind(m_Socket, reinterpret_cast<sockaddr*>(&serverAddr), sizeof(serverAddr)) == SOCKET_ERROR)
+        if (bind(ServerSocket, reinterpret_cast<sockaddr*>(&serverAddr), sizeof(serverAddr)) == SOCKET_ERROR)
         {
-            closesocket(m_Socket);
-            m_Socket = INVALID_SOCKET;
+            closesocket(ServerSocket);
+            ServerSocket = INVALID_SOCKET;
             return false;
         }
 
-        m_Port = port;
-        m_PacketsSent = 0;
-        m_PacketsReceived = 0;
-        m_Clients.clear();
+        ListenPort           = InPort;
+        TotalPacketsSent     = 0;
+        TotalPacketsReceived = 0;
+        ConnectedClients.clear();
         return true;
     }
 
     void FNetworkServer::Stop()
     {
-        if (m_Socket != INVALID_SOCKET)
+        if (ServerSocket != INVALID_SOCKET)
         {
-            closesocket(m_Socket);
-            m_Socket = INVALID_SOCKET;
+            closesocket(ServerSocket);
+            ServerSocket = INVALID_SOCKET;
         }
-        m_Clients.clear();
-        m_PacketsSent = 0;
-        m_PacketsReceived = 0;
+        ConnectedClients.clear();
+        TotalPacketsSent     = 0;
+        TotalPacketsReceived = 0;
     }
 
-    void FNetworkServer::Update(uint32_t currentTick, const std::vector<FSphere>& spheres, float boxHalfSize, float dt)
+    void FNetworkServer::Update(uint32_t CurrentTick, const std::vector<FSphere>& Spheres, float BoxHalfSize, float DeltaTime)
     {
-        if (m_Socket == INVALID_SOCKET)
+        if (ServerSocket == INVALID_SOCKET)
             return;
 
         // 1. Process all incoming UDP packets (non-blocking)
@@ -74,7 +74,7 @@ namespace Network
         while (true)
         {
             int bytesRead = recvfrom(
-                m_Socket,
+                ServerSocket,
                 reinterpret_cast<char*>(recvBuffer),
                 sizeof(recvBuffer),
                 0,
@@ -92,7 +92,7 @@ namespace Network
                 break;
             }
 
-            m_PacketsReceived++;
+            TotalPacketsReceived++;
 
             if (bytesRead >= sizeof(FPacketHeader))
             {
@@ -106,7 +106,7 @@ namespace Network
                         continue;
 
                     RegisterOrRefreshClient(senderAddr);
-                    SendHandshakeResponse(senderAddr, static_cast<uint16_t>(spheres.size()), boxHalfSize);
+                    SendHandshakeResponse(senderAddr, static_cast<uint16_t>(Spheres.size()), BoxHalfSize);
                 }
                 else if (header->Type == EPacketType::Heartbeat)
                 {
@@ -126,23 +126,23 @@ namespace Network
         }
 
         // 2. Client heartbeat timeout check (Zombie client cleanup: 5.0 seconds threshold)
-        for (auto& client : m_Clients)
+        for (auto& client : ConnectedClients)
         {
-            client.TimeSinceLastSeen += dt;
+            client.TimeSinceLastSeen += DeltaTime;
         }
 
-        m_Clients.erase(
-            std::remove_if(m_Clients.begin(), m_Clients.end(), [](const FConnectedClient& client) {
+        ConnectedClients.erase(
+            std::remove_if(ConnectedClients.begin(), ConnectedClients.end(), [](const FConnectedClient& client) {
                 return client.TimeSinceLastSeen > 5.0f;
             }),
-            m_Clients.end()
+            ConnectedClients.end()
         );
 
         // 3. Broadcast current world snapshot to all registered clients
-        if (m_Clients.empty() || spheres.empty())
+        if (ConnectedClients.empty() || Spheres.empty())
             return;
 
-        const int totalSpheres = static_cast<int>(spheres.size());
+        const int totalSpheres = static_cast<int>(Spheres.size());
         const uint8_t totalChunks = static_cast<uint8_t>((totalSpheres + MAX_SPHERES_PER_CHUNK - 1) / MAX_SPHERES_PER_CHUNK);
 
         for (uint8_t c = 0; c < totalChunks; ++c)
@@ -152,7 +152,7 @@ namespace Network
             chunkPacket.Header.Type  = EPacketType::SnapshotChunk;
             chunkPacket.ChunkIndex   = c;
             chunkPacket.TotalChunks  = totalChunks;
-            chunkPacket.ServerTick   = currentTick;
+            chunkPacket.ServerTick   = CurrentTick;
             chunkPacket.TotalSpheres = static_cast<uint16_t>(totalSpheres);
 
             int startIdx = c * MAX_SPHERES_PER_CHUNK;
@@ -161,7 +161,7 @@ namespace Network
 
             for (int i = 0; i < count; ++i)
             {
-                const FSphere& src = spheres[startIdx + i];
+                const FSphere& src = Spheres[startIdx + i];
                 chunkPacket.Spheres[i].Id        = (src.Id >= 0) ? src.Id : (startIdx + i);
                 chunkPacket.Spheres[i].Position  = src.Center;
                 chunkPacket.Spheres[i].Velocity  = src.Velocity;
@@ -171,67 +171,67 @@ namespace Network
 
             int packetSize = sizeof(chunkPacket) - sizeof(chunkPacket.Spheres) + (count * sizeof(FSphereNetData));
 
-            for (const auto& client : m_Clients)
+            for (const auto& client : ConnectedClients)
             {
                 sendto(
-                    m_Socket,
+                    ServerSocket,
                     reinterpret_cast<const char*>(&chunkPacket),
                     packetSize,
                     0,
                     reinterpret_cast<const sockaddr*>(&client.Addr),
                     sizeof(client.Addr)
                 );
-                m_PacketsSent++;
+                TotalPacketsSent++;
             }
         }
     }
 
-    void FNetworkServer::RegisterOrRefreshClient(const sockaddr_in& clientAddr)
+    void FNetworkServer::RegisterOrRefreshClient(const sockaddr_in& ClientAddr)
     {
-        for (auto& existing : m_Clients)
+        for (auto& existing : ConnectedClients)
         {
-            if (existing.Addr.sin_addr.s_addr == clientAddr.sin_addr.s_addr &&
-                existing.Addr.sin_port == clientAddr.sin_port)
+            if (existing.Addr.sin_addr.s_addr == ClientAddr.sin_addr.s_addr &&
+                existing.Addr.sin_port == ClientAddr.sin_port)
             {
                 existing.TimeSinceLastSeen = 0.0f; // Heartbeat refreshed
                 return;
             }
         }
         FConnectedClient newClient;
-        newClient.Addr = clientAddr;
+        newClient.Addr = ClientAddr;
         newClient.TimeSinceLastSeen = 0.0f;
-        m_Clients.push_back(newClient);
+        ConnectedClients.push_back(newClient);
     }
 
-    void FNetworkServer::RemoveClient(const sockaddr_in& clientAddr)
+    void FNetworkServer::RemoveClient(const sockaddr_in& ClientAddr)
     {
-        m_Clients.erase(
-            std::remove_if(m_Clients.begin(), m_Clients.end(), [&](const FConnectedClient& client) {
-                return client.Addr.sin_addr.s_addr == clientAddr.sin_addr.s_addr &&
-                       client.Addr.sin_port == clientAddr.sin_port;
+        ConnectedClients.erase(
+            std::remove_if(ConnectedClients.begin(), ConnectedClients.end(), [&](const FConnectedClient& client) {
+                return client.Addr.sin_addr.s_addr == ClientAddr.sin_addr.s_addr &&
+                       client.Addr.sin_port == ClientAddr.sin_port;
             }),
-            m_Clients.end()
+            ConnectedClients.end()
         );
     }
 
-    void FNetworkServer::SendHandshakeResponse(const sockaddr_in& target, uint16_t sphereCount, float boxHalfSize)
+    void FNetworkServer::SendHandshakeResponse(const sockaddr_in& Target, uint16_t SphereCount, float BoxHalfSize)
     {
-        if (m_Socket == INVALID_SOCKET) return;
+        if (ServerSocket == INVALID_SOCKET) return;
 
         FHandshakeResponsePacket packet = {};
         packet.Header.Magic = PROTOCOL_MAGIC;
         packet.Header.Type  = EPacketType::HandshakeResponse;
-        packet.SphereCount  = sphereCount;
-        packet.BoxHalfSize  = boxHalfSize;
+        packet.SphereCount  = SphereCount;
+        packet.BoxHalfSize  = BoxHalfSize;
 
         sendto(
-            m_Socket,
+            ServerSocket,
             reinterpret_cast<const char*>(&packet),
             sizeof(packet),
             0,
-            reinterpret_cast<const sockaddr*>(&target),
-            sizeof(target)
+            reinterpret_cast<const sockaddr*>(&Target),
+            sizeof(Target)
         );
-        m_PacketsSent++;
+        TotalPacketsSent++;
     }
 }

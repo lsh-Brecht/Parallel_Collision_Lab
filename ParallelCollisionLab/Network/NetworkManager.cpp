@@ -3,7 +3,7 @@
 namespace Network
 {
     FNetworkManager::FNetworkManager()
-        : m_Role(ENetworkRole::Standalone)
+        : CurrentRole(ENetworkRole::Standalone)
     {
     }
 
@@ -14,105 +14,105 @@ namespace Network
 
     void FNetworkManager::Shutdown()
     {
-        if (m_Role == ENetworkRole::Server)
+        if (CurrentRole == ENetworkRole::Server)
         {
-            m_Server.Stop();
+            ServerInstance.Stop();
         }
-        else if (m_Role == ENetworkRole::Client)
+        else if (CurrentRole == ENetworkRole::Client)
         {
-            m_Client.Disconnect();
+            ClientInstance.Disconnect();
         }
-        m_Role = ENetworkRole::Standalone;
+        CurrentRole = ENetworkRole::Standalone;
     }
 
-    bool FNetworkManager::StartServer(uint16_t port)
+    bool FNetworkManager::StartServer(uint16_t InPort)
     {
         Shutdown();
 
-        if (!m_WinsockScope.IsValid())
+        if (!WinsockScope.IsValid())
             return false;
 
-        if (m_Server.Start(port))
+        if (ServerInstance.Start(InPort))
         {
-            m_Role = ENetworkRole::Server;
+            CurrentRole = ENetworkRole::Server;
             return true;
         }
         return false;
     }
 
-    bool FNetworkManager::StartClient(const char* serverIp, uint16_t serverPort)
+    bool FNetworkManager::StartClient(const char* InServerIp, uint16_t InServerPort)
     {
         Shutdown();
 
-        if (!m_WinsockScope.IsValid())
+        if (!WinsockScope.IsValid())
             return false;
 
-        if (m_Client.Connect(serverIp, serverPort))
+        if (ClientInstance.Connect(InServerIp, InServerPort))
         {
-            m_Role = ENetworkRole::Client;
+            CurrentRole = ENetworkRole::Client;
             return true;
         }
         return false;
     }
 
-    void FNetworkManager::UpdateServer(uint32_t currentTick, const std::vector<FSphere>& spheres, float boxHalfSize, float dt)
+    void FNetworkManager::UpdateServer(uint32_t CurrentTick, const std::vector<FSphere>& Spheres, float BoxHalfSize, float DeltaTime)
     {
-        if (m_Role == ENetworkRole::Server)
+        if (CurrentRole == ENetworkRole::Server)
         {
-            m_Server.Update(currentTick, spheres, boxHalfSize, dt);
+            ServerInstance.Update(CurrentTick, Spheres, BoxHalfSize, DeltaTime);
         }
     }
 
-    void FNetworkManager::UpdateClient(std::vector<FSphere>& spheres, float boxHalfSize, float dt)
+    void FNetworkManager::UpdateClient(std::vector<FSphere>& Spheres, float BoxHalfSize, float DeltaTime)
     {
-        if (m_Role == ENetworkRole::Client)
+        if (CurrentRole == ENetworkRole::Client)
         {
-            m_Client.Update(spheres, boxHalfSize, dt);
+            ClientInstance.Update(Spheres, BoxHalfSize, DeltaTime);
         }
     }
 
     bool FNetworkManager::IsConnected() const
     {
-        if (m_Role == ENetworkRole::Client)
-            return m_Client.IsConnected();
+        if (CurrentRole == ENetworkRole::Client)
+            return ClientInstance.IsConnected();
         return false;
     }
 
     size_t FNetworkManager::GetClientCount() const
     {
-        if (m_Role == ENetworkRole::Server)
-            return m_Server.GetClientCount();
+        if (CurrentRole == ENetworkRole::Server)
+            return ServerInstance.GetClientCount();
         return 0;
     }
 
     uint32_t FNetworkManager::GetPacketsSent() const
     {
-        if (m_Role == ENetworkRole::Server)
-            return m_Server.GetPacketsSent();
-        if (m_Role == ENetworkRole::Client)
-            return m_Client.GetPacketsSent();
+        if (CurrentRole == ENetworkRole::Server)
+            return ServerInstance.GetPacketsSent();
+        if (CurrentRole == ENetworkRole::Client)
+            return ClientInstance.GetPacketsSent();
         return 0;
     }
 
     uint32_t FNetworkManager::GetPacketsReceived() const
     {
-        if (m_Role == ENetworkRole::Server)
-            return m_Server.GetPacketsReceived();
-        if (m_Role == ENetworkRole::Client)
-            return m_Client.GetPacketsReceived();
+        if (CurrentRole == ENetworkRole::Server)
+            return ServerInstance.GetPacketsReceived();
+        if (CurrentRole == ENetworkRole::Client)
+            return ClientInstance.GetPacketsReceived();
         return 0;
     }
 
     uint32_t FNetworkManager::GetLastSnapshotTick() const
     {
-        if (m_Role == ENetworkRole::Client)
-            return m_Client.GetLastSnapshotTick();
+        if (CurrentRole == ENetworkRole::Client)
+            return ClientInstance.GetLastSnapshotTick();
         return 0;
     }
 
     const wchar_t* FNetworkManager::GetRoleString() const
     {
-        switch (m_Role)
+        switch (CurrentRole)
         {
         case ENetworkRole::Server: return L"Server";
         case ENetworkRole::Client: return L"Client";
