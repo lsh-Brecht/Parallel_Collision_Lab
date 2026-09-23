@@ -89,8 +89,8 @@ public:
         if (bvhVis && bShowGridVis)
         {
             swprintf_s(HudBottomText,
-                       L"Candidate Pairs : %s | Collisions: %s | BVH Depth: %d/%d (PgUp/PgDn) | Mode: %s (V)\n"
-                       L"[1..6] Solvers  [M] Size: %s  [B] Bench  [G] Vis: ON  [H] HUD  (Tab: Cycle)",
+                       L"Pairs: %s | Collisions: %s | BVH: %d/%d (PgUp/Dn) | %s (V)\n"
+                       L"[1..6] Solvers  [M] %s  [B] Bench  [G] Vis: ON  [H] HUD  (Tab: Cycle)",
                        CachedCandidates.c_str(),
                        CachedCollisions.c_str(),
                        bvhVis->GetVisualizerDepth(),
@@ -101,8 +101,8 @@ public:
         else
         {
             swprintf_s(HudBottomText,
-                       L"Candidate Pairs : %s | Collisions: %s | Threads: %d (Hotkeys: [ / ])\n"
-                       L"[1..6] Solvers  [M] Size: %s  [B] Bench  [F9] Server  [F10] Client  [G] Grid: %s",
+                       L"Pairs: %s | Collisions: %s | Threads: %d (-:[ / +:])\n"
+                       L"[1..6] Solvers  [M] %s  [B] Bench  [F9] Server  [F10] Client  [G] Grid: %s",
                        CachedCandidates.c_str(),
                        CachedCollisions.c_str(),
                        ConfiguredThreads,
@@ -113,9 +113,9 @@ public:
 
     void Draw(FTextRenderer& TextRenderer, int ClientWidth, int ClientHeight)
     {
-        float bottomY = static_cast<float>(ClientHeight) - 55.0f;
+        float bottomY = static_cast<float>(ClientHeight) - 52.0f;
         TextRenderer.DrawTextOverlay(HudTopText, 10.0f, 10.0f, 700.0f, 240.0f);
-        TextRenderer.DrawTextOverlay(HudBottomText, 10.0f, bottomY, 1080.0f, 50.0f);
+        TextRenderer.DrawTextOverlay(HudBottomText, 10.0f, bottomY, static_cast<float>(ClientWidth) - 20.0f, 50.0f);
     }
 
 private:
