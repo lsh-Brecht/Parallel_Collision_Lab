@@ -98,21 +98,21 @@ namespace Network
         FWinsockScope()
         {
             WSADATA wsaData;
-            m_bValid = (WSAStartup(MAKEWORD(2, 2), &wsaData) == 0);
+            bIsValid = (WSAStartup(MAKEWORD(2, 2), &wsaData) == 0);
         }
 
         ~FWinsockScope()
         {
-            if (m_bValid)
+            if (bIsValid)
             {
                 WSACleanup();
-                m_bValid = false;
+                bIsValid = false;
             }
         }
 
-        bool IsValid() const { return m_bValid; }
+        bool IsValid() const { return bIsValid; }
 
     private:
-        bool m_bValid = false;
+        bool bIsValid = false;
     };
 }

@@ -11,7 +11,7 @@ class IUniformGridVisualizer
 {
 public:
     virtual ~IUniformGridVisualizer() = default;
-    virtual void BuildGrid(const std::vector<FSphere>& spheres) = 0;
-    virtual void GenerateActiveCellLines(std::vector<FVertexSimple>& outLines) const = 0;
-    virtual void GenerateFloorAndWallGridLines(std::vector<FVertexSimple>& outLines, float L = 2.0f) const = 0;
+    virtual void BuildGrid(const std::vector<FSphere>& Spheres) = 0;
+    virtual void GenerateActiveCellLines(std::vector<FVertexSimple>& OutLines) const = 0;
+    virtual void GenerateFloorAndWallGridLines(std::vector<FVertexSimple>& OutLines, float InBoxHalfSize = 2.0f) const = 0;
 };

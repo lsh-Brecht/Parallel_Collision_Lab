@@ -35,13 +35,13 @@ struct FBenchmarkReport
     std::vector<FBenchmarkItem> Items;
     std::wstring                DisplayText;
 
-    std::wstring GenerateDetailedReport(const FCPUInfo& cpuInfo) const
+    std::wstring GenerateDetailedReport(const FCPUInfo& CPUInfo) const
     {
         SYSTEMTIME st;
         GetLocalTime(&st);
 
         wchar_t headerBuf[1024];
-        uint64_t candidatePairs = static_cast<uint64_t>(BallCount) * (BallCount - 1) / 2;
+        uint64_t CandidatePairs = static_cast<uint64_t>(BallCount) * (BallCount - 1) / 2;
 
         swprintf_s(headerBuf,
             L"================================================================================\r\n"
@@ -58,9 +58,9 @@ struct FBenchmarkReport
             L"No.  Solver Name       Threads   Narrow Phase (Avg / Min / Max)      Speedup    \r\n"
             L"--------------------------------------------------------------------------------\r\n",
             st.wYear, st.wMonth, st.wDay, st.wHour, st.wMinute, st.wSecond,
-            cpuInfo.GetSummaryString().c_str(),
-            cpuInfo.GetCacheString().c_str(),
-            BallCount, candidatePairs,
+            CPUInfo.GetSummaryString().c_str(),
+            CPUInfo.GetCacheString().c_str(),
+            BallCount, CandidatePairs,
             SampleRuns, WarmupRuns);
 
         std::wstring out = headerBuf;
@@ -138,14 +138,14 @@ struct FBenchmarkReport
 // RunBenchmark - Runs warm-up and timed sample iterations across all solvers
 //=============================================================================
 inline FBenchmarkReport RunBenchmark(
-    const std::vector<std::unique_ptr<ICollisionSolver>>& solvers,
-    const std::vector<FSphere>& baseSpheres,
-    float boxHalfSize,
-    float fixedDt = 0.016f)
+    const std::vector<std::unique_ptr<ICollisionSolver>>& Solvers,
+    const std::vector<FSphere>& BaseSpheres,
+    float BoxHalfSize,
+    float FixedDt = 0.016f)
 {
     FBenchmarkReport report;
-    report.BallCount = static_cast<int>(baseSpheres.size());
-    if (report.BallCount < 2 || solvers.empty())
+    report.BallCount = static_cast<int>(BaseSpheres.size());
+    if (report.BallCount < 2 || Solvers.empty())
     {
         return report;
     }
@@ -155,23 +155,23 @@ inline FBenchmarkReport RunBenchmark(
 
     double baselineAvgNarrow = 0.0;
 
-    for (size_t s = 0; s < solvers.size(); ++s)
+    for (size_t s = 0; s < Solvers.size(); ++s)
     {
-        ICollisionSolver* solver = solvers[s].get();
+        ICollisionSolver* solver = Solvers[s].get();
         if (!solver) continue;
 
-        std::vector<FSphere> testSpheres = baseSpheres;
+        std::vector<FSphere> testSpheres = BaseSpheres;
         for (int w = 0; w < report.WarmupRuns; ++w)
         {
             for (FSphere& sphere : testSpheres)
             {
-                sphere.Update(fixedDt);
-                sphere.BoxCollisionCheck(boxHalfSize);
+                sphere.Update(FixedDt);
+                sphere.BoxCollisionCheck(BoxHalfSize);
             }
             solver->Solve(testSpheres);
         }
 
-        testSpheres = baseSpheres;
+        testSpheres = BaseSpheres;
 
         double totalNarrowMs = 0.0;
         double minNarrowMs   = 1e9;
@@ -182,8 +182,8 @@ inline FBenchmarkReport RunBenchmark(
         {
             for (FSphere& sphere : testSpheres)
             {
-                sphere.Update(fixedDt);
-                sphere.BoxCollisionCheck(boxHalfSize);
+                sphere.Update(FixedDt);
+                sphere.BoxCollisionCheck(BoxHalfSize);
             }
 
             solver->Solve(testSpheres);

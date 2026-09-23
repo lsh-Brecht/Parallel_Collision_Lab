@@ -24,18 +24,18 @@ struct FBVHNode
         return RightChild;
     }
 
-    void SetLeaf(int sphereIndex, const FAABB& bounds)
+    void SetLeaf(int SphereIndex, const FAABB& InBounds)
     {
-        Bounds     = bounds;
+        Bounds     = InBounds;
         LeftChild  = -1;
-        RightChild = sphereIndex;
+        RightChild = SphereIndex;
     }
 
-    void SetInternal(int leftChildIdx, int rightChildIdx, const FAABB& bounds)
+    void SetInternal(int LeftChildIdx, int RightChildIdx, const FAABB& InBounds)
     {
-        Bounds     = bounds;
-        LeftChild  = leftChildIdx;
-        RightChild = rightChildIdx;
+        Bounds     = InBounds;
+        LeftChild  = LeftChildIdx;
+        RightChild = RightChildIdx;
     }
 };
 

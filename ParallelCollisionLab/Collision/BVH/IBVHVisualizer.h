@@ -32,13 +32,13 @@ class IBVHVisualizer
 public:
     virtual ~IBVHVisualizer() = default;
 
-    virtual void BuildBVH(const std::vector<FSphere>& spheres) = 0;
+    virtual void BuildBVH(const std::vector<FSphere>& Spheres) = 0;
 
-    virtual void GenerateVisualizerLineGroups(std::vector<FBVHLineGroup>& outGroups) const = 0;
+    virtual void GenerateVisualizerLineGroups(std::vector<FBVHLineGroup>& OutGroups) const = 0;
 
     virtual int  GetVisualizerDepth() const = 0;
     virtual int  GetMaxTreeDepth()    const = 0;
-    virtual void SetVisualizerDepth(int depth) = 0;
+    virtual void SetVisualizerDepth(int Depth) = 0;
     virtual void IncrementVisualizerDepth() = 0;
     virtual void DecrementVisualizerDepth() = 0;
 
@@ -46,10 +46,10 @@ public:
     virtual void               CycleVisualizerMode() = 0;
     virtual const wchar_t*     GetVisualizerModeName() const = 0;
 
-    static void AppendAABBWireframe(std::vector<FVertexSimple>& lines, const FAABB& aabb)
+    static void AppendAABBWireframe(std::vector<FVertexSimple>& Lines, const FAABB& Box)
     {
-        const float x0 = aabb.Min.x, y0 = aabb.Min.y, z0 = aabb.Min.z;
-        const float x1 = aabb.Max.x, y1 = aabb.Max.y, z1 = aabb.Max.z;
+        const float x0 = Box.Min.x, y0 = Box.Min.y, z0 = Box.Min.z;
+        const float x1 = Box.Max.x, y1 = Box.Max.y, z1 = Box.Max.z;
 
         FVertexSimple v0 = { x0, y0, z0 };
         FVertexSimple v1 = { x1, y0, z0 };
@@ -60,23 +60,23 @@ public:
         FVertexSimple v6 = { x1, y1, z1 };
         FVertexSimple v7 = { x0, y1, z1 };
 
-        lines.push_back(v0); lines.push_back(v1);
-        lines.push_back(v1); lines.push_back(v2);
-        lines.push_back(v2); lines.push_back(v3);
-        lines.push_back(v3); lines.push_back(v0);
+        Lines.push_back(v0); Lines.push_back(v1);
+        Lines.push_back(v1); Lines.push_back(v2);
+        Lines.push_back(v2); Lines.push_back(v3);
+        Lines.push_back(v3); Lines.push_back(v0);
 
-        lines.push_back(v4); lines.push_back(v5);
-        lines.push_back(v5); lines.push_back(v6);
-        lines.push_back(v6); lines.push_back(v7);
-        lines.push_back(v7); lines.push_back(v4);
+        Lines.push_back(v4); Lines.push_back(v5);
+        Lines.push_back(v5); Lines.push_back(v6);
+        Lines.push_back(v6); Lines.push_back(v7);
+        Lines.push_back(v7); Lines.push_back(v4);
 
-        lines.push_back(v0); lines.push_back(v4);
-        lines.push_back(v1); lines.push_back(v5);
-        lines.push_back(v2); lines.push_back(v6);
-        lines.push_back(v3); lines.push_back(v7);
+        Lines.push_back(v0); Lines.push_back(v4);
+        Lines.push_back(v1); Lines.push_back(v5);
+        Lines.push_back(v2); Lines.push_back(v6);
+        Lines.push_back(v3); Lines.push_back(v7);
     }
 
-    static FVector4 GetDepthColor(int depth)
+    static FVector4 GetDepthColor(int Depth)
     {
         static const FVector4 PALETTE[] = {
             FVector4(1.00f, 0.25f, 0.25f, 1.0f),
@@ -91,6 +91,6 @@ public:
             FVector4(0.95f, 0.20f, 0.65f, 1.0f)
         };
         const int count = sizeof(PALETTE) / sizeof(PALETTE[0]);
-        return PALETTE[depth % count];
+        return PALETTE[Depth % count];
     }
 };

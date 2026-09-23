@@ -15,52 +15,52 @@ class NestedLoopSolver : public ICollisionSolver
 public:
     NestedLoopSolver()
     {
-        QueryPerformanceFrequency(&m_TimerFreq);
+        QueryPerformanceFrequency(&TimerFrequency);
     }
 
-    void Solve(std::vector<FSphere>& spheres) override
+    void Solve(std::vector<FSphere>& Spheres) override
     {
-        const int count = static_cast<int>(spheres.size());
-        m_Stats = {};
-        if (count < 2) return;
+        const int Count = static_cast<int>(Spheres.size());
+        LastStats = {};
+        if (Count < 2) return;
 
-        LARGE_INTEGER t0, t1, t2, t3;
+        LARGE_INTEGER TimerStart, TimerBroad, TimerNarrow, TimerResolve;
 
-        QueryPerformanceCounter(&t0);
-        m_Stats.CandidatePairCount = static_cast<uint64_t>(count) * (count - 1) / 2;
-        QueryPerformanceCounter(&t1);
+        QueryPerformanceCounter(&TimerStart);
+        LastStats.CandidatePairCount = static_cast<uint64_t>(Count) * (Count - 1) / 2;
+        QueryPerformanceCounter(&TimerBroad);
 
-        m_Manifolds.clear();
-        for (int i = 0; i < count; ++i)
+        Manifolds.clear();
+        for (int i = 0; i < Count; ++i)
         {
-            const FVector3 posA = spheres[i].Center;
-            const float    radA = spheres[i].Radius;
+            const FVector3 PosA    = Spheres[i].Center;
+            const float    RadiusA = Spheres[i].Radius;
 
-            for (int j = i + 1; j < count; ++j)
+            for (int j = i + 1; j < Count; ++j)
             {
-                const FVector3 diff = posA - spheres[j].Center;
-                const float distSq  = diff.LengthSq();
-                const float radSum  = radA + spheres[j].Radius;
+                const FVector3 Diff      = PosA - Spheres[j].Center;
+                const float    DistSq    = Diff.LengthSq();
+                const float    RadiusSum = RadiusA + Spheres[j].Radius;
 
-                if (distSq < radSum * radSum)
+                if (DistSq < RadiusSum * RadiusSum)
                 {
-                    const float dist = sqrtf(distSq);
-                    const FVector3 normal = (dist > 1e-6f) ? diff * (1.0f / dist) : FVector3(1.0f, 0.0f, 0.0f);
-                    m_Manifolds.push_back({ i, j, normal, radSum - dist });
+                    const float Dist = sqrtf(DistSq);
+                    const FVector3 Normal = (Dist > 1e-6f) ? Diff * (1.0f / Dist) : FVector3(1.0f, 0.0f, 0.0f);
+                    Manifolds.push_back({ i, j, Normal, RadiusSum - Dist });
                 }
             }
         }
-        m_Stats.ActualCollisionCount = static_cast<uint64_t>(m_Manifolds.size());
-        QueryPerformanceCounter(&t2);
+        LastStats.ActualCollisionCount = static_cast<uint64_t>(Manifolds.size());
+        QueryPerformanceCounter(&TimerNarrow);
 
-        ResolveCollisions(spheres, m_Manifolds);
-        QueryPerformanceCounter(&t3);
+        ResolveCollisions(Spheres, Manifolds);
+        QueryPerformanceCounter(&TimerResolve);
 
-        const double toMs = 1000.0 / static_cast<double>(m_TimerFreq.QuadPart);
-        m_Stats.BroadPhaseTimeMs   = static_cast<double>(t1.QuadPart - t0.QuadPart) * toMs;
-        m_Stats.NarrowPhaseTimeMs  = static_cast<double>(t2.QuadPart - t1.QuadPart) * toMs;
-        m_Stats.ResolutionTimeMs   = static_cast<double>(t3.QuadPart - t2.QuadPart) * toMs;
-        m_Stats.TotalSolveTimeMs   = static_cast<double>(t3.QuadPart - t0.QuadPart) * toMs;
+        const double ToMilliseconds = 1000.0 / static_cast<double>(TimerFrequency.QuadPart);
+        LastStats.BroadPhaseTimeMs   = static_cast<double>(TimerBroad.QuadPart - TimerStart.QuadPart) * ToMilliseconds;
+        LastStats.NarrowPhaseTimeMs  = static_cast<double>(TimerNarrow.QuadPart - TimerBroad.QuadPart) * ToMilliseconds;
+        LastStats.ResolutionTimeMs   = static_cast<double>(TimerResolve.QuadPart - TimerNarrow.QuadPart) * ToMilliseconds;
+        LastStats.TotalSolveTimeMs   = static_cast<double>(TimerResolve.QuadPart - TimerStart.QuadPart) * ToMilliseconds;
     }
 
     const wchar_t* GetName()          const override { return L"NestedLoop (ST)"; }
@@ -68,11 +68,11 @@ public:
     const wchar_t* GetExecutionMode() const override { return L"Single Thread"; }
     int            GetThreadCount()   const override { return 1; }
 
-    const FCollisionStats& GetLastStats() const override { return m_Stats; }
-    const std::vector<FCollisionManifold>& GetManifolds() const { return m_Manifolds; }
+    const FCollisionStats& GetLastStats() const override { return LastStats; }
+    const std::vector<FCollisionManifold>& GetManifolds() const { return Manifolds; }
 
 private:
-    LARGE_INTEGER                   m_TimerFreq          = {};
-    FCollisionStats                 m_Stats              = {};
-    std::vector<FCollisionManifold> m_Manifolds;
+    LARGE_INTEGER                   TimerFrequency = {};
+    FCollisionStats                 LastStats      = {};
+    std::vector<FCollisionManifold> Manifolds;
 };

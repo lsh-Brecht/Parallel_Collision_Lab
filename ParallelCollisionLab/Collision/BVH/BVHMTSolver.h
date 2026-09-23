@@ -31,17 +31,17 @@
 class BVHMTSolver : public ICollisionSolver, public IBVHVisualizer
 {
 public:
-    BVHMTSolver(int threadCount = 0)
+    BVHMTSolver(int InThreadCount = 0)
     {
-        QueryPerformanceFrequency(&m_TimerFreq);
-        m_Manifolds.reserve(512);
-        m_Nodes.reserve(2048);
-        m_SphereIndices.reserve(1024);
-        m_SphereBounds.reserve(1024);
+        QueryPerformanceFrequency(&TimerFrequency);
+        Manifolds.reserve(512);
+        Nodes.reserve(2048);
+        SphereIndices.reserve(1024);
+        SphereBounds.reserve(1024);
 
-        unsigned int hwThreads = std::thread::hardware_concurrency();
-        int initialCount = (threadCount > 0) ? threadCount : (hwThreads > 0 ? static_cast<int>(hwThreads) : 4);
-        InitThreadPool(initialCount);
+        unsigned int HwThreads = std::thread::hardware_concurrency();
+        int InitialCount = (InThreadCount > 0) ? InThreadCount : (HwThreads > 0 ? static_cast<int>(HwThreads) : 4);
+        InitThreadPool(InitialCount);
     }
 
     ~BVHMTSolver() override
@@ -52,310 +52,310 @@ public:
     //-------------------------------------------------------------------------
     // Thread Pool Lifecycle
     //-------------------------------------------------------------------------
-    void SetThreadCount(int threadCount) override
+    void SetThreadCount(int InThreadCount) override
     {
-        if (threadCount <= 0 || threadCount == m_ThreadCount)
+        if (InThreadCount <= 0 || InThreadCount == WorkerThreadCount)
             return;
 
         ShutdownThreadPool();
-        InitThreadPool(threadCount);
+        InitThreadPool(InThreadCount);
     }
 
-    void InitThreadPool(int threadCount)
+    void InitThreadPool(int InThreadCount)
     {
-        m_ThreadCount = threadCount;
-        m_ThreadManifolds.clear();
-        m_ThreadManifolds.resize(m_ThreadCount);
-        for (auto& vec : m_ThreadManifolds)
+        WorkerThreadCount = InThreadCount;
+        PerThreadManifolds.clear();
+        PerThreadManifolds.resize(WorkerThreadCount);
+        for (auto& vec : PerThreadManifolds)
         {
             vec.reserve(512);
         }
 
-        m_ThreadCandidates.assign(m_ThreadCount, 0);
+        PerThreadCandidates.assign(WorkerThreadCount, 0);
 
-        m_Stop           = false;
-        m_Iteration      = 0;
-        m_CompletedCount = 0;
-        m_Workers.clear();
+        bStopWorkers         = false;
+        CurrentIteration     = 0;
+        CompletedWorkerCount = 0;
+        WorkerThreads.clear();
 
-        for (int t = 1; t < m_ThreadCount; ++t)
+        for (int t = 1; t < WorkerThreadCount; ++t)
         {
-            m_Workers.emplace_back(&BVHMTSolver::WorkerLoop, this, t);
+            WorkerThreads.emplace_back(&BVHMTSolver::WorkerLoop, this, t);
         }
     }
 
     void ShutdownThreadPool()
     {
         {
-            std::unique_lock<std::mutex> lock(m_Mutex);
-            m_Stop = true;
+            std::unique_lock<std::mutex> Lock(SyncMutex);
+            bStopWorkers = true;
         }
-        m_CvStart.notify_all();
+        CvStart.notify_all();
 
-        for (std::thread& worker : m_Workers)
+        for (std::thread& Worker : WorkerThreads)
         {
-            if (worker.joinable())
+            if (Worker.joinable())
             {
-                worker.join();
+                Worker.join();
             }
         }
-        m_Workers.clear();
+        WorkerThreads.clear();
     }
 
     //-------------------------------------------------------------------------
     // ICollisionSolver Interface
     //-------------------------------------------------------------------------
-    void Solve(std::vector<FSphere>& spheres) override
+    void Solve(std::vector<FSphere>& Spheres) override
     {
-        const int count = static_cast<int>(spheres.size());
-        m_Stats = {};
-        if (count < 2) return;
+        const int Count = static_cast<int>(Spheres.size());
+        LastStats = {};
+        if (Count < 2) return;
 
-        m_CurrentSpheres = &spheres;
+        CurrentSpheres = &Spheres;
 
-        LARGE_INTEGER t0, t1, t2, t3;
+        LARGE_INTEGER TimerStart, TimerBroad, TimerNarrow, TimerResolve;
 
-        QueryPerformanceCounter(&t0);
-        BuildBVH(spheres);
-        QueryPerformanceCounter(&t1);
+        QueryPerformanceCounter(&TimerStart);
+        BuildBVH(Spheres);
+        QueryPerformanceCounter(&TimerBroad);
 
-        for (auto& vec : m_ThreadManifolds)
+        for (auto& vec : PerThreadManifolds)
         {
             vec.clear();
         }
-        std::fill(m_ThreadCandidates.begin(), m_ThreadCandidates.end(), 0ULL);
+        std::fill(PerThreadCandidates.begin(), PerThreadCandidates.end(), 0ULL);
 
-        if (m_Workers.empty())
+        if (WorkerThreads.empty())
         {
-            DoQueryChunk(0, 0, count);
+            DoQueryChunk(0, 0, Count);
         }
         else
         {
-            m_Phase = EBVHMTParticlePhase::QuerySpheres;
+            CurrentPhase = EBVHMTParticlePhase::QuerySpheres;
             {
-                std::unique_lock<std::mutex> lock(m_Mutex);
-                m_CompletedCount = 0;
-                m_Iteration++;
+                std::unique_lock<std::mutex> Lock(SyncMutex);
+                CompletedWorkerCount = 0;
+                CurrentIteration++;
             }
-            m_CvStart.notify_all();
+            CvStart.notify_all();
 
-            int chunkSize = (count + m_ThreadCount - 1) / m_ThreadCount;
-            int end0      = (std::min)(chunkSize, count);
-            DoQueryChunk(0, 0, end0);
+            int ChunkSize = (Count + WorkerThreadCount - 1) / WorkerThreadCount;
+            int End0      = (std::min)(ChunkSize, Count);
+            DoQueryChunk(0, 0, End0);
 
             {
-                std::unique_lock<std::mutex> lock(m_Mutex);
-                m_CvDone.wait(lock, [&]() {
-                    return m_CompletedCount >= static_cast<int>(m_Workers.size());
+                std::unique_lock<std::mutex> Lock(SyncMutex);
+                CvDone.wait(Lock, [&]() {
+                    return CompletedWorkerCount >= static_cast<int>(WorkerThreads.size());
                 });
             }
         }
 
-        m_Manifolds.clear();
-        size_t totalManifolds = 0;
-        uint64_t totalCandidates = 0;
-        for (int t = 0; t < m_ThreadCount; ++t)
+        Manifolds.clear();
+        size_t TotalManifolds = 0;
+        uint64_t TotalCandidates = 0;
+        for (int t = 0; t < WorkerThreadCount; ++t)
         {
-            totalManifolds  += m_ThreadManifolds[t].size();
-            totalCandidates += m_ThreadCandidates[t];
+            TotalManifolds  += PerThreadManifolds[t].size();
+            TotalCandidates += PerThreadCandidates[t];
         }
 
-        m_Manifolds.reserve(totalManifolds);
-        for (int t = 0; t < m_ThreadCount; ++t)
+        Manifolds.reserve(TotalManifolds);
+        for (int t = 0; t < WorkerThreadCount; ++t)
         {
-            m_Manifolds.insert(m_Manifolds.end(),
-                               m_ThreadManifolds[t].begin(),
-                               m_ThreadManifolds[t].end());
+            Manifolds.insert(Manifolds.end(),
+                             PerThreadManifolds[t].begin(),
+                             PerThreadManifolds[t].end());
         }
 
-        m_Stats.CandidatePairCount   = totalCandidates;
-        m_Stats.ActualCollisionCount = static_cast<uint64_t>(m_Manifolds.size());
-        QueryPerformanceCounter(&t2);
+        LastStats.CandidatePairCount   = TotalCandidates;
+        LastStats.ActualCollisionCount = static_cast<uint64_t>(Manifolds.size());
+        QueryPerformanceCounter(&TimerNarrow);
 
-        ResolveCollisions(spheres, m_Manifolds);
-        QueryPerformanceCounter(&t3);
+        ResolveCollisions(Spheres, Manifolds);
+        QueryPerformanceCounter(&TimerResolve);
 
-        const double toMs = 1000.0 / static_cast<double>(m_TimerFreq.QuadPart);
-        m_Stats.BroadPhaseTimeMs  = static_cast<double>(t1.QuadPart - t0.QuadPart) * toMs;
-        m_Stats.NarrowPhaseTimeMs = static_cast<double>(t2.QuadPart - t1.QuadPart) * toMs;
-        m_Stats.ResolutionTimeMs  = static_cast<double>(t3.QuadPart - t2.QuadPart) * toMs;
-        m_Stats.TotalSolveTimeMs  = static_cast<double>(t3.QuadPart - t0.QuadPart) * toMs;
+        const double ToMilliseconds = 1000.0 / static_cast<double>(TimerFrequency.QuadPart);
+        LastStats.BroadPhaseTimeMs  = static_cast<double>(TimerBroad.QuadPart - TimerStart.QuadPart) * ToMilliseconds;
+        LastStats.NarrowPhaseTimeMs = static_cast<double>(TimerNarrow.QuadPart - TimerBroad.QuadPart) * ToMilliseconds;
+        LastStats.ResolutionTimeMs  = static_cast<double>(TimerResolve.QuadPart - TimerNarrow.QuadPart) * ToMilliseconds;
+        LastStats.TotalSolveTimeMs  = static_cast<double>(TimerResolve.QuadPart - TimerStart.QuadPart) * ToMilliseconds;
     }
 
     const wchar_t* GetName()          const override { return L"BVH (MT)"; }
     const wchar_t* GetAlgorithmName() const override { return L"BVH (Median Split)"; }
     const wchar_t* GetExecutionMode() const override { return L"Multi Thread"; }
-    int            GetThreadCount()   const override { return m_ThreadCount; }
+    int            GetThreadCount()   const override { return WorkerThreadCount; }
 
-    const FCollisionStats& GetLastStats() const override { return m_Stats; }
-    const std::vector<FCollisionManifold>& GetManifolds() const { return m_Manifolds; }
+    const FCollisionStats& GetLastStats() const override { return LastStats; }
+    const std::vector<FCollisionManifold>& GetManifolds() const { return Manifolds; }
 
     //-------------------------------------------------------------------------
     // IBVHVisualizer Interface
     //-------------------------------------------------------------------------
-    void BuildBVH(const std::vector<FSphere>& spheres) override
+    void BuildBVH(const std::vector<FSphere>& Spheres) override
     {
-        const int count = static_cast<int>(spheres.size());
-        if (count == 0)
+        const int Count = static_cast<int>(Spheres.size());
+        if (Count == 0)
         {
-            m_Nodes.clear();
-            m_MaxDepth = 0;
-            m_VisualizerDepth = 0;
+            Nodes.clear();
+            MaxTreeDepth = 0;
+            VisualizerDepth = 0;
             return;
         }
 
-        m_CurrentSpheres = const_cast<std::vector<FSphere>*>(&spheres);
-        m_SphereIndices.resize(count);
-        m_SphereBounds.resize(count);
-        for (int i = 0; i < count; ++i)
+        CurrentSpheres = const_cast<std::vector<FSphere>*>(&Spheres);
+        SphereIndices.resize(Count);
+        SphereBounds.resize(Count);
+        for (int i = 0; i < Count; ++i)
         {
-            m_SphereIndices[i] = i;
-            m_SphereBounds[i]  = FAABB::FromSphere(spheres[i].Center, spheres[i].Radius);
+            SphereIndices[i] = i;
+            SphereBounds[i]  = FAABB::FromSphere(Spheres[i].Center, Spheres[i].Radius);
         }
 
-        const int totalNodes = 2 * count - 1;
-        m_Nodes.resize(totalNodes);
-        m_MaxDepth = 0;
+        const int TotalNodes = 2 * Count - 1;
+        Nodes.resize(TotalNodes);
+        MaxTreeDepth = 0;
 
-        int numTasks = 1;
-        int forkDepth = 0;
-        if (m_ThreadCount >= 8 && count >= 2048)
+        int NumTasks = 1;
+        int ForkDepth = 0;
+        if (WorkerThreadCount >= 8 && Count >= 2048)
         {
-            numTasks = 8;
-            forkDepth = 3;
+            NumTasks = 8;
+            ForkDepth = 3;
         }
-        else if (m_ThreadCount >= 4 && count >= 1024)
+        else if (WorkerThreadCount >= 4 && Count >= 1024)
         {
-            numTasks = 4;
-            forkDepth = 2;
+            NumTasks = 4;
+            ForkDepth = 2;
         }
 
-        if (numTasks <= 1 || m_Workers.empty())
+        if (NumTasks <= 1 || WorkerThreads.empty())
         {
-            int freeNode = 0;
-            BuildSubtreeInPlace(spheres, 0, count, 0, freeNode, m_MaxDepth);
-            if (m_VisualizerDepth > m_MaxDepth)
+            int FreeNode = 0;
+            BuildSubtreeInPlace(Spheres, 0, Count, 0, FreeNode, MaxTreeDepth);
+            if (VisualizerDepth > MaxTreeDepth)
             {
-                m_VisualizerDepth = m_MaxDepth;
+                VisualizerDepth = MaxTreeDepth;
             }
             return;
         }
 
-        m_BuildTasks.clear();
-        m_BuildTasks.reserve(numTasks);
+        SubtreeBuildTasks.clear();
+        SubtreeBuildTasks.reserve(NumTasks);
 
-        int upperNodeCount = (1 << forkDepth) - 1;
-        int nextTaskOffset = upperNodeCount;
-        int upperFreeNode  = 0;
+        int UpperNodeCount = (1 << ForkDepth) - 1;
+        int NextTaskOffset = UpperNodeCount;
+        int UpperFreeNode  = 0;
 
-        BuildUpperTreeInPlace(spheres, 0, count, 0, forkDepth, upperFreeNode, nextTaskOffset);
+        BuildUpperTreeInPlace(Spheres, 0, Count, 0, ForkDepth, UpperFreeNode, NextTaskOffset);
 
-        m_Phase = EBVHMTParticlePhase::BuildSubtrees;
+        CurrentPhase = EBVHMTParticlePhase::BuildSubtrees;
         {
-            std::unique_lock<std::mutex> lock(m_Mutex);
-            m_CompletedCount = 0;
-            m_Iteration++;
+            std::unique_lock<std::mutex> Lock(SyncMutex);
+            CompletedWorkerCount = 0;
+            CurrentIteration++;
         }
-        m_CvStart.notify_all();
+        CvStart.notify_all();
 
         ExecuteBuildTasks(0);
 
         {
-            std::unique_lock<std::mutex> lock(m_Mutex);
-            m_CvDone.wait(lock, [&]() {
-                return m_CompletedCount >= static_cast<int>(m_Workers.size());
+            std::unique_lock<std::mutex> Lock(SyncMutex);
+            CvDone.wait(Lock, [&]() {
+                return CompletedWorkerCount >= static_cast<int>(WorkerThreads.size());
             });
         }
 
-        for (const auto& task : m_BuildTasks)
+        for (const auto& Task : SubtreeBuildTasks)
         {
-            if (task.LocalMaxDepth > m_MaxDepth)
+            if (Task.LocalMaxDepth > MaxTreeDepth)
             {
-                m_MaxDepth = task.LocalMaxDepth;
+                MaxTreeDepth = Task.LocalMaxDepth;
             }
         }
 
-        if (m_VisualizerDepth > m_MaxDepth)
+        if (VisualizerDepth > MaxTreeDepth)
         {
-            m_VisualizerDepth = m_MaxDepth;
+            VisualizerDepth = MaxTreeDepth;
         }
     }
 
-    void GenerateVisualizerLineGroups(std::vector<FBVHLineGroup>& outGroups) const override
+    void GenerateVisualizerLineGroups(std::vector<FBVHLineGroup>& OutGroups) const override
     {
-        outGroups.clear();
-        if (m_Nodes.empty()) return;
+        OutGroups.clear();
+        if (Nodes.empty()) return;
 
-        const int targetDepth = (std::max)(0, (std::min)(m_VisualizerDepth, m_MaxDepth));
+        const int TargetDepth = (std::max)(0, (std::min)(VisualizerDepth, MaxTreeDepth));
 
-        if (m_VisualizerMode == EBVHVisualizerMode::SingleLevel)
+        if (VisualizerMode == EBVHVisualizerMode::SingleLevel)
         {
-            outGroups.resize(1);
-            outGroups[0].Color = IBVHVisualizer::GetDepthColor(targetDepth);
-            CollectSingleLevelLines(0, 0, targetDepth, outGroups[0].Lines);
+            OutGroups.resize(1);
+            OutGroups[0].Color = IBVHVisualizer::GetDepthColor(TargetDepth);
+            CollectSingleLevelLines(0, 0, TargetDepth, OutGroups[0].Lines);
         }
-        else if (m_VisualizerMode == EBVHVisualizerMode::LOD)
+        else if (VisualizerMode == EBVHVisualizerMode::LOD)
         {
-            outGroups.resize(targetDepth + 1);
-            for (int d = 0; d <= targetDepth; ++d)
+            OutGroups.resize(TargetDepth + 1);
+            for (int d = 0; d <= TargetDepth; ++d)
             {
-                outGroups[d].Color = IBVHVisualizer::GetDepthColor(d);
+                OutGroups[d].Color = IBVHVisualizer::GetDepthColor(d);
             }
-            CollectLODLines(0, 0, targetDepth, outGroups);
+            CollectLODLines(0, 0, TargetDepth, OutGroups);
         }
         else
         {
-            outGroups.resize(1);
-            outGroups[0].Color = FVector4(0.20f, 0.95f, 0.40f, 1.0f);
-            CollectLeafLines(0, outGroups[0].Lines);
+            OutGroups.resize(1);
+            OutGroups[0].Color = FVector4(0.20f, 0.95f, 0.40f, 1.0f);
+            CollectLeafLines(0, OutGroups[0].Lines);
         }
     }
 
     int  GetVisualizerDepth() const override
     {
-        return (std::max)(0, (std::min)(m_VisualizerDepth, m_MaxDepth));
+        return (std::max)(0, (std::min)(VisualizerDepth, MaxTreeDepth));
     }
-    int  GetMaxTreeDepth()    const override { return m_MaxDepth; }
-    void SetVisualizerDepth(int depth) override
+    int  GetMaxTreeDepth()    const override { return MaxTreeDepth; }
+    void SetVisualizerDepth(int Depth) override
     {
-        m_VisualizerDepth = (std::max)(0, (std::min)(depth, m_MaxDepth));
+        VisualizerDepth = (std::max)(0, (std::min)(Depth, MaxTreeDepth));
     }
     void IncrementVisualizerDepth() override
     {
-        if (m_VisualizerDepth > m_MaxDepth)
+        if (VisualizerDepth > MaxTreeDepth)
         {
-            m_VisualizerDepth = m_MaxDepth;
+            VisualizerDepth = MaxTreeDepth;
         }
-        else if (m_VisualizerDepth < m_MaxDepth)
+        else if (VisualizerDepth < MaxTreeDepth)
         {
-            m_VisualizerDepth++;
+            VisualizerDepth++;
         }
     }
     void DecrementVisualizerDepth() override
     {
-        if (m_VisualizerDepth > m_MaxDepth)
+        if (VisualizerDepth > MaxTreeDepth)
         {
-            m_VisualizerDepth = m_MaxDepth;
+            VisualizerDepth = MaxTreeDepth;
         }
-        if (m_VisualizerDepth > 0)
+        if (VisualizerDepth > 0)
         {
-            m_VisualizerDepth--;
+            VisualizerDepth--;
         }
     }
 
-    EBVHVisualizerMode GetVisualizerMode() const override { return m_VisualizerMode; }
+    EBVHVisualizerMode GetVisualizerMode() const override { return VisualizerMode; }
     void CycleVisualizerMode() override
     {
-        if (m_VisualizerMode == EBVHVisualizerMode::LOD)
-            m_VisualizerMode = EBVHVisualizerMode::SingleLevel;
-        else if (m_VisualizerMode == EBVHVisualizerMode::SingleLevel)
-            m_VisualizerMode = EBVHVisualizerMode::LeafOnly;
+        if (VisualizerMode == EBVHVisualizerMode::LOD)
+            VisualizerMode = EBVHVisualizerMode::SingleLevel;
+        else if (VisualizerMode == EBVHVisualizerMode::SingleLevel)
+            VisualizerMode = EBVHVisualizerMode::LeafOnly;
         else
-            m_VisualizerMode = EBVHVisualizerMode::LOD;
+            VisualizerMode = EBVHVisualizerMode::LOD;
     }
     const wchar_t* GetVisualizerModeName() const override
     {
-        switch (m_VisualizerMode)
+        switch (VisualizerMode)
         {
         case EBVHVisualizerMode::LOD:         return L"LOD (Accumulated)";
         case EBVHVisualizerMode::SingleLevel: return L"Single Level";
@@ -380,158 +380,158 @@ private:
         int LocalMaxDepth = 0;
     };
 
-    void WorkerLoop(int threadIdx)
+    void WorkerLoop(int ThreadIndex)
     {
-        int lastIteration = 0;
+        int LastIteration = 0;
         while (true)
         {
             {
-                std::unique_lock<std::mutex> lock(m_Mutex);
-                m_CvStart.wait(lock, [&]() {
-                    return m_Stop || m_Iteration > lastIteration;
+                std::unique_lock<std::mutex> Lock(SyncMutex);
+                CvStart.wait(Lock, [&]() {
+                    return bStopWorkers || CurrentIteration > LastIteration;
                 });
 
-                if (m_Stop) break;
-                lastIteration = m_Iteration;
+                if (bStopWorkers) break;
+                LastIteration = CurrentIteration;
             }
 
-            if (m_Phase == EBVHMTParticlePhase::BuildSubtrees)
+            if (CurrentPhase == EBVHMTParticlePhase::BuildSubtrees)
             {
-                ExecuteBuildTasks(threadIdx);
+                ExecuteBuildTasks(ThreadIndex);
             }
             else // QuerySpheres
             {
-                const int count = static_cast<int>(m_CurrentSpheres->size());
-                int chunkSize   = (count + m_ThreadCount - 1) / m_ThreadCount;
-                int startIdx    = threadIdx * chunkSize;
-                int endIdx      = (std::min)(startIdx + chunkSize, count);
+                const int Count     = static_cast<int>(CurrentSpheres->size());
+                int ChunkSize       = (Count + WorkerThreadCount - 1) / WorkerThreadCount;
+                int StartIdx        = ThreadIndex * ChunkSize;
+                int EndIdx          = (std::min)(StartIdx + ChunkSize, Count);
 
-                if (startIdx < count)
+                if (StartIdx < Count)
                 {
-                    DoQueryChunk(threadIdx, startIdx, endIdx);
+                    DoQueryChunk(ThreadIndex, StartIdx, EndIdx);
                 }
             }
 
             {
-                std::unique_lock<std::mutex> lock(m_Mutex);
-                m_CompletedCount++;
-                if (m_CompletedCount >= static_cast<int>(m_Workers.size()))
+                std::unique_lock<std::mutex> Lock(SyncMutex);
+                CompletedWorkerCount++;
+                if (CompletedWorkerCount >= static_cast<int>(WorkerThreads.size()))
                 {
-                    m_CvDone.notify_one();
+                    CvDone.notify_one();
                 }
             }
         }
     }
 
-    void ExecuteBuildTasks(int threadIdx)
+    void ExecuteBuildTasks(int ThreadIndex)
     {
-        const auto& spheres = *m_CurrentSpheres;
-        int numTasks = static_cast<int>(m_BuildTasks.size());
-        for (int k = threadIdx; k < numTasks; k += m_ThreadCount)
+        const auto& Spheres = *CurrentSpheres;
+        int NumTasks = static_cast<int>(SubtreeBuildTasks.size());
+        for (int k = ThreadIndex; k < NumTasks; k += WorkerThreadCount)
         {
-            auto& task = m_BuildTasks[k];
-            int freeNode = task.NodeOffset;
-            BuildSubtreeInPlace(spheres, task.StartSphere, task.EndSphere, task.CurrentDepth,
-                                freeNode, task.LocalMaxDepth);
+            auto& Task = SubtreeBuildTasks[k];
+            int FreeNode = Task.NodeOffset;
+            BuildSubtreeInPlace(Spheres, Task.StartSphere, Task.EndSphere, Task.CurrentDepth,
+                                FreeNode, Task.LocalMaxDepth);
         }
     }
 
-    void DoQueryChunk(int threadIdx, int startIdx, int endIdx)
+    void DoQueryChunk(int ThreadIndex, int StartIdx, int EndIdx)
     {
-        const auto& spheres   = *m_CurrentSpheres;
-        auto& localManifolds  = m_ThreadManifolds[threadIdx];
-        uint64_t candidates   = 0;
+        const auto& Spheres          = *CurrentSpheres;
+        auto& LocalManifolds         = PerThreadManifolds[ThreadIndex];
+        uint64_t Candidates          = 0;
 
-        int stack[64];
+        int Stack[64];
 
-        for (int i = startIdx; i < endIdx; ++i)
+        for (int i = StartIdx; i < EndIdx; ++i)
         {
-            const FVector3 posA = spheres[i].Center;
-            const float    radA = spheres[i].Radius;
-            const FAABB&   boxA = m_SphereBounds[i];
+            const FVector3 PosA    = Spheres[i].Center;
+            const float    RadiusA = Spheres[i].Radius;
+            const FAABB&   BoxA    = SphereBounds[i];
 
-            int stackPtr = 0;
-            stack[stackPtr++] = 0;
+            int StackPtr = 0;
+            Stack[StackPtr++] = 0;
 
-            while (stackPtr > 0)
+            while (StackPtr > 0)
             {
-                int currIdx = stack[--stackPtr];
-                const FBVHNode& node = m_Nodes[currIdx];
+                int CurrIdx = Stack[--StackPtr];
+                const FBVHNode& Node = Nodes[CurrIdx];
 
-                if (!boxA.Intersects(node.Bounds))
+                if (!BoxA.Intersects(Node.Bounds))
                 {
                     continue;
                 }
 
-                if (node.IsLeaf())
+                if (Node.IsLeaf())
                 {
-                    int j = node.GetSphereIndex();
+                    int j = Node.GetSphereIndex();
                     if (i < j)
                     {
-                        candidates++;
-                        const FVector3 diff   = posA - spheres[j].Center;
-                        const float    distSq = diff.LengthSq();
-                        const float    radSum = radA + spheres[j].Radius;
+                        Candidates++;
+                        const FVector3 Diff      = PosA - Spheres[j].Center;
+                        const float    DistSq    = Diff.LengthSq();
+                        const float    RadiusSum = RadiusA + Spheres[j].Radius;
 
-                        if (distSq < radSum * radSum)
+                        if (DistSq < RadiusSum * RadiusSum)
                         {
-                            const float dist   = sqrtf(distSq);
-                            const FVector3 normal = (dist > 1e-6f) ? diff * (1.0f / dist) : FVector3(1.0f, 0.0f, 0.0f);
-                            localManifolds.push_back({ i, j, normal, radSum - dist });
+                            const float Dist      = sqrtf(DistSq);
+                            const FVector3 Normal = (Dist > 1e-6f) ? Diff * (1.0f / Dist) : FVector3(1.0f, 0.0f, 0.0f);
+                            LocalManifolds.push_back({ i, j, Normal, RadiusSum - Dist });
                         }
                     }
                 }
                 else
                 {
-                    stack[stackPtr++] = node.RightChild;
-                    stack[stackPtr++] = node.LeftChild;
+                    Stack[StackPtr++] = Node.RightChild;
+                    Stack[StackPtr++] = Node.LeftChild;
                 }
             }
         }
 
-        m_ThreadCandidates[threadIdx] = candidates;
+        PerThreadCandidates[ThreadIndex] = Candidates;
     }
 
-    int BuildSubtreeInPlace(const std::vector<FSphere>& spheres,
-                            int start, int end, int currentDepth,
-                            int& freeNode, int& maxDepth)
+    int BuildSubtreeInPlace(const std::vector<FSphere>& Spheres,
+                            int Start, int End, int CurrentDepth,
+                            int& FreeNode, int& InMaxDepth)
     {
-        if (currentDepth > maxDepth) maxDepth = currentDepth;
+        if (CurrentDepth > InMaxDepth) InMaxDepth = CurrentDepth;
 
-        int nodeIdx = freeNode++;
-        int count   = end - start;
+        int NodeIdx = FreeNode++;
+        int Count   = End - Start;
 
-        if (count == 1)
+        if (Count == 1)
         {
-            int sIdx = m_SphereIndices[start];
-            m_Nodes[nodeIdx].SetLeaf(sIdx, m_SphereBounds[sIdx]);
-            return nodeIdx;
+            int sIdx = SphereIndices[Start];
+            Nodes[NodeIdx].SetLeaf(sIdx, SphereBounds[sIdx]);
+            return NodeIdx;
         }
 
-        FAABB centroidBounds;
-        FAABB totalBounds;
-        for (int i = start; i < end; ++i)
+        FAABB CentroidBounds;
+        FAABB TotalBounds;
+        for (int i = Start; i < End; ++i)
         {
-            int sIdx = m_SphereIndices[i];
-            centroidBounds.ExpandBy(spheres[sIdx].Center);
-            totalBounds.ExpandBy(m_SphereBounds[sIdx]);
+            int sIdx = SphereIndices[i];
+            CentroidBounds.ExpandBy(Spheres[sIdx].Center);
+            TotalBounds.ExpandBy(SphereBounds[sIdx]);
         }
 
-        int axis = centroidBounds.GetLongestAxis();
-        int mid  = start + count / 2;
+        int Axis = CentroidBounds.GetLongestAxis();
+        int Mid  = Start + Count / 2;
 
-        int* pBegin = m_SphereIndices.data() + start;
-        int* pMid   = m_SphereIndices.data() + mid;
-        int* pEnd   = m_SphereIndices.data() + end;
-        const FSphere* pSpheres = spheres.data();
+        int* pBegin = SphereIndices.data() + Start;
+        int* pMid   = SphereIndices.data() + Mid;
+        int* pEnd   = SphereIndices.data() + End;
+        const FSphere* pSpheres = Spheres.data();
 
-        if (axis == 0)
+        if (Axis == 0)
         {
             std::nth_element(pBegin, pMid, pEnd, [pSpheres](int a, int b) {
                 return pSpheres[a].Center.x < pSpheres[b].Center.x;
             });
         }
-        else if (axis == 1)
+        else if (Axis == 1)
         {
             std::nth_element(pBegin, pMid, pEnd, [pSpheres](int a, int b) {
                 return pSpheres[a].Center.y < pSpheres[b].Center.y;
@@ -544,46 +544,46 @@ private:
             });
         }
 
-        int leftChild  = BuildSubtreeInPlace(spheres, start, mid, currentDepth + 1, freeNode, maxDepth);
-        int rightChild = BuildSubtreeInPlace(spheres, mid,   end, currentDepth + 1, freeNode, maxDepth);
+        int LeftChild  = BuildSubtreeInPlace(Spheres, Start, Mid, CurrentDepth + 1, FreeNode, InMaxDepth);
+        int RightChild = BuildSubtreeInPlace(Spheres, Mid,   End, CurrentDepth + 1, FreeNode, InMaxDepth);
 
-        m_Nodes[nodeIdx].SetInternal(leftChild, rightChild, totalBounds);
-        return nodeIdx;
+        Nodes[NodeIdx].SetInternal(LeftChild, RightChild, TotalBounds);
+        return NodeIdx;
     }
 
-    void BuildUpperTreeInPlace(const std::vector<FSphere>& spheres,
-                               int start, int end, int currentDepth, int forkDepth,
-                               int& upperFreeNode, int& nextTaskOffset)
+    void BuildUpperTreeInPlace(const std::vector<FSphere>& Spheres,
+                               int Start, int End, int CurrentDepth, int ForkDepth,
+                               int& UpperFreeNode, int& NextTaskOffset)
     {
-        if (currentDepth > m_MaxDepth) m_MaxDepth = currentDepth;
+        if (CurrentDepth > MaxTreeDepth) MaxTreeDepth = CurrentDepth;
 
-        int nodeIdx = upperFreeNode++;
-        int count   = end - start;
+        int NodeIdx = UpperFreeNode++;
+        int Count   = End - Start;
 
-        FAABB centroidBounds;
-        FAABB totalBounds;
-        for (int i = start; i < end; ++i)
+        FAABB CentroidBounds;
+        FAABB TotalBounds;
+        for (int i = Start; i < End; ++i)
         {
-            int sIdx = m_SphereIndices[i];
-            centroidBounds.ExpandBy(spheres[sIdx].Center);
-            totalBounds.ExpandBy(m_SphereBounds[sIdx]);
+            int sIdx = SphereIndices[i];
+            CentroidBounds.ExpandBy(Spheres[sIdx].Center);
+            TotalBounds.ExpandBy(SphereBounds[sIdx]);
         }
 
-        int axis = centroidBounds.GetLongestAxis();
-        int mid  = start + count / 2;
+        int Axis = CentroidBounds.GetLongestAxis();
+        int Mid  = Start + Count / 2;
 
-        int* pBegin = m_SphereIndices.data() + start;
-        int* pMid   = m_SphereIndices.data() + mid;
-        int* pEnd   = m_SphereIndices.data() + end;
-        const FSphere* pSpheres = spheres.data();
+        int* pBegin = SphereIndices.data() + Start;
+        int* pMid   = SphereIndices.data() + Mid;
+        int* pEnd   = SphereIndices.data() + End;
+        const FSphere* pSpheres = Spheres.data();
 
-        if (axis == 0)
+        if (Axis == 0)
         {
             std::nth_element(pBegin, pMid, pEnd, [pSpheres](int a, int b) {
                 return pSpheres[a].Center.x < pSpheres[b].Center.x;
             });
         }
-        else if (axis == 1)
+        else if (Axis == 1)
         {
             std::nth_element(pBegin, pMid, pEnd, [pSpheres](int a, int b) {
                 return pSpheres[a].Center.y < pSpheres[b].Center.y;
@@ -596,106 +596,106 @@ private:
             });
         }
 
-        int leftChildIdx  = -1;
-        int rightChildIdx = -1;
+        int LeftChildIdx  = -1;
+        int RightChildIdx = -1;
 
-        if (currentDepth + 1 == forkDepth)
+        if (CurrentDepth + 1 == ForkDepth)
         {
-            int leftCount = mid - start;
-            int leftNodeOffset = nextTaskOffset;
-            nextTaskOffset += (2 * leftCount - 1);
-            m_BuildTasks.push_back({ start, mid, leftNodeOffset, currentDepth + 1, currentDepth + 1 });
-            leftChildIdx = leftNodeOffset;
+            int LeftCount = Mid - Start;
+            int LeftNodeOffset = NextTaskOffset;
+            NextTaskOffset += (2 * LeftCount - 1);
+            SubtreeBuildTasks.push_back({ Start, Mid, LeftNodeOffset, CurrentDepth + 1, CurrentDepth + 1 });
+            LeftChildIdx = LeftNodeOffset;
 
-            int rightCount = end - mid;
-            int rightNodeOffset = nextTaskOffset;
-            nextTaskOffset += (2 * rightCount - 1);
-            m_BuildTasks.push_back({ mid, end, rightNodeOffset, currentDepth + 1, currentDepth + 1 });
-            rightChildIdx = rightNodeOffset;
+            int RightCount = End - Mid;
+            int RightNodeOffset = NextTaskOffset;
+            NextTaskOffset += (2 * RightCount - 1);
+            SubtreeBuildTasks.push_back({ Mid, End, RightNodeOffset, CurrentDepth + 1, CurrentDepth + 1 });
+            RightChildIdx = RightNodeOffset;
         }
         else
         {
-            leftChildIdx  = upperFreeNode;
-            BuildUpperTreeInPlace(spheres, start, mid, currentDepth + 1, forkDepth,
-                                  upperFreeNode, nextTaskOffset);
+            LeftChildIdx  = UpperFreeNode;
+            BuildUpperTreeInPlace(Spheres, Start, Mid, CurrentDepth + 1, ForkDepth,
+                                  UpperFreeNode, NextTaskOffset);
 
-            rightChildIdx = upperFreeNode;
-            BuildUpperTreeInPlace(spheres, mid, end, currentDepth + 1, forkDepth,
-                                  upperFreeNode, nextTaskOffset);
+            RightChildIdx = UpperFreeNode;
+            BuildUpperTreeInPlace(Spheres, Mid, End, CurrentDepth + 1, ForkDepth,
+                                  UpperFreeNode, NextTaskOffset);
         }
 
-        m_Nodes[nodeIdx].SetInternal(leftChildIdx, rightChildIdx, totalBounds);
+        Nodes[NodeIdx].SetInternal(LeftChildIdx, RightChildIdx, TotalBounds);
     }
 
-    void CollectSingleLevelLines(int nodeIdx, int currentDepth, int targetDepth, std::vector<FVertexSimple>& lines) const
+    void CollectSingleLevelLines(int NodeIdx, int CurrentDepth, int TargetDepth, std::vector<FVertexSimple>& Lines) const
     {
-        if (currentDepth == targetDepth)
+        if (CurrentDepth == TargetDepth)
         {
-            IBVHVisualizer::AppendAABBWireframe(lines, m_Nodes[nodeIdx].Bounds);
+            IBVHVisualizer::AppendAABBWireframe(Lines, Nodes[NodeIdx].Bounds);
             return;
         }
 
-        if (!m_Nodes[nodeIdx].IsLeaf())
+        if (!Nodes[NodeIdx].IsLeaf())
         {
-            CollectSingleLevelLines(m_Nodes[nodeIdx].LeftChild,  currentDepth + 1, targetDepth, lines);
-            CollectSingleLevelLines(m_Nodes[nodeIdx].RightChild, currentDepth + 1, targetDepth, lines);
+            CollectSingleLevelLines(Nodes[NodeIdx].LeftChild,  CurrentDepth + 1, TargetDepth, Lines);
+            CollectSingleLevelLines(Nodes[NodeIdx].RightChild, CurrentDepth + 1, TargetDepth, Lines);
         }
     }
 
-    void CollectLODLines(int nodeIdx, int currentDepth, int targetDepth, std::vector<FBVHLineGroup>& outGroups) const
+    void CollectLODLines(int NodeIdx, int CurrentDepth, int TargetDepth, std::vector<FBVHLineGroup>& OutGroups) const
     {
-        if (currentDepth <= targetDepth && currentDepth < static_cast<int>(outGroups.size()))
+        if (CurrentDepth <= TargetDepth && CurrentDepth < static_cast<int>(OutGroups.size()))
         {
-            IBVHVisualizer::AppendAABBWireframe(outGroups[currentDepth].Lines, m_Nodes[nodeIdx].Bounds);
+            IBVHVisualizer::AppendAABBWireframe(OutGroups[CurrentDepth].Lines, Nodes[NodeIdx].Bounds);
         }
 
-        if (currentDepth < targetDepth && !m_Nodes[nodeIdx].IsLeaf())
+        if (CurrentDepth < TargetDepth && !Nodes[NodeIdx].IsLeaf())
         {
-            CollectLODLines(m_Nodes[nodeIdx].LeftChild,  currentDepth + 1, targetDepth, outGroups);
-            CollectLODLines(m_Nodes[nodeIdx].RightChild, currentDepth + 1, targetDepth, outGroups);
+            CollectLODLines(Nodes[NodeIdx].LeftChild,  CurrentDepth + 1, TargetDepth, OutGroups);
+            CollectLODLines(Nodes[NodeIdx].RightChild, CurrentDepth + 1, TargetDepth, OutGroups);
         }
     }
 
-    void CollectLeafLines(int nodeIdx, std::vector<FVertexSimple>& lines) const
+    void CollectLeafLines(int NodeIdx, std::vector<FVertexSimple>& Lines) const
     {
-        if (m_Nodes[nodeIdx].IsLeaf())
+        if (Nodes[NodeIdx].IsLeaf())
         {
-            IBVHVisualizer::AppendAABBWireframe(lines, m_Nodes[nodeIdx].Bounds);
+            IBVHVisualizer::AppendAABBWireframe(Lines, Nodes[NodeIdx].Bounds);
         }
         else
         {
-            CollectLeafLines(m_Nodes[nodeIdx].LeftChild,  lines);
-            CollectLeafLines(m_Nodes[nodeIdx].RightChild, lines);
+            CollectLeafLines(Nodes[NodeIdx].LeftChild,  Lines);
+            CollectLeafLines(Nodes[NodeIdx].RightChild, Lines);
         }
     }
 
 private:
-    LARGE_INTEGER                   m_TimerFreq        = {};
-    FCollisionStats                 m_Stats            = {};
-    std::vector<FCollisionManifold> m_Manifolds;
+    LARGE_INTEGER                   TimerFrequency     = {};
+    FCollisionStats                 LastStats          = {};
+    std::vector<FCollisionManifold> Manifolds;
 
-    std::vector<FBVHNode>           m_Nodes;
-    std::vector<int>                m_SphereIndices;
-    std::vector<FAABB>              m_SphereBounds;
-    int                             m_MaxDepth         = 0;
+    std::vector<FBVHNode>           Nodes;
+    std::vector<int>                SphereIndices;
+    std::vector<FAABB>              SphereBounds;
+    int                             MaxTreeDepth       = 0;
 
-    int                             m_VisualizerDepth  = 3;
-    EBVHVisualizerMode              m_VisualizerMode   = EBVHVisualizerMode::LOD;
+    int                             VisualizerDepth    = 3;
+    EBVHVisualizerMode              VisualizerMode     = EBVHVisualizerMode::LOD;
 
     // Multi-threading state
-    int                             m_ThreadCount      = 1;
-    std::vector<std::thread>        m_Workers;
-    std::mutex                      m_Mutex;
-    std::condition_variable         m_CvStart;
-    std::condition_variable         m_CvDone;
-    bool                            m_Stop             = false;
-    int                             m_Iteration        = 0;
-    int                             m_CompletedCount   = 0;
+    int                             WorkerThreadCount  = 1;
+    std::vector<std::thread>        WorkerThreads;
+    std::mutex                      SyncMutex;
+    std::condition_variable         CvStart;
+    std::condition_variable         CvDone;
+    bool                            bStopWorkers       = false;
+    int                             CurrentIteration   = 0;
+    int                             CompletedWorkerCount = 0;
 
-    std::vector<FSphere>*           m_CurrentSpheres   = nullptr;
-    std::vector<std::vector<FCollisionManifold>> m_ThreadManifolds;
-    std::vector<uint64_t>           m_ThreadCandidates;
+    std::vector<FSphere>*           CurrentSpheres     = nullptr;
+    std::vector<std::vector<FCollisionManifold>> PerThreadManifolds;
+    std::vector<uint64_t>           PerThreadCandidates;
 
-    EBVHMTParticlePhase             m_Phase            = EBVHMTParticlePhase::QuerySpheres;
-    std::vector<FSubtreeBuildTask>  m_BuildTasks;
+    EBVHMTParticlePhase             CurrentPhase       = EBVHMTParticlePhase::QuerySpheres;
+    std::vector<FSubtreeBuildTask>  SubtreeBuildTasks;
 };

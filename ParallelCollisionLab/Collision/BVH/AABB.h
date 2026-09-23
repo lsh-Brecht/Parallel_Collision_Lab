@@ -14,59 +14,59 @@ struct FAABB
     {
     }
 
-    FAABB(const FVector3& inMin, const FVector3& inMax)
-        : Min(inMin), Max(inMax)
+    FAABB(const FVector3& InMin, const FVector3& InMax)
+        : Min(InMin), Max(InMax)
     {
     }
 
-    static FAABB FromSphere(const FVector3& center, float radius)
+    static FAABB FromSphere(const FVector3& Center, float Radius)
     {
         return FAABB(
-            FVector3(center.x - radius, center.y - radius, center.z - radius),
-            FVector3(center.x + radius, center.y + radius, center.z + radius)
+            FVector3(Center.x - Radius, Center.y - Radius, Center.z - Radius),
+            FVector3(Center.x + Radius, Center.y + Radius, Center.z + Radius)
         );
     }
 
-    static FAABB FromPoint(const FVector3& p)
+    static FAABB FromPoint(const FVector3& Point)
     {
-        return FAABB(p, p);
+        return FAABB(Point, Point);
     }
 
-    void ExpandBy(const FAABB& other)
+    void ExpandBy(const FAABB& Other)
     {
-        Min.x = (std::min)(Min.x, other.Min.x);
-        Min.y = (std::min)(Min.y, other.Min.y);
-        Min.z = (std::min)(Min.z, other.Min.z);
+        Min.x = (std::min)(Min.x, Other.Min.x);
+        Min.y = (std::min)(Min.y, Other.Min.y);
+        Min.z = (std::min)(Min.z, Other.Min.z);
 
-        Max.x = (std::max)(Max.x, other.Max.x);
-        Max.y = (std::max)(Max.y, other.Max.y);
-        Max.z = (std::max)(Max.z, other.Max.z);
+        Max.x = (std::max)(Max.x, Other.Max.x);
+        Max.y = (std::max)(Max.y, Other.Max.y);
+        Max.z = (std::max)(Max.z, Other.Max.z);
     }
 
-    void ExpandBy(const FVector3& p)
+    void ExpandBy(const FVector3& Point)
     {
-        Min.x = (std::min)(Min.x, p.x);
-        Min.y = (std::min)(Min.y, p.y);
-        Min.z = (std::min)(Min.z, p.z);
+        Min.x = (std::min)(Min.x, Point.x);
+        Min.y = (std::min)(Min.y, Point.y);
+        Min.z = (std::min)(Min.z, Point.z);
 
-        Max.x = (std::max)(Max.x, p.x);
-        Max.y = (std::max)(Max.y, p.y);
-        Max.z = (std::max)(Max.z, p.z);
+        Max.x = (std::max)(Max.x, Point.x);
+        Max.y = (std::max)(Max.y, Point.y);
+        Max.z = (std::max)(Max.z, Point.z);
     }
 
-    FAABB Union(const FAABB& other) const
+    FAABB Union(const FAABB& Other) const
     {
         return FAABB(
-            FVector3((std::min)(Min.x, other.Min.x), (std::min)(Min.y, other.Min.y), (std::min)(Min.z, other.Min.z)),
-            FVector3((std::max)(Max.x, other.Max.x), (std::max)(Max.y, other.Max.y), (std::max)(Max.z, other.Max.z))
+            FVector3((std::min)(Min.x, Other.Min.x), (std::min)(Min.y, Other.Min.y), (std::min)(Min.z, Other.Min.z)),
+            FVector3((std::max)(Max.x, Other.Max.x), (std::max)(Max.y, Other.Max.y), (std::max)(Max.z, Other.Max.z))
         );
     }
 
-    bool Intersects(const FAABB& other) const
+    bool Intersects(const FAABB& Other) const
     {
-        return (Min.x <= other.Max.x && Max.x >= other.Min.x) &&
-               (Min.y <= other.Max.y && Max.y >= other.Min.y) &&
-               (Min.z <= other.Max.z && Max.z >= other.Min.z);
+        return (Min.x <= Other.Max.x && Max.x >= Other.Min.x) &&
+               (Min.y <= Other.Max.y && Max.y >= Other.Min.y) &&
+               (Min.z <= Other.Max.z && Max.z >= Other.Min.z);
     }
 
     FVector3 GetCenter() const

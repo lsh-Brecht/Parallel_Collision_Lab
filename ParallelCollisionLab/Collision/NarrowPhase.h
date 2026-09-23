@@ -7,28 +7,28 @@
 // NarrowPhase - Precise sphere-sphere collision detection
 //=============================================================================
 inline bool CheckSphereSphere(
-    const FSphere& a,
-    const FSphere& b,
-    int indexA,
-    int indexB,
-    FCollisionManifold& outManifold)
+    const FSphere& SphereA,
+    const FSphere& SphereB,
+    int IndexA,
+    int IndexB,
+    FCollisionManifold& OutManifold)
 {
-    FVector3 diff = a.Center - b.Center;
-    float distSq = diff.LengthSq();
-    float radiusSum = a.Radius + b.Radius;
+    FVector3 Diff = SphereA.Center - SphereB.Center;
+    float DistSq = Diff.LengthSq();
+    float RadiusSum = SphereA.Radius + SphereB.Radius;
 
-    if (distSq >= radiusSum * radiusSum)
+    if (DistSq >= RadiusSum * RadiusSum)
     {
         return false;
     }
 
-    float dist = sqrtf(distSq);
-    FVector3 normal = (dist > 1e-6f) ? diff * (1.0f / dist) : FVector3(1.0f, 0.0f, 0.0f);
+    float Dist = sqrtf(DistSq);
+    FVector3 Normal = (Dist > 1e-6f) ? Diff * (1.0f / Dist) : FVector3(1.0f, 0.0f, 0.0f);
 
-    outManifold.IndexA      = indexA;
-    outManifold.IndexB      = indexB;
-    outManifold.Normal      = normal;
-    outManifold.Penetration = radiusSum - dist;
+    OutManifold.IndexA      = IndexA;
+    OutManifold.IndexB      = IndexB;
+    OutManifold.Normal      = Normal;
+    OutManifold.Penetration = RadiusSum - Dist;
 
     return true;
 }

@@ -18,13 +18,13 @@
 class NestedLoopMTSolver : public ICollisionSolver
 {
 public:
-    NestedLoopMTSolver(int threadCount = 0)
+    NestedLoopMTSolver(int InThreadCount = 0)
     {
-        QueryPerformanceFrequency(&m_TimerFreq);
+        QueryPerformanceFrequency(&TimerFrequency);
 
-        unsigned int hwThreads = std::thread::hardware_concurrency();
-        int initialCount = (threadCount > 0) ? threadCount : (hwThreads > 0 ? static_cast<int>(hwThreads) : 4);
-        InitThreadPool(initialCount);
+        unsigned int HwThreads = std::thread::hardware_concurrency();
+        int InitialCount = (InThreadCount > 0) ? InThreadCount : (HwThreads > 0 ? static_cast<int>(HwThreads) : 4);
+        InitThreadPool(InitialCount);
     }
 
     ~NestedLoopMTSolver() override
@@ -32,215 +32,215 @@ public:
         ShutdownThreadPool();
     }
 
-    void SetThreadCount(int threadCount) override
+    void SetThreadCount(int InThreadCount) override
     {
-        if (threadCount <= 0 || threadCount == m_ThreadCount)
+        if (InThreadCount <= 0 || InThreadCount == WorkerThreadCount)
             return;
 
         ShutdownThreadPool();
-        InitThreadPool(threadCount);
+        InitThreadPool(InThreadCount);
     }
 
-    void InitThreadPool(int threadCount)
+    void InitThreadPool(int InThreadCount)
     {
-        m_ThreadCount = threadCount;
-        m_ThreadManifolds.clear();
-        m_ThreadManifolds.resize(m_ThreadCount);
-        for (auto& vec : m_ThreadManifolds)
+        WorkerThreadCount = InThreadCount;
+        PerThreadManifolds.clear();
+        PerThreadManifolds.resize(WorkerThreadCount);
+        for (auto& vec : PerThreadManifolds)
         {
             vec.reserve(256);
         }
 
-        m_Stop = false;
-        m_Iteration = 0;
-        m_CompletedCount = 0;
-        m_Workers.clear();
+        bStopWorkers = false;
+        CurrentIteration = 0;
+        CompletedWorkerCount = 0;
+        WorkerThreads.clear();
 
         // Spawn background worker threads (main thread acts as worker 0)
-        for (int t = 1; t < m_ThreadCount; ++t)
+        for (int t = 1; t < WorkerThreadCount; ++t)
         {
-            m_Workers.emplace_back(&NestedLoopMTSolver::WorkerLoop, this, t);
+            WorkerThreads.emplace_back(&NestedLoopMTSolver::WorkerLoop, this, t);
         }
     }
 
     void ShutdownThreadPool()
     {
         {
-            std::unique_lock<std::mutex> lock(m_Mutex);
-            m_Stop = true;
+            std::unique_lock<std::mutex> Lock(SyncMutex);
+            bStopWorkers = true;
         }
-        m_CvStart.notify_all();
+        CvStart.notify_all();
 
-        for (std::thread& worker : m_Workers)
+        for (std::thread& Worker : WorkerThreads)
         {
-            if (worker.joinable())
+            if (Worker.joinable())
             {
-                worker.join();
+                Worker.join();
             }
         }
-        m_Workers.clear();
+        WorkerThreads.clear();
     }
 
-    void Solve(std::vector<FSphere>& spheres) override
+    void Solve(std::vector<FSphere>& Spheres) override
     {
-        const int count = static_cast<int>(spheres.size());
-        m_Stats = {};
-        if (count < 2) return;
+        const int Count = static_cast<int>(Spheres.size());
+        LastStats = {};
+        if (Count < 2) return;
 
-        LARGE_INTEGER t0, t1, t2, t3;
+        LARGE_INTEGER TimerStart, TimerBroad, TimerNarrow, TimerResolve;
 
-        QueryPerformanceCounter(&t0);
-        m_Stats.CandidatePairCount = static_cast<uint64_t>(count) * (count - 1) / 2;
-        QueryPerformanceCounter(&t1);
+        QueryPerformanceCounter(&TimerStart);
+        LastStats.CandidatePairCount = static_cast<uint64_t>(Count) * (Count - 1) / 2;
+        QueryPerformanceCounter(&TimerBroad);
 
-        m_CurrentSpheres = &spheres;
-        for (auto& vec : m_ThreadManifolds)
+        CurrentSpheres = &Spheres;
+        for (auto& vec : PerThreadManifolds)
         {
             vec.clear();
         }
 
-        if (m_Workers.empty())
+        if (WorkerThreads.empty())
         {
             DoNarrowPhaseChunk(0);
         }
         else
         {
             {
-                std::unique_lock<std::mutex> lock(m_Mutex);
-                m_CompletedCount = 0;
-                m_Iteration++;
+                std::unique_lock<std::mutex> Lock(SyncMutex);
+                CompletedWorkerCount = 0;
+                CurrentIteration++;
             }
-            m_CvStart.notify_all();
+            CvStart.notify_all();
 
             DoNarrowPhaseChunk(0);
 
             {
-                std::unique_lock<std::mutex> lock(m_Mutex);
-                m_CvDone.wait(lock, [&]() {
-                    return m_CompletedCount >= static_cast<int>(m_Workers.size());
+                std::unique_lock<std::mutex> Lock(SyncMutex);
+                CvDone.wait(Lock, [&]() {
+                    return CompletedWorkerCount >= static_cast<int>(WorkerThreads.size());
                 });
             }
         }
 
-        size_t totalManifolds = 0;
-        for (int t = 0; t < m_ThreadCount; ++t)
+        size_t TotalManifolds = 0;
+        for (int t = 0; t < WorkerThreadCount; ++t)
         {
-            totalManifolds += m_ThreadManifolds[t].size();
+            TotalManifolds += PerThreadManifolds[t].size();
         }
-        m_Manifolds.clear();
-        m_Manifolds.reserve(totalManifolds);
-        for (int t = 0; t < m_ThreadCount; ++t)
+        Manifolds.clear();
+        Manifolds.reserve(TotalManifolds);
+        for (int t = 0; t < WorkerThreadCount; ++t)
         {
-            m_Manifolds.insert(m_Manifolds.end(), m_ThreadManifolds[t].begin(), m_ThreadManifolds[t].end());
+            Manifolds.insert(Manifolds.end(), PerThreadManifolds[t].begin(), PerThreadManifolds[t].end());
         }
-        m_Stats.ActualCollisionCount = static_cast<uint64_t>(m_Manifolds.size());
-        QueryPerformanceCounter(&t2);
+        LastStats.ActualCollisionCount = static_cast<uint64_t>(Manifolds.size());
+        QueryPerformanceCounter(&TimerNarrow);
 
-        ResolveCollisions(spheres, m_Manifolds);
-        QueryPerformanceCounter(&t3);
+        ResolveCollisions(Spheres, Manifolds);
+        QueryPerformanceCounter(&TimerResolve);
 
-        const double toMs = 1000.0 / static_cast<double>(m_TimerFreq.QuadPart);
-        m_Stats.BroadPhaseTimeMs   = static_cast<double>(t1.QuadPart - t0.QuadPart) * toMs;
-        m_Stats.NarrowPhaseTimeMs  = static_cast<double>(t2.QuadPart - t1.QuadPart) * toMs;
-        m_Stats.ResolutionTimeMs   = static_cast<double>(t3.QuadPart - t2.QuadPart) * toMs;
-        m_Stats.TotalSolveTimeMs   = static_cast<double>(t3.QuadPart - t0.QuadPart) * toMs;
+        const double ToMilliseconds = 1000.0 / static_cast<double>(TimerFrequency.QuadPart);
+        LastStats.BroadPhaseTimeMs   = static_cast<double>(TimerBroad.QuadPart - TimerStart.QuadPart) * ToMilliseconds;
+        LastStats.NarrowPhaseTimeMs  = static_cast<double>(TimerNarrow.QuadPart - TimerBroad.QuadPart) * ToMilliseconds;
+        LastStats.ResolutionTimeMs   = static_cast<double>(TimerResolve.QuadPart - TimerNarrow.QuadPart) * ToMilliseconds;
+        LastStats.TotalSolveTimeMs   = static_cast<double>(TimerResolve.QuadPart - TimerStart.QuadPart) * ToMilliseconds;
     }
 
     const wchar_t* GetName()          const override { return L"NestedLoop (MT)"; }
     const wchar_t* GetAlgorithmName() const override { return L"Nested Loop (Naive)"; }
     const wchar_t* GetExecutionMode() const override { return L"Multi Thread"; }
-    int            GetThreadCount()   const override { return m_ThreadCount; }
+    int            GetThreadCount()   const override { return WorkerThreadCount; }
 
-    const FCollisionStats& GetLastStats() const override { return m_Stats; }
-    const std::vector<FCollisionManifold>& GetManifolds() const { return m_Manifolds; }
+    const FCollisionStats& GetLastStats() const override { return LastStats; }
+    const std::vector<FCollisionManifold>& GetManifolds() const { return Manifolds; }
 
 private:
-    void WorkerLoop(int threadIdx)
+    void WorkerLoop(int ThreadIndex)
     {
-        int lastIteration = 0;
+        int LastIteration = 0;
         while (true)
         {
             {
-                std::unique_lock<std::mutex> lock(m_Mutex);
-                m_CvStart.wait(lock, [&]() {
-                    return m_Stop || (m_Iteration > lastIteration);
+                std::unique_lock<std::mutex> Lock(SyncMutex);
+                CvStart.wait(Lock, [&]() {
+                    return bStopWorkers || (CurrentIteration > LastIteration);
                 });
 
-                if (m_Stop) break;
-                lastIteration = m_Iteration;
+                if (bStopWorkers) break;
+                LastIteration = CurrentIteration;
             }
 
-            DoNarrowPhaseChunk(threadIdx);
+            DoNarrowPhaseChunk(ThreadIndex);
 
             {
-                std::unique_lock<std::mutex> lock(m_Mutex);
-                m_CompletedCount++;
-                if (m_CompletedCount == static_cast<int>(m_Workers.size()))
+                std::unique_lock<std::mutex> Lock(SyncMutex);
+                CompletedWorkerCount++;
+                if (CompletedWorkerCount == static_cast<int>(WorkerThreads.size()))
                 {
-                    m_CvDone.notify_one();
+                    CvDone.notify_one();
                 }
             }
         }
     }
 
-    static int GetSplitIndex(int count, int t, int T)
+    static int GetSplitIndex(int Count, int ThreadIndex, int TotalThreads)
     {
-        if (t <= 0) return 0;
-        if (t >= T) return count;
-        double fraction = static_cast<double>(t) / static_cast<double>(T);
-        double root = std::sqrt(1.0 - fraction);
-        int idx = static_cast<int>(std::round(count * (1.0 - root)));
-        if (idx < 0) idx = 0;
-        if (idx > count) idx = count;
-        return idx;
+        if (ThreadIndex <= 0) return 0;
+        if (ThreadIndex >= TotalThreads) return Count;
+        double Fraction = static_cast<double>(ThreadIndex) / static_cast<double>(TotalThreads);
+        double Root = std::sqrt(1.0 - Fraction);
+        int Index = static_cast<int>(std::round(Count * (1.0 - Root)));
+        if (Index < 0) Index = 0;
+        if (Index > Count) Index = Count;
+        return Index;
     }
 
-    void DoNarrowPhaseChunk(int threadIdx)
+    void DoNarrowPhaseChunk(int ThreadIndex)
     {
-        if (!m_CurrentSpheres) return;
-        const std::vector<FSphere>& spheres = *m_CurrentSpheres;
-        const int count = static_cast<int>(spheres.size());
+        if (!CurrentSpheres) return;
+        const std::vector<FSphere>& Spheres = *CurrentSpheres;
+        const int Count = static_cast<int>(Spheres.size());
 
-        const int startI = GetSplitIndex(count, threadIdx, m_ThreadCount);
-        const int endI   = GetSplitIndex(count, threadIdx + 1, m_ThreadCount);
+        const int StartI = GetSplitIndex(Count, ThreadIndex, WorkerThreadCount);
+        const int EndI   = GetSplitIndex(Count, ThreadIndex + 1, WorkerThreadCount);
 
-        std::vector<FCollisionManifold>& localManifolds = m_ThreadManifolds[threadIdx];
+        std::vector<FCollisionManifold>& LocalManifolds = PerThreadManifolds[ThreadIndex];
 
-        for (int i = startI; i < endI; ++i)
+        for (int i = StartI; i < EndI; ++i)
         {
-            const FVector3 posA = spheres[i].Center;
-            const float    radA = spheres[i].Radius;
+            const FVector3 PosA    = Spheres[i].Center;
+            const float    RadiusA = Spheres[i].Radius;
 
-            for (int j = i + 1; j < count; ++j)
+            for (int j = i + 1; j < Count; ++j)
             {
-                const FVector3 diff   = posA - spheres[j].Center;
-                const float    distSq = diff.LengthSq();
-                const float    radSum = radA + spheres[j].Radius;
+                const FVector3 Diff      = PosA - Spheres[j].Center;
+                const float    DistSq    = Diff.LengthSq();
+                const float    RadiusSum = RadiusA + Spheres[j].Radius;
 
-                if (distSq < radSum * radSum)
+                if (DistSq < RadiusSum * RadiusSum)
                 {
-                    const float dist = sqrtf(distSq);
-                    const FVector3 normal = (dist > 1e-6f) ? diff * (1.0f / dist) : FVector3(1.0f, 0.0f, 0.0f);
-                    localManifolds.push_back({ i, j, normal, radSum - dist });
+                    const float Dist = sqrtf(DistSq);
+                    const FVector3 Normal = (Dist > 1e-6f) ? Diff * (1.0f / Dist) : FVector3(1.0f, 0.0f, 0.0f);
+                    LocalManifolds.push_back({ i, j, Normal, RadiusSum - Dist });
                 }
             }
         }
     }
 
 private:
-    LARGE_INTEGER                   m_TimerFreq      = {};
-    int                             m_ThreadCount    = 4;
-    FCollisionStats                 m_Stats          = {};
-    std::vector<FCollisionManifold> m_Manifolds;
+    LARGE_INTEGER                   TimerFrequency       = {};
+    int                             WorkerThreadCount    = 4;
+    FCollisionStats                 LastStats            = {};
+    std::vector<FCollisionManifold> Manifolds;
 
-    std::vector<std::vector<FCollisionManifold>> m_ThreadManifolds;
-    const std::vector<FSphere>*     m_CurrentSpheres = nullptr;
+    std::vector<std::vector<FCollisionManifold>> PerThreadManifolds;
+    const std::vector<FSphere>*                  CurrentSpheres       = nullptr;
 
-    std::vector<std::thread>        m_Workers;
-    std::mutex                      m_Mutex;
-    std::condition_variable         m_CvStart;
-    std::condition_variable         m_CvDone;
-    int                             m_Iteration      = 0;
-    int                             m_CompletedCount = 0;
-    bool                            m_Stop           = false;
+    std::vector<std::thread>        WorkerThreads;
+    std::mutex                      SyncMutex;
+    std::condition_variable         CvStart;
+    std::condition_variable         CvDone;
+    int                             CurrentIteration     = 0;
+    int                             CompletedWorkerCount = 0;
+    bool                            bStopWorkers         = false;
 };

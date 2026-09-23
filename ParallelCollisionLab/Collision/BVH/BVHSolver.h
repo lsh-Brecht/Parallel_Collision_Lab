@@ -26,90 +26,90 @@ class BVHSolver : public ICollisionSolver, public IBVHVisualizer
 public:
     BVHSolver()
     {
-        QueryPerformanceFrequency(&m_TimerFreq);
-        m_Manifolds.reserve(512);
-        m_Nodes.reserve(2048);
-        m_SphereIndices.reserve(1024);
-        m_SphereBounds.reserve(1024);
+        QueryPerformanceFrequency(&TimerFrequency);
+        Manifolds.reserve(512);
+        Nodes.reserve(2048);
+        SphereIndices.reserve(1024);
+        SphereBounds.reserve(1024);
     }
 
     //-------------------------------------------------------------------------
     // ICollisionSolver Interface
     //-------------------------------------------------------------------------
-    void Solve(std::vector<FSphere>& spheres) override
+    void Solve(std::vector<FSphere>& Spheres) override
     {
-        const int count = static_cast<int>(spheres.size());
-        m_Stats = {};
-        if (count < 2) return;
+        const int Count = static_cast<int>(Spheres.size());
+        LastStats = {};
+        if (Count < 2) return;
 
-        LARGE_INTEGER t0, t1, t2, t3;
+        LARGE_INTEGER TimerStart, TimerBroad, TimerNarrow, TimerResolve;
 
-        QueryPerformanceCounter(&t0);
-        BuildBVH(spheres);
-        QueryPerformanceCounter(&t1);
+        QueryPerformanceCounter(&TimerStart);
+        BuildBVH(Spheres);
+        QueryPerformanceCounter(&TimerBroad);
 
-        m_Manifolds.clear();
-        uint64_t candidatePairs = 0;
+        Manifolds.clear();
+        uint64_t CandidatePairs = 0;
 
-        int stack[64];
+        int Stack[64];
 
-        for (int i = 0; i < count; ++i)
+        for (int i = 0; i < Count; ++i)
         {
-            const FVector3 posA = spheres[i].Center;
-            const float    radA = spheres[i].Radius;
-            const FAABB&   boxA = m_SphereBounds[i];
+            const FVector3 PosA    = Spheres[i].Center;
+            const float    RadiusA = Spheres[i].Radius;
+            const FAABB&   BoxA    = SphereBounds[i];
 
-            int stackPtr = 0;
-            stack[stackPtr++] = 0;
+            int StackPtr = 0;
+            Stack[StackPtr++] = 0;
 
-            while (stackPtr > 0)
+            while (StackPtr > 0)
             {
-                int currIdx = stack[--stackPtr];
-                const FBVHNode& node = m_Nodes[currIdx];
+                int CurrIdx = Stack[--StackPtr];
+                const FBVHNode& Node = Nodes[CurrIdx];
 
-                if (!boxA.Intersects(node.Bounds))
+                if (!BoxA.Intersects(Node.Bounds))
                 {
                     continue;
                 }
 
-                if (node.IsLeaf())
+                if (Node.IsLeaf())
                 {
-                    int j = node.GetSphereIndex();
+                    int j = Node.GetSphereIndex();
                     if (i < j)
                     {
-                        candidatePairs++;
-                        const FVector3 diff   = posA - spheres[j].Center;
-                        const float    distSq = diff.LengthSq();
-                        const float    radSum = radA + spheres[j].Radius;
+                        CandidatePairs++;
+                        const FVector3 Diff      = PosA - Spheres[j].Center;
+                        const float    DistSq    = Diff.LengthSq();
+                        const float    RadiusSum = RadiusA + Spheres[j].Radius;
 
-                        if (distSq < radSum * radSum)
+                        if (DistSq < RadiusSum * RadiusSum)
                         {
-                            const float dist = sqrtf(distSq);
-                            const FVector3 normal = (dist > 1e-6f) ? diff * (1.0f / dist) : FVector3(1.0f, 0.0f, 0.0f);
-                            m_Manifolds.push_back({ i, j, normal, radSum - dist });
+                            const float Dist = sqrtf(DistSq);
+                            const FVector3 Normal = (Dist > 1e-6f) ? Diff * (1.0f / Dist) : FVector3(1.0f, 0.0f, 0.0f);
+                            Manifolds.push_back({ i, j, Normal, RadiusSum - Dist });
                         }
                     }
                 }
                 else
                 {
-                    stack[stackPtr++] = node.RightChild;
-                    stack[stackPtr++] = node.LeftChild;
+                    Stack[StackPtr++] = Node.RightChild;
+                    Stack[StackPtr++] = Node.LeftChild;
                 }
             }
         }
 
-        m_Stats.CandidatePairCount   = candidatePairs;
-        m_Stats.ActualCollisionCount = static_cast<uint64_t>(m_Manifolds.size());
-        QueryPerformanceCounter(&t2);
+        LastStats.CandidatePairCount   = CandidatePairs;
+        LastStats.ActualCollisionCount = static_cast<uint64_t>(Manifolds.size());
+        QueryPerformanceCounter(&TimerNarrow);
 
-        ResolveCollisions(spheres, m_Manifolds);
-        QueryPerformanceCounter(&t3);
+        ResolveCollisions(Spheres, Manifolds);
+        QueryPerformanceCounter(&TimerResolve);
 
-        const double toMs = 1000.0 / static_cast<double>(m_TimerFreq.QuadPart);
-        m_Stats.BroadPhaseTimeMs  = static_cast<double>(t1.QuadPart - t0.QuadPart) * toMs;
-        m_Stats.NarrowPhaseTimeMs = static_cast<double>(t2.QuadPart - t1.QuadPart) * toMs;
-        m_Stats.ResolutionTimeMs  = static_cast<double>(t3.QuadPart - t2.QuadPart) * toMs;
-        m_Stats.TotalSolveTimeMs  = static_cast<double>(t3.QuadPart - t0.QuadPart) * toMs;
+        const double ToMilliseconds = 1000.0 / static_cast<double>(TimerFrequency.QuadPart);
+        LastStats.BroadPhaseTimeMs  = static_cast<double>(TimerBroad.QuadPart - TimerStart.QuadPart) * ToMilliseconds;
+        LastStats.NarrowPhaseTimeMs = static_cast<double>(TimerNarrow.QuadPart - TimerBroad.QuadPart) * ToMilliseconds;
+        LastStats.ResolutionTimeMs  = static_cast<double>(TimerResolve.QuadPart - TimerNarrow.QuadPart) * ToMilliseconds;
+        LastStats.TotalSolveTimeMs  = static_cast<double>(TimerResolve.QuadPart - TimerStart.QuadPart) * ToMilliseconds;
     }
 
     const wchar_t* GetName()          const override { return L"BVH (ST)"; }
@@ -118,117 +118,117 @@ public:
     int            GetThreadCount()   const override { return 1; }
     void           SetThreadCount(int) override {}
 
-    const FCollisionStats& GetLastStats() const override { return m_Stats; }
-    const std::vector<FCollisionManifold>& GetManifolds() const { return m_Manifolds; }
+    const FCollisionStats& GetLastStats() const override { return LastStats; }
+    const std::vector<FCollisionManifold>& GetManifolds() const { return Manifolds; }
 
     //-------------------------------------------------------------------------
     // IBVHVisualizer Interface
     //-------------------------------------------------------------------------
-    void BuildBVH(const std::vector<FSphere>& spheres) override
+    void BuildBVH(const std::vector<FSphere>& Spheres) override
     {
-        const int count = static_cast<int>(spheres.size());
-        if (count == 0)
+        const int Count = static_cast<int>(Spheres.size());
+        if (Count == 0)
         {
-            m_Nodes.clear();
-            m_MaxDepth = 0;
+            Nodes.clear();
+            MaxTreeDepth = 0;
             return;
         }
 
-        m_SphereIndices.resize(count);
-        m_SphereBounds.resize(count);
-        for (int i = 0; i < count; ++i)
+        SphereIndices.resize(Count);
+        SphereBounds.resize(Count);
+        for (int i = 0; i < Count; ++i)
         {
-            m_SphereIndices[i] = i;
-            m_SphereBounds[i]  = FAABB::FromSphere(spheres[i].Center, spheres[i].Radius);
+            SphereIndices[i] = i;
+            SphereBounds[i]  = FAABB::FromSphere(Spheres[i].Center, Spheres[i].Radius);
         }
 
-        m_Nodes.clear();
-        m_Nodes.reserve(count * 2);
-        m_MaxDepth = 0;
+        Nodes.clear();
+        Nodes.reserve(Count * 2);
+        MaxTreeDepth = 0;
 
-        BuildSubtree(spheres, 0, count, 0);
+        BuildSubtree(Spheres, 0, Count, 0);
 
-        if (m_VisualizerDepth > m_MaxDepth)
+        if (VisualizerDepth > MaxTreeDepth)
         {
-            m_VisualizerDepth = m_MaxDepth;
+            VisualizerDepth = MaxTreeDepth;
         }
     }
 
-    void GenerateVisualizerLineGroups(std::vector<FBVHLineGroup>& outGroups) const override
+    void GenerateVisualizerLineGroups(std::vector<FBVHLineGroup>& OutGroups) const override
     {
-        outGroups.clear();
-        if (m_Nodes.empty()) return;
+        OutGroups.clear();
+        if (Nodes.empty()) return;
 
-        const int targetDepth = (std::max)(0, (std::min)(m_VisualizerDepth, m_MaxDepth));
+        const int TargetDepth = (std::max)(0, (std::min)(VisualizerDepth, MaxTreeDepth));
 
-        if (m_VisualizerMode == EBVHVisualizerMode::SingleLevel)
+        if (VisualizerMode == EBVHVisualizerMode::SingleLevel)
         {
-            outGroups.resize(1);
-            outGroups[0].Color = IBVHVisualizer::GetDepthColor(targetDepth);
-            CollectSingleLevelLines(0, 0, targetDepth, outGroups[0].Lines);
+            OutGroups.resize(1);
+            OutGroups[0].Color = IBVHVisualizer::GetDepthColor(TargetDepth);
+            CollectSingleLevelLines(0, 0, TargetDepth, OutGroups[0].Lines);
         }
-        else if (m_VisualizerMode == EBVHVisualizerMode::LOD)
+        else if (VisualizerMode == EBVHVisualizerMode::LOD)
         {
-            outGroups.resize(targetDepth + 1);
-            for (int d = 0; d <= targetDepth; ++d)
+            OutGroups.resize(TargetDepth + 1);
+            for (int d = 0; d <= TargetDepth; ++d)
             {
-                outGroups[d].Color = IBVHVisualizer::GetDepthColor(d);
+                OutGroups[d].Color = IBVHVisualizer::GetDepthColor(d);
             }
-            CollectLODLines(0, 0, targetDepth, outGroups);
+            CollectLODLines(0, 0, TargetDepth, OutGroups);
         }
         else // LeafOnly
         {
-            outGroups.resize(1);
-            outGroups[0].Color = FVector4(0.20f, 0.95f, 0.40f, 1.0f); // Vibrant Leaf Green
-            CollectLeafLines(0, outGroups[0].Lines);
+            OutGroups.resize(1);
+            OutGroups[0].Color = FVector4(0.20f, 0.95f, 0.40f, 1.0f); // Vibrant Leaf Green
+            CollectLeafLines(0, OutGroups[0].Lines);
         }
     }
 
     int  GetVisualizerDepth() const override
     {
-        return (std::max)(0, (std::min)(m_VisualizerDepth, m_MaxDepth));
+        return (std::max)(0, (std::min)(VisualizerDepth, MaxTreeDepth));
     }
-    int  GetMaxTreeDepth()    const override { return m_MaxDepth; }
-    void SetVisualizerDepth(int depth) override
+    int  GetMaxTreeDepth()    const override { return MaxTreeDepth; }
+    void SetVisualizerDepth(int Depth) override
     {
-        m_VisualizerDepth = (std::max)(0, (std::min)(depth, m_MaxDepth));
+        VisualizerDepth = (std::max)(0, (std::min)(Depth, MaxTreeDepth));
     }
     void IncrementVisualizerDepth() override
     {
-        if (m_VisualizerDepth > m_MaxDepth)
+        if (VisualizerDepth > MaxTreeDepth)
         {
-            m_VisualizerDepth = m_MaxDepth;
+            VisualizerDepth = MaxTreeDepth;
         }
-        else if (m_VisualizerDepth < m_MaxDepth)
+        else if (VisualizerDepth < MaxTreeDepth)
         {
-            m_VisualizerDepth++;
+            VisualizerDepth++;
         }
     }
     void DecrementVisualizerDepth() override
     {
-        if (m_VisualizerDepth > m_MaxDepth)
+        if (VisualizerDepth > MaxTreeDepth)
         {
-            m_VisualizerDepth = m_MaxDepth;
+            VisualizerDepth = MaxTreeDepth;
         }
-        if (m_VisualizerDepth > 0)
+        if (VisualizerDepth > 0)
         {
-            m_VisualizerDepth--;
+            VisualizerDepth--;
         }
     }
 
-    EBVHVisualizerMode GetVisualizerMode() const override { return m_VisualizerMode; }
+    EBVHVisualizerMode GetVisualizerMode() const override { return VisualizerMode; }
     void CycleVisualizerMode() override
     {
-        if (m_VisualizerMode == EBVHVisualizerMode::LOD)
-            m_VisualizerMode = EBVHVisualizerMode::SingleLevel;
-        else if (m_VisualizerMode == EBVHVisualizerMode::SingleLevel)
-            m_VisualizerMode = EBVHVisualizerMode::LeafOnly;
+        if (VisualizerMode == EBVHVisualizerMode::LOD)
+            VisualizerMode = EBVHVisualizerMode::SingleLevel;
+        else if (VisualizerMode == EBVHVisualizerMode::SingleLevel)
+            VisualizerMode = EBVHVisualizerMode::LeafOnly;
         else
-            m_VisualizerMode = EBVHVisualizerMode::LOD;
+            VisualizerMode = EBVHVisualizerMode::LOD;
     }
     const wchar_t* GetVisualizerModeName() const override
     {
-        switch (m_VisualizerMode)
+        switch (VisualizerMode)
         {
         case EBVHVisualizerMode::LOD:         return L"LOD (0~Depth)";
         case EBVHVisualizerMode::SingleLevel: return L"Single Level";
@@ -241,45 +241,45 @@ private:
     //-------------------------------------------------------------------------
     // Recursive Top-Down Object Median Split Builder
     //-------------------------------------------------------------------------
-    int BuildSubtree(const std::vector<FSphere>& spheres, int start, int end, int currentDepth)
+    int BuildSubtree(const std::vector<FSphere>& Spheres, int Start, int End, int CurrentDepth)
     {
-        m_MaxDepth = (std::max)(m_MaxDepth, currentDepth);
+        MaxTreeDepth = (std::max)(MaxTreeDepth, CurrentDepth);
 
-        const int nodeIdx = static_cast<int>(m_Nodes.size());
-        m_Nodes.emplace_back();
+        const int NodeIdx = static_cast<int>(Nodes.size());
+        Nodes.emplace_back();
 
-        const int count = end - start;
-        if (count == 1)
+        const int Count = End - Start;
+        if (Count == 1)
         {
-            int sIdx = m_SphereIndices[start];
-            m_Nodes[nodeIdx].SetLeaf(sIdx, m_SphereBounds[sIdx]);
-            return nodeIdx;
+            int sIdx = SphereIndices[Start];
+            Nodes[NodeIdx].SetLeaf(sIdx, SphereBounds[sIdx]);
+            return NodeIdx;
         }
 
-        FAABB centroidBounds;
-        FAABB totalBounds;
-        for (int i = start; i < end; ++i)
+        FAABB CentroidBounds;
+        FAABB TotalBounds;
+        for (int i = Start; i < End; ++i)
         {
-            int sIdx = m_SphereIndices[i];
-            centroidBounds.ExpandBy(spheres[sIdx].Center);
-            totalBounds.ExpandBy(m_SphereBounds[sIdx]);
+            int sIdx = SphereIndices[i];
+            CentroidBounds.ExpandBy(Spheres[sIdx].Center);
+            TotalBounds.ExpandBy(SphereBounds[sIdx]);
         }
 
-        const int axis = centroidBounds.GetLongestAxis();
-        const int mid  = start + count / 2;
+        const int Axis = CentroidBounds.GetLongestAxis();
+        const int Mid  = Start + Count / 2;
 
-        int* pBegin = m_SphereIndices.data() + start;
-        int* pMid   = m_SphereIndices.data() + mid;
-        int* pEnd   = m_SphereIndices.data() + end;
-        const FSphere* pSpheres = spheres.data();
+        int* pBegin = SphereIndices.data() + Start;
+        int* pMid   = SphereIndices.data() + Mid;
+        int* pEnd   = SphereIndices.data() + End;
+        const FSphere* pSpheres = Spheres.data();
 
-        if (axis == 0)
+        if (Axis == 0)
         {
             std::nth_element(pBegin, pMid, pEnd, [pSpheres](int a, int b) {
                 return pSpheres[a].Center.x < pSpheres[b].Center.x;
             });
         }
-        else if (axis == 1)
+        else if (Axis == 1)
         {
             std::nth_element(pBegin, pMid, pEnd, [pSpheres](int a, int b) {
                 return pSpheres[a].Center.y < pSpheres[b].Center.y;
@@ -292,68 +292,68 @@ private:
             });
         }
 
-        int leftChild  = BuildSubtree(spheres, start, mid, currentDepth + 1);
-        int rightChild = BuildSubtree(spheres, mid, end, currentDepth + 1);
+        int LeftChild  = BuildSubtree(Spheres, Start, Mid, CurrentDepth + 1);
+        int RightChild = BuildSubtree(Spheres, Mid, End, CurrentDepth + 1);
 
-        m_Nodes[nodeIdx].SetInternal(leftChild, rightChild, totalBounds);
-        return nodeIdx;
+        Nodes[NodeIdx].SetInternal(LeftChild, RightChild, TotalBounds);
+        return NodeIdx;
     }
 
     //-------------------------------------------------------------------------
     // Visualizer Wireframe Collectors
     //-------------------------------------------------------------------------
-    void CollectSingleLevelLines(int nodeIdx, int currentDepth, int targetDepth, std::vector<FVertexSimple>& lines) const
+    void CollectSingleLevelLines(int NodeIdx, int CurrentDepth, int TargetDepth, std::vector<FVertexSimple>& Lines) const
     {
-        if (currentDepth == targetDepth)
+        if (CurrentDepth == TargetDepth)
         {
-            IBVHVisualizer::AppendAABBWireframe(lines, m_Nodes[nodeIdx].Bounds);
+            IBVHVisualizer::AppendAABBWireframe(Lines, Nodes[NodeIdx].Bounds);
             return;
         }
 
-        if (!m_Nodes[nodeIdx].IsLeaf())
+        if (!Nodes[NodeIdx].IsLeaf())
         {
-            CollectSingleLevelLines(m_Nodes[nodeIdx].LeftChild,  currentDepth + 1, targetDepth, lines);
-            CollectSingleLevelLines(m_Nodes[nodeIdx].RightChild, currentDepth + 1, targetDepth, lines);
+            CollectSingleLevelLines(Nodes[NodeIdx].LeftChild,  CurrentDepth + 1, TargetDepth, Lines);
+            CollectSingleLevelLines(Nodes[NodeIdx].RightChild, CurrentDepth + 1, TargetDepth, Lines);
         }
     }
 
-    void CollectLODLines(int nodeIdx, int currentDepth, int maxDepth, std::vector<FBVHLineGroup>& outGroups) const
+    void CollectLODLines(int NodeIdx, int CurrentDepth, int MaxDepth, std::vector<FBVHLineGroup>& OutGroups) const
     {
-        if (currentDepth <= maxDepth)
+        if (CurrentDepth <= MaxDepth)
         {
-            IBVHVisualizer::AppendAABBWireframe(outGroups[currentDepth].Lines, m_Nodes[nodeIdx].Bounds);
+            IBVHVisualizer::AppendAABBWireframe(OutGroups[CurrentDepth].Lines, Nodes[NodeIdx].Bounds);
         }
 
-        if (currentDepth < maxDepth && !m_Nodes[nodeIdx].IsLeaf())
+        if (CurrentDepth < MaxDepth && !Nodes[NodeIdx].IsLeaf())
         {
-            CollectLODLines(m_Nodes[nodeIdx].LeftChild,  currentDepth + 1, maxDepth, outGroups);
-            CollectLODLines(m_Nodes[nodeIdx].RightChild, currentDepth + 1, maxDepth, outGroups);
+            CollectLODLines(Nodes[NodeIdx].LeftChild,  CurrentDepth + 1, MaxDepth, OutGroups);
+            CollectLODLines(Nodes[NodeIdx].RightChild, CurrentDepth + 1, MaxDepth, OutGroups);
         }
     }
 
-    void CollectLeafLines(int nodeIdx, std::vector<FVertexSimple>& lines) const
+    void CollectLeafLines(int NodeIdx, std::vector<FVertexSimple>& Lines) const
     {
-        if (m_Nodes[nodeIdx].IsLeaf())
+        if (Nodes[NodeIdx].IsLeaf())
         {
-            IBVHVisualizer::AppendAABBWireframe(lines, m_Nodes[nodeIdx].Bounds);
+            IBVHVisualizer::AppendAABBWireframe(Lines, Nodes[NodeIdx].Bounds);
         }
         else
         {
-            CollectLeafLines(m_Nodes[nodeIdx].LeftChild,  lines);
-            CollectLeafLines(m_Nodes[nodeIdx].RightChild, lines);
+            CollectLeafLines(Nodes[NodeIdx].LeftChild,  Lines);
+            CollectLeafLines(Nodes[NodeIdx].RightChild, Lines);
         }
     }
 
 private:
-    LARGE_INTEGER                   m_TimerFreq        = {};
-    FCollisionStats                 m_Stats            = {};
-    std::vector<FCollisionManifold> m_Manifolds;
+    LARGE_INTEGER                   TimerFrequency   = {};
+    FCollisionStats                 LastStats       = {};
+    std::vector<FCollisionManifold> Manifolds;
 
-    std::vector<FBVHNode>           m_Nodes;
-    std::vector<int>                m_SphereIndices;
-    std::vector<FAABB>              m_SphereBounds;
-    int                             m_MaxDepth         = 0;
+    std::vector<FBVHNode>           Nodes;
+    std::vector<int>                SphereIndices;
+    std::vector<FAABB>              SphereBounds;
+    int                             MaxTreeDepth     = 0;
 
-    int                             m_VisualizerDepth  = 3;
-    EBVHVisualizerMode              m_VisualizerMode   = EBVHVisualizerMode::LOD;
+    int                             VisualizerDepth  = 3;
+    EBVHVisualizerMode              VisualizerMode   = EBVHVisualizerMode::LOD;
 };
