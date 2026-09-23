@@ -121,14 +121,14 @@ struct FSphere
 		return FMatrix4x4::Translate(Center.x, Center.y, Center.z) * FMatrix4x4::Scale(Radius, Radius, Radius);
 	}
 
-	void Update(float dt)
+	void Update(float DeltaTime)
 	{
-		Center += Velocity * (dt * SPEED_FACTOR);
+		Center += Velocity * (DeltaTime * SPEED_FACTOR);
 	}
 
-	void BoxCollisionCheck(float L)
+	void BoxCollisionCheck(float BoxHalfSize)
 	{
-		const float maxX = L - Radius;
+		const float maxX = BoxHalfSize - Radius;
 		if (Center.x > maxX)
 		{
 			Center.x = maxX;
@@ -140,7 +140,7 @@ struct FSphere
 			if (Velocity.x < 0.0f) Velocity.x = fabsf(Velocity.x);
 		}
 
-		const float maxY = L - Radius;
+		const float maxY = BoxHalfSize - Radius;
 		if (Center.y > maxY)
 		{
 			Center.y = maxY;
@@ -152,7 +152,7 @@ struct FSphere
 			if (Velocity.y < 0.0f) Velocity.y = fabsf(Velocity.y);
 		}
 
-		const float maxZ = L - Radius;
+		const float maxZ = BoxHalfSize - Radius;
 		if (Center.z > maxZ)
 		{
 			Center.z = maxZ;
@@ -165,16 +165,16 @@ struct FSphere
 		}
 	}
 
-	float CollisionCheck(const FSphere& other) const
+	float CollisionCheck(const FSphere& Other) const
 	{
-		float dist = (Center - other.Center).Length();
-		return dist - (Radius + other.Radius);
+		float dist = (Center - Other.Center).Length();
+		return dist - (Radius + Other.Radius);
 	}
 
-	void HandleCollision(FSphere& other)
+	void HandleCollision(FSphere& Other)
 	{
-		FVector3 x1_x2 = Center - other.Center;
-		FVector3 v1_v2 = Velocity - other.Velocity;
+		FVector3 x1_x2 = Center - Other.Center;
+		FVector3 v1_v2 = Velocity - Other.Velocity;
 
 		if (v1_v2.Dot(x1_x2) > 0.0f)
 			return;
@@ -184,22 +184,22 @@ struct FSphere
 			return;
 
 		float m1 = Mass;
-		float m2 = other.Mass;
+		float m2 = Other.Mass;
 		FVector3 x2_x1 = FVector3(-x1_x2.x, -x1_x2.y, -x1_x2.z);
 		FVector3 v2_v1 = FVector3(-v1_v2.x, -v1_v2.y, -v1_v2.z);
 
 		float impulse = v2_v1.Dot(x2_x1) / distSq;
 
 		Velocity       += x2_x1 * ((2.0f * m2 / (m1 + m2)) * impulse);
-		other.Velocity += x1_x2 * ((2.0f * m1 / (m1 + m2)) * impulse);
+		Other.Velocity += x1_x2 * ((2.0f * m1 / (m1 + m2)) * impulse);
 
 		float dist = sqrtf(distSq);
-		float overlap = (Radius + other.Radius - dist) * 0.5f;
+		float overlap = (Radius + Other.Radius - dist) * 0.5f;
 		if (overlap > 0.0f)
 		{
 			FVector3 corr = x1_x2 * (overlap / dist);
 			Center       += corr;
-			other.Center -= corr;
+			Other.Center -= corr;
 		}
 	}
 };

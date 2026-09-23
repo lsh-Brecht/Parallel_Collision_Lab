@@ -11,33 +11,33 @@ class FTimer
 public:
     FTimer()
     {
-        QueryPerformanceFrequency(&m_Frequency);
-        QueryPerformanceCounter(&m_LastTime);
+        QueryPerformanceFrequency(&Frequency);
+        QueryPerformanceCounter(&LastTime);
     }
 
     float Tick()
     {
-        LARGE_INTEGER now;
-        QueryPerformanceCounter(&now);
-        float dt = static_cast<float>(now.QuadPart - m_LastTime.QuadPart) / static_cast<float>(m_Frequency.QuadPart);
-        m_LastTime = now;
+        LARGE_INTEGER Now;
+        QueryPerformanceCounter(&Now);
+        float DeltaTime = static_cast<float>(Now.QuadPart - LastTime.QuadPart) / static_cast<float>(Frequency.QuadPart);
+        LastTime = Now;
 
-        // Clamp dt to ~30 FPS (0.033s) to prevent tunneling on severe frame hitches
-        if (dt > 0.033f)
+        // Clamp DeltaTime to ~30 FPS (0.033s) to prevent tunneling on severe frame hitches
+        if (DeltaTime > 0.033f)
         {
-            dt = 0.033f;
+            DeltaTime = 0.033f;
         }
-        return dt;
+        return DeltaTime;
     }
 
-    int64_t GetFrequency() const { return m_Frequency.QuadPart; }
+    int64_t GetFrequency() const { return Frequency.QuadPart; }
 
-    static double GetElapsedMs(const LARGE_INTEGER& start, const LARGE_INTEGER& end, int64_t frequency)
+    static double GetElapsedMs(const LARGE_INTEGER& Start, const LARGE_INTEGER& End, int64_t InFrequency)
     {
-        return static_cast<double>(end.QuadPart - start.QuadPart) * 1000.0 / static_cast<double>(frequency);
+        return static_cast<double>(End.QuadPart - Start.QuadPart) * 1000.0 / static_cast<double>(InFrequency);
     }
 
 private:
-    LARGE_INTEGER m_Frequency = {};
-    LARGE_INTEGER m_LastTime  = {};
+    LARGE_INTEGER Frequency = {};
+    LARGE_INTEGER LastTime  = {};
 };

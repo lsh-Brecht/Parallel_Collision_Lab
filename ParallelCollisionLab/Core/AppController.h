@@ -16,99 +16,99 @@
 class FAppController
 {
 public:
-    void ProcessInput(const FInputState& input, FSimulationWorld& world,
-                      FWindow& window, URenderer& renderer,
-                      FTextRenderer& textRenderer, const FCPUInfo& cpuInfo)
+    void ProcessInput(const FInputState& Input, FSimulationWorld& World,
+                      FWindow& Window, URenderer& Renderer,
+                      FTextRenderer& TextRenderer, const FCPUInfo& CPUInfo)
     {
         // View modes
-        if (input.Wireframe)
-            renderer.ToggleWireframe();
+        if (Input.Wireframe)
+            Renderer.ToggleWireframe();
 
-        if (input.ToggleGridVis)
-            m_bShowGridVis = !m_bShowGridVis;
+        if (Input.ToggleGridVis)
+            bShowGridVis = !bShowGridVis;
 
-        if (input.ToggleHUD)
-            m_bShowHUD = !m_bShowHUD;
+        if (Input.ToggleHUD)
+            bShowHUD = !bShowHUD;
 
         // Camera Trackball Interaction
-        if (input.bRButtonPressed || (input.bLButtonPressed && input.bShiftDown))
+        if (Input.bRButtonPressed || (Input.bLButtonPressed && Input.bShiftDown))
         {
             int w = 0, h = 0;
-            window.GetClientSize(w, h);
-            m_Trackball.Begin(m_Eye, m_Up, CursorToNDC(input.MouseX, input.MouseY, w, h), 2);
+            Window.GetClientSize(w, h);
+            Trackball.Begin(CameraEye, CameraUp, CursorToNDC(Input.MouseX, Input.MouseY, w, h), 2);
         }
-        else if (input.bLButtonPressed)
+        else if (Input.bLButtonPressed)
         {
             int w = 0, h = 0;
-            window.GetClientSize(w, h);
-            m_Trackball.Begin(m_Eye, m_Up, CursorToNDC(input.MouseX, input.MouseY, w, h), 1);
+            Window.GetClientSize(w, h);
+            Trackball.Begin(CameraEye, CameraUp, CursorToNDC(Input.MouseX, Input.MouseY, w, h), 1);
         }
 
-        if (input.bMouseMoving && m_Trackball.IsTracking())
+        if (Input.bMouseMoving && Trackball.IsTracking())
         {
             int w = 0, h = 0;
-            window.GetClientSize(w, h);
-            m_Trackball.Update(CursorToNDC(input.MouseX, input.MouseY, w, h), m_At, m_Eye, m_Up);
+            Window.GetClientSize(w, h);
+            Trackball.Update(CursorToNDC(Input.MouseX, Input.MouseY, w, h), CameraAt, CameraEye, CameraUp);
         }
 
-        if (input.bLButtonReleased || input.bRButtonReleased)
+        if (Input.bLButtonReleased || Input.bRButtonReleased)
         {
-            m_Trackball.End();
+            Trackball.End();
         }
 
-        if (input.ResetCamera)
+        if (Input.ResetCamera)
         {
-            m_Eye = Config::CAMERA_DEFAULT_EYE;
-            m_Up  = Config::CAMERA_DEFAULT_UP;
-            m_Trackball.End();
+            CameraEye = Config::CAMERA_DEFAULT_EYE;
+            CameraUp  = Config::CAMERA_DEFAULT_UP;
+            Trackball.End();
         }
 
         // Simulation Sphere Count Controls
-        if (input.Reset)
+        if (Input.Reset)
         {
-            world.ResetSpheres();
+            World.ResetSpheres();
         }
-        else if (input.Toggle)
+        else if (Input.Toggle)
         {
-            world.ToggleSphereCount();
+            World.ToggleSphereCount();
         }
-        else if (input.ToggleSphereSize)
+        else if (Input.ToggleSphereSize)
         {
-            world.ToggleSphereSizeMode();
+            World.ToggleSphereSizeMode();
         }
-        else if (input.Add || input.AddMany)
+        else if (Input.Add || Input.AddMany)
         {
-            world.AddSpheres(input.AddMany ? 16 : 1);
+            World.AddSpheres(Input.AddMany ? 16 : 1);
         }
-        else if (input.Sub || input.SubMany)
+        else if (Input.Sub || Input.SubMany)
         {
-            world.SubSpheres(input.SubMany ? 16 : 1);
+            World.SubSpheres(Input.SubMany ? 16 : 1);
         }
 
         // Thread Count Adjustment
-        if (input.DecThread || input.IncThread)
+        if (Input.DecThread || Input.IncThread)
         {
-            int delta = input.bShiftDown ? 4 : 1;
-            world.AdjustThreadCount(input.DecThread ? -delta : delta);
+            int delta = Input.bShiftDown ? 4 : 1;
+            World.AdjustThreadCount(Input.DecThread ? -delta : delta);
         }
 
         // Solver Selection
-        if (input.SelectSolver >= 0)
+        if (Input.SelectSolver >= 0)
         {
-            world.SelectSolver(static_cast<size_t>(input.SelectSolver));
+            World.SelectSolver(static_cast<size_t>(Input.SelectSolver));
         }
-        else if (input.CycleSolver)
+        else if (Input.CycleSolver)
         {
-            world.CycleSolver();
+            World.CycleSolver();
         }
 
         // BVH Visualizer Controls
-        if (input.IncBvhDepth || input.DecBvhDepth || input.CycleBvhMode)
+        if (Input.IncBvhDepth || Input.DecBvhDepth || Input.CycleBvhMode)
         {
-            IBVHVisualizer* bvhVis = dynamic_cast<IBVHVisualizer*>(world.GetActiveSolver());
+            IBVHVisualizer* bvhVis = dynamic_cast<IBVHVisualizer*>(World.GetActiveSolver());
             if (!bvhVis)
             {
-                for (auto& s : world.GetSolvers())
+                for (auto& s : World.GetSolvers())
                 {
                     bvhVis = dynamic_cast<IBVHVisualizer*>(s.get());
                     if (bvhVis) break;
@@ -117,50 +117,50 @@ public:
 
             if (bvhVis)
             {
-                if (input.IncBvhDepth)  bvhVis->IncrementVisualizerDepth();
-                if (input.DecBvhDepth)  bvhVis->DecrementVisualizerDepth();
-                if (input.CycleBvhMode) bvhVis->CycleVisualizerMode();
+                if (Input.IncBvhDepth)  bvhVis->IncrementVisualizerDepth();
+                if (Input.DecBvhDepth)  bvhVis->DecrementVisualizerDepth();
+                if (Input.CycleBvhMode) bvhVis->CycleVisualizerMode();
             }
         }
 
         // Pause
-        if (input.Pause)
+        if (Input.Pause)
         {
-            m_bPaused = !m_bPaused;
+            bIsPaused = !bIsPaused;
         }
 
         // Benchmark Suite Execution
-        if (input.Benchmark)
+        if (Input.Benchmark)
         {
-            FBenchmarkReport report = world.RunBenchmarkSuite();
+            FBenchmarkReport report = World.RunBenchmarkSuite();
             if (report.bValid)
             {
-                std::wstring detailedReport = report.GenerateDetailedReport(cpuInfo);
-                ShowBenchmarkWindow(window.GetHWND(), detailedReport, world.GetSphereCount());
+                std::wstring detailedReport = report.GenerateDetailedReport(CPUInfo);
+                ShowBenchmarkWindow(Window.GetHWND(), detailedReport, World.GetSphereCount());
             }
         }
     }
 
-    FMatrix4x4 GetViewProj(float aspect) const
+    FMatrix4x4 GetViewProj(float Aspect) const
     {
-        FMatrix4x4 view = FMatrix4x4::LookAtLH(m_Eye, m_At, m_Up);
+        FMatrix4x4 view = FMatrix4x4::LookAtLH(CameraEye, CameraAt, CameraUp);
         FMatrix4x4 proj = FMatrix4x4::PerspectiveFovLH(
             Config::CAMERA_FOV_DEG * static_cast<float>(M_PI) / 180.0f,
-            aspect, Config::CAMERA_NEAR, Config::CAMERA_FAR);
+            Aspect, Config::CAMERA_NEAR, Config::CAMERA_FAR);
         return proj * view;
     }
 
-    bool IsPaused()         const { return m_bPaused; }
-    bool IsGridVisEnabled() const { return m_bShowGridVis; }
-    bool IsHUDEnabled()     const { return m_bShowHUD; }
+    bool IsPaused()         const { return bIsPaused; }
+    bool IsGridVisEnabled() const { return bShowGridVis; }
+    bool IsHUDEnabled()     const { return bShowHUD; }
 
 private:
-    FTrackball m_Trackball;
-    FVector3   m_Eye = Config::CAMERA_DEFAULT_EYE;
-    FVector3   m_At  = Config::CAMERA_DEFAULT_AT;
-    FVector3   m_Up  = Config::CAMERA_DEFAULT_UP;
+    FTrackball Trackball;
+    FVector3   CameraEye = Config::CAMERA_DEFAULT_EYE;
+    FVector3   CameraAt  = Config::CAMERA_DEFAULT_AT;
+    FVector3   CameraUp  = Config::CAMERA_DEFAULT_UP;
 
-    bool       m_bPaused      = false;
-    bool       m_bShowGridVis = false;
-    bool       m_bShowHUD     = true;
+    bool       bIsPaused      = false;
+    bool       bShowGridVis   = false;
+    bool       bShowHUD       = true;
 };
