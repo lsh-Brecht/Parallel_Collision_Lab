@@ -162,10 +162,11 @@ namespace Network
             for (int i = 0; i < count; ++i)
             {
                 const FSphere& src = spheres[startIdx + i];
-                chunkPacket.Spheres[i].Id       = (src.Id >= 0) ? src.Id : (startIdx + i);
-                chunkPacket.Spheres[i].Position = src.Center;
-                chunkPacket.Spheres[i].Velocity = src.Velocity;
-                chunkPacket.Spheres[i].Radius   = src.Radius;
+                chunkPacket.Spheres[i].Id        = (src.Id >= 0) ? src.Id : (startIdx + i);
+                chunkPacket.Spheres[i].Position  = src.Center;
+                chunkPacket.Spheres[i].Velocity  = src.Velocity;
+                chunkPacket.Spheres[i].Radius    = src.Radius;
+                chunkPacket.Spheres[i].ColorRGBA = PackRGBA(src.Color);
             }
 
             int packetSize = sizeof(chunkPacket) - sizeof(chunkPacket.Spheres) + (count * sizeof(FSphereNetData));

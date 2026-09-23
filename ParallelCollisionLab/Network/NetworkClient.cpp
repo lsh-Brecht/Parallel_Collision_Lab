@@ -183,7 +183,7 @@ namespace Network
                         spheres = CreateSpheres(chunk->TotalSpheres, boxHalfSize);
                     }
 
-                    // Apply received sphere positions directly
+                    // Apply received sphere positions and properties directly
                     for (uint16_t i = 0; i < chunk->CountInPacket; ++i)
                     {
                         const auto& netData = chunk->Spheres[i];
@@ -195,6 +195,10 @@ namespace Network
                             if (netData.Radius > 0.0f)
                             {
                                 spheres[idx].Radius = netData.Radius;
+                            }
+                            if (netData.ColorRGBA != 0)
+                            {
+                                spheres[idx].Color = UnpackRGBA(netData.ColorRGBA);
                             }
                         }
                     }
