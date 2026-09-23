@@ -3,8 +3,6 @@
 #include <vector>
 #include <windows.h>
 #include "../ICollisionSolver.h"
-#include "../CollisionTypes.h"
-#include "../NarrowPhase.h"
 #include "../Resolution.h"
 
 //=============================================================================

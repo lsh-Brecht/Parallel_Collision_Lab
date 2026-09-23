@@ -1,10 +1,7 @@
 #pragma once
 
-#include "NetworkProtocol.h"
 #include "NetworkServer.h"
 #include "NetworkClient.h"
-#include "../Core/Sphere.h"
-#include <vector>
 
 namespace Network
 {

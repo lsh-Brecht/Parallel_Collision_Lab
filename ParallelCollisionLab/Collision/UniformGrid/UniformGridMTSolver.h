@@ -8,8 +8,6 @@
 #include <condition_variable>
 #include <windows.h>
 #include "../ICollisionSolver.h"
-#include "../CollisionTypes.h"
-#include "../NarrowPhase.h"
 #include "../Resolution.h"
 #include "IUniformGridVisualizer.h"
 

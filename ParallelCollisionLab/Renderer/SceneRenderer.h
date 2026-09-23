@@ -3,13 +3,7 @@
 #include <vector>
 #include <windows.h>
 #include "Renderer.h"
-#include "../Core/Common.h"
-#include "../Core/AppConfig.h"
-#include "../Core/Sphere.h"
-#include "../Core/Timer.h"
 #include "../Core/SimulationWorld.h"
-#include "../Collision/UniformGrid/IUniformGridVisualizer.h"
-#include "../Collision/BVH/IBVHVisualizer.h"
 
 //=============================================================================
 // FSceneRenderer - Manages 3D geometry buffers and draws walls, spheres, and grid

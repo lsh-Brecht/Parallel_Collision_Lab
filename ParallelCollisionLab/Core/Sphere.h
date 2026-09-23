@@ -1,9 +1,7 @@
 #pragma once
 
-#define _USE_MATH_DEFINES
 #include "Common.h"
 #include <vector>
-#include <cmath>
 
 //=============================================================================
 // Unit Sphere
