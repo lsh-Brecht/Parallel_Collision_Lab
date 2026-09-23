@@ -4,7 +4,6 @@
 #include "../Window/BenchmarkWindow.h"
 #include "../Renderer/Renderer.h"
 #include "../Renderer/Trackball.h"
-#include "../Renderer/TextRenderer.h"
 #include "Common.h"
 #include "SimulationWorld.h"
 #include "CPUInfo.h"
@@ -18,7 +17,7 @@ class FAppController
 public:
     void ProcessInput(const FInputState& Input, FSimulationWorld& World,
                       FWindow& Window, URenderer& Renderer,
-                      FTextRenderer& TextRenderer, const FCPUInfo& CPUInfo)
+                      const FCPUInfo& CPUInfo)
     {
         // View modes
         if (Input.Wireframe)

@@ -62,11 +62,11 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE, LPSTR lpCmdLine, int)
 
 	if (bServerArg)
 	{
-		netManager.StartServer(Config::DEFAULT_SERVER_PORT);
+		netManager.StartServer(Network::DEFAULT_SERVER_PORT);
 	}
 	else if (bClientArg)
 	{
-		netManager.StartClient("127.0.0.1", Config::DEFAULT_SERVER_PORT);
+		netManager.StartClient("127.0.0.1", Network::DEFAULT_SERVER_PORT);
 	}
 
 	uint32_t s_TickCounter = 0;
@@ -86,16 +86,16 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE, LPSTR lpCmdLine, int)
 
 		if (input.StartServer)
 		{
-			netManager.StartServer(Config::DEFAULT_SERVER_PORT);
+			netManager.StartServer(Network::DEFAULT_SERVER_PORT);
 			window.SetTitle(L"[SERVER] Parallel Collision Lab");
 		}
 		else if (input.StartClient)
 		{
-			netManager.StartClient("127.0.0.1", Config::DEFAULT_SERVER_PORT);
+			netManager.StartClient("127.0.0.1", Network::DEFAULT_SERVER_PORT);
 			window.SetTitle(L"[CLIENT] Parallel Collision Lab");
 		}
 
-		controller.ProcessInput(input, world, window, renderer, textRenderer, cpuInfo);
+		controller.ProcessInput(input, world, window, renderer, cpuInfo);
 
 		float dt = timer.Tick();
 		s_TickCounter++;
@@ -118,7 +118,7 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE, LPSTR lpCmdLine, int)
 		if (netManager.GetRole() == Network::ENetworkRole::Server)
 		{
 			swprintf_s(netStatusStr, L"Server (Port: %u | Clients: %zu | Sent: %u)",
-			           Config::DEFAULT_SERVER_PORT, netManager.GetClientCount(), netManager.GetPacketsSent());
+			           Network::DEFAULT_SERVER_PORT, netManager.GetClientCount(), netManager.GetPacketsSent());
 		}
 		else if (netManager.GetRole() == Network::ENetworkRole::Client)
 		{

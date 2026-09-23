@@ -170,38 +170,6 @@ struct FSphere
 		float dist = (Center - Other.Center).Length();
 		return dist - (Radius + Other.Radius);
 	}
-
-	void HandleCollision(FSphere& Other)
-	{
-		FVector3 x1_x2 = Center - Other.Center;
-		FVector3 v1_v2 = Velocity - Other.Velocity;
-
-		if (v1_v2.Dot(x1_x2) > 0.0f)
-			return;
-
-		float distSq = x1_x2.LengthSq();
-		if (distSq == 0.0f)
-			return;
-
-		float m1 = Mass;
-		float m2 = Other.Mass;
-		FVector3 x2_x1 = FVector3(-x1_x2.x, -x1_x2.y, -x1_x2.z);
-		FVector3 v2_v1 = FVector3(-v1_v2.x, -v1_v2.y, -v1_v2.z);
-
-		float impulse = v2_v1.Dot(x2_x1) / distSq;
-
-		Velocity       += x2_x1 * ((2.0f * m2 / (m1 + m2)) * impulse);
-		Other.Velocity += x1_x2 * ((2.0f * m1 / (m1 + m2)) * impulse);
-
-		float dist = sqrtf(distSq);
-		float overlap = (Radius + Other.Radius - dist) * 0.5f;
-		if (overlap > 0.0f)
-		{
-			FVector3 corr = x1_x2 * (overlap / dist);
-			Center       += corr;
-			Other.Center -= corr;
-		}
-	}
 };
 
 //=============================================================================

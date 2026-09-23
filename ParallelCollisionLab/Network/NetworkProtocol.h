@@ -16,7 +16,6 @@ namespace Network
 {
     static const uint32_t PROTOCOL_MAGIC        = 0x50434C31; // "PCL1"
     static const uint16_t DEFAULT_SERVER_PORT   = 32768;
-    static const uint16_t DEFAULT_CLIENT_PORT   = 32769;
     static const int      MAX_SPHERES_PER_CHUNK = 36; // 36 * 36B + 16B = ~1.3KB per UDP packet (< 1472 MTU safe payload)
 
     enum class EPacketType : uint8_t

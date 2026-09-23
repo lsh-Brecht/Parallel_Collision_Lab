@@ -78,7 +78,6 @@ public:
     void ResetSpheres()
     {
         Spheres = CreateSpheres(static_cast<int>(Spheres.size()), BoxHalfSize, bMultiScaleSpheres);
-        BenchmarkReport.bValid = false;
         RebuildActiveVisualizer();
     }
 
@@ -86,7 +85,6 @@ public:
     {
         int count = (Spheres.size() == MAX_SPHERES) ? MIN_SPHERES : MAX_SPHERES;
         Spheres = CreateSpheres(count, BoxHalfSize, bMultiScaleSpheres);
-        BenchmarkReport.bValid = false;
         RebuildActiveVisualizer();
     }
 
@@ -94,7 +92,6 @@ public:
     {
         bMultiScaleSpheres = !bMultiScaleSpheres;
         Spheres = CreateSpheres(static_cast<int>(Spheres.size()), BoxHalfSize, bMultiScaleSpheres);
-        BenchmarkReport.bValid = false;
         RebuildActiveVisualizer();
     }
 
@@ -104,7 +101,6 @@ public:
     {
         int count = (std::min)(static_cast<int>(Spheres.size()) + Delta, MAX_SPHERES);
         Spheres = CreateSpheres(count, BoxHalfSize, bMultiScaleSpheres);
-        BenchmarkReport.bValid = false;
         RebuildActiveVisualizer();
     }
 
@@ -112,7 +108,6 @@ public:
     {
         int count = (std::max)(static_cast<int>(Spheres.size()) - Delta, MIN_SPHERES);
         Spheres = CreateSpheres(count, BoxHalfSize, bMultiScaleSpheres);
-        BenchmarkReport.bValid = false;
         RebuildActiveVisualizer();
     }
 
@@ -123,7 +118,6 @@ public:
         {
             s->SetThreadCount(ConfiguredThreads);
         }
-        BenchmarkReport.bValid = false;
     }
 
     void SelectSolver(size_t InIndex)
@@ -159,8 +153,7 @@ public:
 
     FBenchmarkReport RunBenchmarkSuite()
     {
-        BenchmarkReport = RunBenchmark(Solvers, Spheres, BoxHalfSize);
-        return BenchmarkReport;
+        return RunBenchmark(Solvers, Spheres, BoxHalfSize);
     }
 
     const std::vector<FSphere>& GetSpheres() const { return Spheres; }
@@ -186,5 +179,4 @@ private:
     int                                            ConfiguredThreads   = 4;
     float                                          BoxHalfSize         = 2.0f;
     bool                                           bMultiScaleSpheres  = false;
-    FBenchmarkReport                               BenchmarkReport;
 };
