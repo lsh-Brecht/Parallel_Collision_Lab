@@ -20,6 +20,41 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE, LPSTR lpCmdLine, int)
 	bool bServerArg = (strstr(lpCmdLine, "-server") != nullptr);
 	bool bClientArg = (strstr(lpCmdLine, "-client") != nullptr);
 
+	std::string targetServerIp = "127.0.0.1";
+	uint16_t    targetPort     = Network::DEFAULT_SERVER_PORT;
+
+	if (const char* ipArg = strstr(lpCmdLine, "-ip"))
+	{
+		ipArg += 3;
+		while (*ipArg == ' ' || *ipArg == '=')
+		{
+			ipArg++;
+		}
+		std::string parsedIp;
+		while (*ipArg && *ipArg != ' ' && *ipArg != '\t' && *ipArg != '\r' && *ipArg != '\n')
+		{
+			parsedIp += *ipArg++;
+		}
+		if (!parsedIp.empty())
+		{
+			targetServerIp = parsedIp;
+		}
+	}
+
+	if (const char* portArg = strstr(lpCmdLine, "-port"))
+	{
+		portArg += 5;
+		while (*portArg == ' ' || *portArg == '=')
+		{
+			portArg++;
+		}
+		int parsedPort = atoi(portArg);
+		if (parsedPort > 0 && parsedPort <= 65535)
+		{
+			targetPort = static_cast<uint16_t>(parsedPort);
+		}
+	}
+
 	int posX = 10;
 	int posY = 10;
 	std::wstring windowTitle = Config::WINDOW_TITLE;
@@ -28,13 +63,18 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE, LPSTR lpCmdLine, int)
 	{
 		posX = Config::SERVER_WINDOW_POS_X;
 		posY = Config::SERVER_WINDOW_POS_Y;
-		windowTitle = L"[SERVER] Parallel Collision Lab";
+		wchar_t titleBuf[128];
+		swprintf_s(titleBuf, L"[SERVER :%u] Parallel Collision Lab", targetPort);
+		windowTitle = titleBuf;
 	}
 	else if (bClientArg)
 	{
 		posX = Config::CLIENT_WINDOW_POS_X;
 		posY = Config::CLIENT_WINDOW_POS_Y;
-		windowTitle = L"[CLIENT] Parallel Collision Lab";
+		std::wstring wIp(targetServerIp.begin(), targetServerIp.end());
+		wchar_t titleBuf[128];
+		swprintf_s(titleBuf, L"[CLIENT -> %s:%u] Parallel Collision Lab", wIp.c_str(), targetPort);
+		windowTitle = titleBuf;
 	}
 
 	FCPUInfo cpuInfo = QueryCPUInfo();
@@ -62,11 +102,11 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE, LPSTR lpCmdLine, int)
 
 	if (bServerArg)
 	{
-		netManager.StartServer(Network::DEFAULT_SERVER_PORT);
+		netManager.StartServer(targetPort);
 	}
 	else if (bClientArg)
 	{
-		netManager.StartClient("127.0.0.1", Network::DEFAULT_SERVER_PORT);
+		netManager.StartClient(targetServerIp.c_str(), targetPort);
 	}
 
 	uint32_t s_TickCounter = 0;
@@ -86,13 +126,18 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE, LPSTR lpCmdLine, int)
 
 		if (input.StartServer)
 		{
-			netManager.StartServer(Network::DEFAULT_SERVER_PORT);
-			window.SetTitle(L"[SERVER] Parallel Collision Lab");
+			netManager.StartServer(targetPort);
+			wchar_t titleBuf[128];
+			swprintf_s(titleBuf, L"[SERVER :%u] Parallel Collision Lab", targetPort);
+			window.SetTitle(titleBuf);
 		}
 		else if (input.StartClient)
 		{
-			netManager.StartClient("127.0.0.1", Network::DEFAULT_SERVER_PORT);
-			window.SetTitle(L"[CLIENT] Parallel Collision Lab");
+			netManager.StartClient(targetServerIp.c_str(), targetPort);
+			std::wstring wIp(targetServerIp.begin(), targetServerIp.end());
+			wchar_t titleBuf[128];
+			swprintf_s(titleBuf, L"[CLIENT -> %s:%u] Parallel Collision Lab", wIp.c_str(), targetPort);
+			window.SetTitle(titleBuf);
 		}
 
 		controller.ProcessInput(input, world, window, renderer, cpuInfo);
@@ -118,13 +163,15 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE, LPSTR lpCmdLine, int)
 		if (netManager.GetRole() == Network::ENetworkRole::Server)
 		{
 			swprintf_s(netStatusStr, L"Server (Port: %u | Clients: %zu | Sent: %u)",
-			           Network::DEFAULT_SERVER_PORT, netManager.GetClientCount(), netManager.GetPacketsSent());
+			           targetPort, netManager.GetClientCount(), netManager.GetPacketsSent());
 		}
 		else if (netManager.GetRole() == Network::ENetworkRole::Client)
 		{
-			swprintf_s(netStatusStr, L"Client (%s | Recv: %u | Tick: %u)",
+			std::wstring wIp(targetServerIp.begin(), targetServerIp.end());
+			swprintf_s(netStatusStr, L"Client -> %s:%u (%s | Recv: %u)",
+			           wIp.c_str(), targetPort,
 			           netManager.IsConnected() ? L"Connected" : L"Searching...",
-			           netManager.GetPacketsReceived(), netManager.GetLastSnapshotTick());
+			           netManager.GetPacketsReceived());
 		}
 		else
 		{
