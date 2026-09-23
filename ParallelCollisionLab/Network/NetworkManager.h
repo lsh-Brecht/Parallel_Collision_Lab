@@ -17,6 +17,12 @@ namespace Network
         Client
     };
 
+    struct FConnectedClient
+    {
+        sockaddr_in Addr;
+        float       TimeSinceLastSeen = 0.0f;
+    };
+
     class FNetworkManager
     {
     public:
@@ -32,6 +38,11 @@ namespace Network
 
         void Shutdown()
         {
+            if (m_Role == ENetworkRole::Client && m_bConnected && m_Socket != INVALID_SOCKET)
+            {
+                SendDisconnect();
+            }
+
             if (m_Socket != INVALID_SOCKET)
             {
                 closesocket(m_Socket);
@@ -136,9 +147,9 @@ namespace Network
         }
 
         //---------------------------------------------------------------------
-        // Server Update: Handle incoming handshakes & Broadcast snapshots
+        // Server Update: Handle incoming handshakes, heartbeats, disconnects & Broadcast snapshots
         //---------------------------------------------------------------------
-        void UpdateServer(uint32_t currentTick, const std::vector<FSphere>& spheres, float boxHalfSize)
+        void UpdateServer(uint32_t currentTick, const std::vector<FSphere>& spheres, float boxHalfSize, float dt = 0.016f)
         {
             if (m_Role != ENetworkRole::Server || m_Socket == INVALID_SOCKET)
                 return;
@@ -182,7 +193,7 @@ namespace Network
                         if (bytesRead < static_cast<int>(sizeof(FHandshakeRequestPacket)))
                             continue;
 
-                        RegisterClient(senderAddr);
+                        RegisterOrRefreshClient(senderAddr);
                         SendHandshakeResponse(senderAddr, static_cast<uint16_t>(spheres.size()), boxHalfSize);
                     }
                     else if (header->Type == EPacketType::Heartbeat)
@@ -190,12 +201,32 @@ namespace Network
                         if (bytesRead < static_cast<int>(sizeof(FPacketHeader)))
                             continue;
 
-                        RegisterClient(senderAddr);
+                        RegisterOrRefreshClient(senderAddr);
+                    }
+                    else if (header->Type == EPacketType::Disconnect)
+                    {
+                        if (bytesRead < static_cast<int>(sizeof(FPacketHeader)))
+                            continue;
+
+                        RemoveClient(senderAddr);
                     }
                 }
             }
 
-            // 2. Broadcast current world snapshot to all registered clients
+            // 2. Client heartbeat timeout check (Zombie client cleanup: 5.0 seconds threshold)
+            for (auto& client : m_Clients)
+            {
+                client.TimeSinceLastSeen += dt;
+            }
+
+            m_Clients.erase(
+                std::remove_if(m_Clients.begin(), m_Clients.end(), [](const FConnectedClient& client) {
+                    return client.TimeSinceLastSeen > 5.0f;
+                }),
+                m_Clients.end()
+            );
+
+            // 3. Broadcast current world snapshot to all registered clients
             if (m_Clients.empty() || spheres.empty())
                 return;
 
@@ -234,8 +265,8 @@ namespace Network
                         reinterpret_cast<const char*>(&chunkPacket),
                         packetSize,
                         0,
-                        reinterpret_cast<const sockaddr*>(&client),
-                        sizeof(client)
+                        reinterpret_cast<const sockaddr*>(&client.Addr),
+                        sizeof(client.Addr)
                     );
                     m_PacketsSent++;
                 }
@@ -387,17 +418,51 @@ namespace Network
         }
 
     private:
-        void RegisterClient(const sockaddr_in& clientAddr)
+        void RegisterOrRefreshClient(const sockaddr_in& clientAddr)
         {
-            for (const auto& existing : m_Clients)
+            for (auto& existing : m_Clients)
             {
-                if (existing.sin_addr.s_addr == clientAddr.sin_addr.s_addr &&
-                    existing.sin_port == clientAddr.sin_port)
+                if (existing.Addr.sin_addr.s_addr == clientAddr.sin_addr.s_addr &&
+                    existing.Addr.sin_port == clientAddr.sin_port)
                 {
-                    return; // Already registered
+                    existing.TimeSinceLastSeen = 0.0f; // Heartbeat refreshed
+                    return;
                 }
             }
-            m_Clients.push_back(clientAddr);
+            FConnectedClient newClient;
+            newClient.Addr = clientAddr;
+            newClient.TimeSinceLastSeen = 0.0f;
+            m_Clients.push_back(newClient);
+        }
+
+        void RemoveClient(const sockaddr_in& clientAddr)
+        {
+            m_Clients.erase(
+                std::remove_if(m_Clients.begin(), m_Clients.end(), [&](const FConnectedClient& client) {
+                    return client.Addr.sin_addr.s_addr == clientAddr.sin_addr.s_addr &&
+                           client.Addr.sin_port == clientAddr.sin_port;
+                }),
+                m_Clients.end()
+            );
+        }
+
+        void SendDisconnect()
+        {
+            if (m_Socket == INVALID_SOCKET) return;
+
+            FPacketHeader packet = {};
+            packet.Magic = PROTOCOL_MAGIC;
+            packet.Type  = EPacketType::Disconnect;
+
+            sendto(
+                m_Socket,
+                reinterpret_cast<const char*>(&packet),
+                sizeof(packet),
+                0,
+                reinterpret_cast<const sockaddr*>(&m_ServerAddr),
+                sizeof(m_ServerAddr)
+            );
+            m_PacketsSent++;
         }
 
         void SendHandshakeRequest()
@@ -468,7 +533,7 @@ namespace Network
         std::string             m_ServerIp   = "127.0.0.1";
 
         // Server state
-        std::vector<sockaddr_in> m_Clients;
+        std::vector<FConnectedClient> m_Clients;
 
         // Client state
         sockaddr_in             m_ServerAddr       = {};

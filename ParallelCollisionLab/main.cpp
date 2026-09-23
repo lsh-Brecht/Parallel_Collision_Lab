@@ -110,7 +110,7 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE, LPSTR lpCmdLine, int)
 			updateMs = world.Update(dt, controller.IsPaused(), timer.GetFrequency());
 			if (netManager.GetRole() == Network::ENetworkRole::Server)
 			{
-				netManager.UpdateServer(s_TickCounter, world.GetSpheres(), world.GetBoxHalfSize());
+				netManager.UpdateServer(s_TickCounter, world.GetSpheres(), world.GetBoxHalfSize(), dt);
 			}
 		}
 

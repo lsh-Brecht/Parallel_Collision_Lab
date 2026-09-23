@@ -23,7 +23,8 @@ namespace Network
         HandshakeRequest  = 1, // Client -> Server
         HandshakeResponse = 2, // Server -> Client (Sphere count, bounds)
         SnapshotChunk     = 3, // Server -> Client (Batch of sphere states)
-        Heartbeat         = 4  // Keep-alive
+        Heartbeat         = 4, // Keep-alive
+        Disconnect        = 5  // Client -> Server
     };
 
     #pragma pack(push, 1)
