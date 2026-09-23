@@ -17,79 +17,79 @@
 class FSceneRenderer
 {
 public:
-    void Init(URenderer& renderer, float boxHalfSize)
+    void Init(URenderer& Renderer, float BoxHalfSize)
     {
         std::vector<FVertexSimple> unitSphereVerts = CreateUnitSphereVertices();
-        m_SphereVB     = renderer.CreateVertexBuffer(unitSphereVerts);
-        m_SphereVCount = static_cast<UINT>(unitSphereVerts.size());
+        SphereVB          = Renderer.CreateVertexBuffer(unitSphereVerts);
+        SphereVertexCount = static_cast<UINT>(unitSphereVerts.size());
 
-        m_LeftWallVB   = renderer.CreateVertexBuffer(CreateWallVertices(0, boxHalfSize));
-        m_RightWallVB  = renderer.CreateVertexBuffer(CreateWallVertices(1, boxHalfSize));
-        m_OtherWallsVB = renderer.CreateVertexBuffer(CreateWallVertices(2, boxHalfSize));
+        LeftWallVB   = Renderer.CreateVertexBuffer(CreateWallVertices(0, BoxHalfSize));
+        RightWallVB  = Renderer.CreateVertexBuffer(CreateWallVertices(1, BoxHalfSize));
+        OtherWallsVB = Renderer.CreateVertexBuffer(CreateWallVertices(2, BoxHalfSize));
     }
 
-    void Shutdown(URenderer& renderer)
+    void Shutdown(URenderer& Renderer)
     {
-        if (m_LeftWallVB)   { renderer.ReleaseVertexBuffer(m_LeftWallVB);   m_LeftWallVB   = nullptr; }
-        if (m_RightWallVB)  { renderer.ReleaseVertexBuffer(m_RightWallVB);  m_RightWallVB  = nullptr; }
-        if (m_OtherWallsVB) { renderer.ReleaseVertexBuffer(m_OtherWallsVB); m_OtherWallsVB = nullptr; }
-        if (m_SphereVB)     { renderer.ReleaseVertexBuffer(m_SphereVB);     m_SphereVB     = nullptr; }
+        if (LeftWallVB)   { Renderer.ReleaseVertexBuffer(LeftWallVB);   LeftWallVB   = nullptr; }
+        if (RightWallVB)  { Renderer.ReleaseVertexBuffer(RightWallVB);  RightWallVB  = nullptr; }
+        if (OtherWallsVB) { Renderer.ReleaseVertexBuffer(OtherWallsVB); OtherWallsVB = nullptr; }
+        if (SphereVB)     { Renderer.ReleaseVertexBuffer(SphereVB);     SphereVB     = nullptr; }
     }
 
-    void Render(URenderer& renderer, const FSimulationWorld& world,
-                const FMatrix4x4& viewProj, bool bShowGridVis, int64_t timerFreq)
+    void Render(URenderer& Renderer, const FSimulationWorld& World,
+                const FMatrix4x4& ViewProj, bool bShowGridVis, int64_t TimerFrequency)
     {
         LARGE_INTEGER r0, r1;
         QueryPerformanceCounter(&r0);
 
-        renderer.BeginFrame(viewProj);
+        Renderer.BeginFrame(ViewProj);
 
-        renderer.RenderSphere(FMatrix4x4::Identity(), Config::WALL_LEFT_COLOR, m_LeftWallVB, 6);
-        renderer.RenderSphere(FMatrix4x4::Identity(), Config::WALL_RIGHT_COLOR, m_RightWallVB, 6);
-        renderer.RenderSphere(FMatrix4x4::Identity(), Config::WALL_OTHER_COLOR, m_OtherWallsVB, 24);
+        Renderer.RenderSphere(FMatrix4x4::Identity(), Config::WALL_LEFT_COLOR, LeftWallVB, 6);
+        Renderer.RenderSphere(FMatrix4x4::Identity(), Config::WALL_RIGHT_COLOR, RightWallVB, 6);
+        Renderer.RenderSphere(FMatrix4x4::Identity(), Config::WALL_OTHER_COLOR, OtherWallsVB, 24);
 
-        for (const FSphere& s : world.GetSpheres())
+        for (const FSphere& s : World.GetSpheres())
         {
-            renderer.RenderSphere(s.GetModelMatrix(), s.Color, m_SphereVB, m_SphereVCount);
+            Renderer.RenderSphere(s.GetModelMatrix(), s.Color, SphereVB, SphereVertexCount);
         }
 
         if (bShowGridVis)
         {
-            RenderGridVisualization(renderer, world);
+            RenderGridVisualization(Renderer, World);
         }
 
         QueryPerformanceCounter(&r1);
-        m_LastRenderTimeMs = FTimer::GetElapsedMs(r0, r1, timerFreq);
+        LastRenderTimeMs = FTimer::GetElapsedMs(r0, r1, TimerFrequency);
     }
 
-    double GetLastRenderTimeMs() const { return m_LastRenderTimeMs; }
+    double GetLastRenderTimeMs() const { return LastRenderTimeMs; }
 
 private:
-    void RenderGridVisualization(URenderer& renderer, const FSimulationWorld& world)
+    void RenderGridVisualization(URenderer& Renderer, const FSimulationWorld& World)
     {
-        IBVHVisualizer* bvhVis = dynamic_cast<IBVHVisualizer*>(world.GetActiveSolver());
+        IBVHVisualizer* bvhVis = dynamic_cast<IBVHVisualizer*>(World.GetActiveSolver());
         if (bvhVis)
         {
-            bvhVis->GenerateVisualizerLineGroups(m_BvhLineGroups);
-            for (const auto& group : m_BvhLineGroups)
+            bvhVis->GenerateVisualizerLineGroups(BvhLineGroups);
+            for (const auto& group : BvhLineGroups)
             {
                 if (!group.Lines.empty())
                 {
-                    renderer.RenderDynamicLines(group.Lines, group.Color);
+                    Renderer.RenderDynamicLines(group.Lines, group.Color);
                 }
             }
             return;
         }
 
-        IUniformGridVisualizer* gridVis = dynamic_cast<IUniformGridVisualizer*>(world.GetActiveSolver());
+        IUniformGridVisualizer* gridVis = dynamic_cast<IUniformGridVisualizer*>(World.GetActiveSolver());
         if (!gridVis)
         {
-            for (auto& s : world.GetSolvers())
+            for (auto& s : World.GetSolvers())
             {
                 gridVis = dynamic_cast<IUniformGridVisualizer*>(s.get());
                 if (gridVis)
                 {
-                    gridVis->BuildGrid(world.GetSpheres());
+                    gridVis->BuildGrid(World.GetSpheres());
                     break;
                 }
             }
@@ -97,24 +97,24 @@ private:
 
         if (gridVis)
         {
-            gridVis->GenerateFloorAndWallGridLines(m_WallGridLines, world.GetBoxHalfSize());
-            renderer.RenderDynamicLines(m_WallGridLines, Config::GRID_WALL_COLOR);
+            gridVis->GenerateFloorAndWallGridLines(WallGridLines, World.GetBoxHalfSize());
+            Renderer.RenderDynamicLines(WallGridLines, Config::GRID_WALL_COLOR);
 
-            gridVis->GenerateActiveCellLines(m_ActiveCellLines);
-            renderer.RenderDynamicLines(m_ActiveCellLines, Config::GRID_ACTIVE_COLOR);
+            gridVis->GenerateActiveCellLines(ActiveCellLines);
+            Renderer.RenderDynamicLines(ActiveCellLines, Config::GRID_ACTIVE_COLOR);
         }
     }
 
 private:
-    ID3D11Buffer* m_LeftWallVB   = nullptr;
-    ID3D11Buffer* m_RightWallVB  = nullptr;
-    ID3D11Buffer* m_OtherWallsVB = nullptr;
-    ID3D11Buffer* m_SphereVB     = nullptr;
-    UINT          m_SphereVCount = 0;
+    ID3D11Buffer* LeftWallVB        = nullptr;
+    ID3D11Buffer* RightWallVB       = nullptr;
+    ID3D11Buffer* OtherWallsVB      = nullptr;
+    ID3D11Buffer* SphereVB          = nullptr;
+    UINT          SphereVertexCount = 0;
 
-    double        m_LastRenderTimeMs = 0.0;
+    double        LastRenderTimeMs  = 0.0;
 
-    std::vector<FVertexSimple> m_WallGridLines;
-    std::vector<FVertexSimple> m_ActiveCellLines;
-    std::vector<FBVHLineGroup> m_BvhLineGroups;
+    std::vector<FVertexSimple> WallGridLines;
+    std::vector<FVertexSimple> ActiveCellLines;
+    std::vector<FBVHLineGroup> BvhLineGroups;
 };

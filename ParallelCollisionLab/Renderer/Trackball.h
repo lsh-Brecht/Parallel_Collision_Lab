@@ -7,12 +7,12 @@
 //=============================================================================
 // Utility
 //=============================================================================
-inline FVector2 CursorToNDC(int mouseX, int mouseY, int width, int height)
+inline FVector2 CursorToNDC(int MouseX, int MouseY, int Width, int Height)
 {
-	if (width <= 1 || height <= 1)
+	if (Width <= 1 || Height <= 1)
 		return FVector2(0.0f, 0.0f);
-	float nx = (float)mouseX / (float)(width - 1);
-	float ny = (float)mouseY / (float)(height - 1);
+	float nx = static_cast<float>(MouseX) / static_cast<float>(Width - 1);
+	float ny = static_cast<float>(MouseY) / static_cast<float>(Height - 1);
 	return FVector2(nx * 2.0f - 1.0f, 1.0f - ny * 2.0f);
 }
 
@@ -22,52 +22,52 @@ inline FVector2 CursorToNDC(int mouseX, int mouseY, int width, int height)
 class FTrackball
 {
 public:
-	int      mode = 0;
-	FVector2 m0;
-	FVector3 cam0Eye;
-	FVector3 cam0Up;
+	int      TrackingMode = 0;
+	FVector2 StartNDC;
+	FVector3 StartEye;
+	FVector3 StartUp;
 
 	static constexpr float MinDistance = 1.0f;
 	static constexpr float MaxDistance = 15.0f;
 
-	void Begin(const FVector3& eye, const FVector3& up, const FVector2& m, int inMode)
+	void Begin(const FVector3& InEye, const FVector3& InUp, const FVector2& InNDC, int InMode)
 	{
-		mode    = inMode;
-		m0      = m;
-		cam0Eye = eye;
-		cam0Up  = up;
+		TrackingMode = InMode;
+		StartNDC     = InNDC;
+		StartEye     = InEye;
+		StartUp      = InUp;
 	}
 
 	void End()
 	{
-		mode = 0;
+		TrackingMode = 0;
 	}
 
 	bool IsTracking() const
 	{
-		return mode != 0;
+		return TrackingMode != 0;
 	}
 
-	void Update(const FVector2& m, const FVector3& at, FVector3& outEye, FVector3& outUp)
+	void Update(const FVector2& InNDC, const FVector3& InAt, FVector3& OutEye, FVector3& OutUp)
 	{
-		if (mode == 1)
+		if (TrackingMode == 1)
 		{
-			UpdateRotating(m, at, outEye, outUp);
+			UpdateRotating(InNDC, InAt, OutEye, OutUp);
 		}
-		else if (mode == 2)
+		else if (TrackingMode == 2)
 		{
-			UpdateZooming(m, at, outEye);
+			UpdateZooming(InNDC, InAt, OutEye);
 		}
 	}
 
 private:
-	void UpdateRotating(const FVector2& m, const FVector3& at, FVector3& outEye, FVector3& outUp)
+	void UpdateRotating(const FVector2& InNDC, const FVector3& InAt, FVector3& OutEye, FVector3& OutUp)
 	{
-		FVector3 p1(m.x - m0.x, m.y - m0.y, 0.0f);
+		FVector3 p1(InNDC.x - StartNDC.x, InNDC.y - StartNDC.y, 0.0f);
 		if (p1.LengthSq() < 0.000001f)
 		{
-			outEye = cam0Eye;
-			outUp  = cam0Up;
+			OutEye = StartEye;
+			OutUp  = StartUp;
 			return;
 		}
 
@@ -77,8 +77,8 @@ private:
 		FVector3 p0(0.0f, 0.0f, 1.0f);
 		FVector3 c = p0.Cross(p1);
 
-		FVector3 zAxis = (at - cam0Eye).Normalize();
-		FVector3 xAxis = cam0Up.Cross(zAxis).Normalize();
+		FVector3 zAxis = (InAt - StartEye).Normalize();
+		FVector3 xAxis = StartUp.Cross(zAxis).Normalize();
 		FVector3 yAxis = zAxis.Cross(xAxis);
 
 		FVector3 v = xAxis * c.x + yAxis * c.y + zAxis * c.z;
@@ -96,28 +96,26 @@ private:
 			return vec * cosA + u.Cross(vec) * sinA + u * (u.Dot(vec) * (1.0f - cosA));
 		};
 
-		FVector3 w = cam0Eye - at;
-		outEye = at + RotateVector(w, axis, theta);
-		outUp  = RotateVector(cam0Up, axis, theta).Normalize();
+		FVector3 w = StartEye - InAt;
+		OutEye = InAt + RotateVector(w, axis, theta);
+		OutUp  = RotateVector(StartUp, axis, theta);
 	}
 
-	void UpdateZooming(const FVector2& m, const FVector3& at, FVector3& outEye)
+	void UpdateZooming(const FVector2& InNDC, const FVector3& InAt, FVector3& OutEye)
 	{
-		FVector3 p1(m.x - m0.x, m.y - m0.y, 0.0f);
-		if (p1.LengthSq() < 0.000001f)
-			return;
+		float dy = InNDC.y - StartNDC.y;
+		float factor = 1.0f - dy * 2.0f;
+		if (factor < 0.1f) factor = 0.1f;
 
-		FVector3 toAt = at - cam0Eye;
-		float dist = toAt.Length();
-		if (dist < 0.0001f)
-			return;
+		FVector3 dir = StartEye - InAt;
+		float dist = dir.Length();
+		float newDist = dist * factor;
+		if (newDist < MinDistance) newDist = MinDistance;
+		if (newDist > MaxDistance) newDist = MaxDistance;
 
-		FVector3 n = toAt * (1.0f / dist);
-		// Drag top-left (dx < 0, dy > 0) -> Zoom In; Drag bottom-right (dx > 0, dy < 0) -> Zoom Out
-		float delta = (p1.y - p1.x) * 0.75f;
-		float zoom = dist - delta * dist;
-		zoom = (std::max)(MinDistance, (std::min)(MaxDistance, zoom));
-
-		outEye = at - n * zoom;
+		if (dist > 0.0001f)
+		{
+			OutEye = InAt + dir * (newDist / dist);
+		}
 	}
 };
