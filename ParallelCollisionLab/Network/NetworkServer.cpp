@@ -106,7 +106,7 @@ namespace Network
                         continue;
 
                     RegisterOrRefreshClient(senderAddr);
-                    SendHandshakeResponse(senderAddr, static_cast<uint16_t>(Spheres.size()), BoxHalfSize);
+                    SendHandshakeResponse(senderAddr, static_cast<uint32_t>(Spheres.size()), BoxHalfSize);
                 }
                 else if (header->Type == EPacketType::Heartbeat)
                 {
@@ -143,9 +143,9 @@ namespace Network
             return;
 
         const int totalSpheres = static_cast<int>(Spheres.size());
-        const uint8_t totalChunks = static_cast<uint8_t>((totalSpheres + MAX_SPHERES_PER_CHUNK - 1) / MAX_SPHERES_PER_CHUNK);
+        const uint16_t totalChunks = static_cast<uint16_t>((totalSpheres + MAX_SPHERES_PER_CHUNK - 1) / MAX_SPHERES_PER_CHUNK);
 
-        for (uint8_t c = 0; c < totalChunks; ++c)
+        for (uint16_t c = 0; c < totalChunks; ++c)
         {
             FSnapshotChunkPacket chunkPacket = {};
             chunkPacket.Header.Magic = PROTOCOL_MAGIC;
@@ -153,7 +153,7 @@ namespace Network
             chunkPacket.ChunkIndex   = c;
             chunkPacket.TotalChunks  = totalChunks;
             chunkPacket.ServerTick   = CurrentTick;
-            chunkPacket.TotalSpheres = static_cast<uint16_t>(totalSpheres);
+            chunkPacket.TotalSpheres = static_cast<uint32_t>(totalSpheres);
 
             int startIdx = c * MAX_SPHERES_PER_CHUNK;
             int count    = (std::min)(MAX_SPHERES_PER_CHUNK, totalSpheres - startIdx);
@@ -162,10 +162,14 @@ namespace Network
             for (int i = 0; i < count; ++i)
             {
                 const FSphere& src = Spheres[startIdx + i];
-                chunkPacket.Spheres[i].Id        = (src.Id >= 0) ? src.Id : (startIdx + i);
-                chunkPacket.Spheres[i].Position  = src.Center;
-                chunkPacket.Spheres[i].Velocity  = src.Velocity;
-                chunkPacket.Spheres[i].Radius    = src.Radius;
+                chunkPacket.Spheres[i].Id        = static_cast<uint32_t>((src.Id >= 0) ? src.Id : (startIdx + i));
+                chunkPacket.Spheres[i].PosX      = CompressCoord(src.Center.x, BoxHalfSize);
+                chunkPacket.Spheres[i].PosY      = CompressCoord(src.Center.y, BoxHalfSize);
+                chunkPacket.Spheres[i].PosZ      = CompressCoord(src.Center.z, BoxHalfSize);
+                chunkPacket.Spheres[i].VelX      = CompressVelocity(src.Velocity.x);
+                chunkPacket.Spheres[i].VelY      = CompressVelocity(src.Velocity.y);
+                chunkPacket.Spheres[i].VelZ      = CompressVelocity(src.Velocity.z);
+                chunkPacket.Spheres[i].Radius    = CompressRadius(src.Radius);
                 chunkPacket.Spheres[i].ColorRGBA = PackRGBA(src.Color);
             }
 
@@ -214,7 +218,7 @@ namespace Network
         );
     }
 
-    void FNetworkServer::SendHandshakeResponse(const sockaddr_in& Target, uint16_t SphereCount, float BoxHalfSize)
+    void FNetworkServer::SendHandshakeResponse(const sockaddr_in& Target, uint32_t SphereCount, float BoxHalfSize)
     {
         if (ServerSocket == INVALID_SOCKET) return;
 

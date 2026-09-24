@@ -30,7 +30,7 @@ namespace Network
     private:
         void RegisterOrRefreshClient(const sockaddr_in& ClientAddr);
         void RemoveClient(const sockaddr_in& ClientAddr);
-        void SendHandshakeResponse(const sockaddr_in& Target, uint16_t SphereCount, float BoxHalfSize);
+        void SendHandshakeResponse(const sockaddr_in& Target, uint32_t SphereCount, float BoxHalfSize);
 
     private:
         SOCKET                        ServerSocket         = INVALID_SOCKET;

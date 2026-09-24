@@ -183,19 +183,20 @@ namespace Network
                         Spheres = CreateSpheres(chunk->TotalSpheres, BoxHalfSize);
                     }
 
-                    // Apply received sphere positions and properties directly
+                    // Apply received sphere positions and properties directly (Dequantization)
                     for (uint16_t i = 0; i < chunk->CountInPacket; ++i)
                     {
                         const auto& netData = chunk->Spheres[i];
-                        int idx = netData.Id;
-                        if (idx >= 0 && idx < static_cast<int>(Spheres.size()))
+                        uint32_t idx = netData.Id;
+                        if (idx < Spheres.size())
                         {
-                            Spheres[idx].Center   = netData.Position;
-                            Spheres[idx].Velocity = netData.Velocity;
-                            if (netData.Radius > 0.0f)
-                            {
-                                Spheres[idx].Radius = netData.Radius;
-                            }
+                            Spheres[idx].Center.x   = DecompressCoord(netData.PosX, BoxHalfSize);
+                            Spheres[idx].Center.y   = DecompressCoord(netData.PosY, BoxHalfSize);
+                            Spheres[idx].Center.z   = DecompressCoord(netData.PosZ, BoxHalfSize);
+                            Spheres[idx].Velocity.x = DecompressVelocity(netData.VelX);
+                            Spheres[idx].Velocity.y = DecompressVelocity(netData.VelY);
+                            Spheres[idx].Velocity.z = DecompressVelocity(netData.VelZ);
+                            Spheres[idx].Radius     = DecompressRadius(netData.Radius);
                             if (netData.ColorRGBA != 0)
                             {
                                 Spheres[idx].Color = UnpackRGBA(netData.ColorRGBA);

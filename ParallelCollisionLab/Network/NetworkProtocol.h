@@ -16,7 +16,7 @@ namespace Network
 {
     static const uint32_t PROTOCOL_MAGIC        = 0x50434C31; // "PCL1"
     static const uint16_t DEFAULT_SERVER_PORT   = 32768;
-    static const int      MAX_SPHERES_PER_CHUNK = 36; // 36 * 36B + 16B = ~1.3KB per UDP packet (< 1472 MTU safe payload)
+    static const int      MAX_SPHERES_PER_CHUNK = 60; // 60 * 22B + 19B = 1339B (< 1472 MTU safe payload)
 
     enum class EPacketType : uint8_t
     {
@@ -46,16 +46,62 @@ namespace Network
         return FVector4(r, g, b, (a > 0.0f) ? a : 1.0f);
     }
 
+    //=============================================================================
+    // Quantization & Bit Packing Helpers
+    //=============================================================================
+    inline uint16_t CompressCoord(float val, float boxHalfSize)
+    {
+        float normalized = (val + boxHalfSize) / (2.0f * boxHalfSize);
+        normalized = (std::max)(0.0f, (std::min)(1.0f, normalized));
+        return static_cast<uint16_t>(normalized * 65535.0f);
+    }
+
+    inline float DecompressCoord(uint16_t q, float boxHalfSize)
+    {
+        float normalized = static_cast<float>(q) / 65535.0f;
+        return -boxHalfSize + normalized * (2.0f * boxHalfSize);
+    }
+
+    inline int16_t CompressVelocity(float val, float maxVel = 16.0f)
+    {
+        float ratio = val / maxVel;
+        ratio = (std::max)(-1.0f, (std::min)(1.0f, ratio));
+        return static_cast<int16_t>(ratio * 32767.0f);
+    }
+
+    inline float DecompressVelocity(int16_t q, float maxVel = 16.0f)
+    {
+        return (static_cast<float>(q) / 32767.0f) * maxVel;
+    }
+
+    inline uint16_t CompressRadius(float radius, float maxRadius = 1.0f)
+    {
+        float ratio = radius / maxRadius;
+        ratio = (std::max)(0.0f, (std::min)(1.0f, ratio));
+        return static_cast<uint16_t>(ratio * 65535.0f);
+    }
+
+    inline float DecompressRadius(uint16_t q, float maxRadius = 1.0f)
+    {
+        return (static_cast<float>(q) / 65535.0f) * maxRadius;
+    }
+
     #pragma pack(push, 1)
 
     struct FSphereNetData
     {
-        int32_t  Id;        // 4 bytes
-        FVector3 Position;  // 12 bytes
-        FVector3 Velocity;  // 12 bytes
-        float    Radius;    // 4 bytes
-        uint32_t ColorRGBA; // 4 bytes (32-bit packed RGBA)
-    };                      // Total: 36 bytes
+        uint32_t Id;        // 4 bytes: Sphere Index (supports >100,000 spheres)
+        uint16_t PosX;      // 2 bytes: Quantized X in [-BoxHalfSize, +BoxHalfSize]
+        uint16_t PosY;      // 2 bytes: Quantized Y in [-BoxHalfSize, +BoxHalfSize]
+        uint16_t PosZ;      // 2 bytes: Quantized Z in [-BoxHalfSize, +BoxHalfSize]
+        int16_t  VelX;      // 2 bytes: Quantized Velocity X in [-16.0, +16.0]
+        int16_t  VelY;      // 2 bytes: Quantized Velocity Y in [-16.0, +16.0]
+        int16_t  VelZ;      // 2 bytes: Quantized Velocity Z in [-16.0, +16.0]
+        uint16_t Radius;    // 2 bytes: Quantized Radius in [0.0, 1.0]
+        uint32_t ColorRGBA; // 4 bytes: 32-bit packed RGBA
+    };                      // Total: exactly 22 bytes!
+
+    static_assert(sizeof(FSphereNetData) == 22, "FSphereNetData must be exactly 22 bytes");
 
     struct FPacketHeader
     {
@@ -72,18 +118,17 @@ namespace Network
     struct FHandshakeResponsePacket
     {
         FPacketHeader Header;
-        uint16_t      SphereCount;
+        uint32_t      SphereCount;
         float         BoxHalfSize;
     };
 
     struct FSnapshotChunkPacket
     {
         FPacketHeader  Header;
-        uint8_t        ChunkIndex;
-        uint8_t        TotalChunks;
-        uint8_t        Reserved;
+        uint16_t       ChunkIndex;
+        uint16_t       TotalChunks;
         uint32_t       ServerTick;
-        uint16_t       TotalSpheres;
+        uint32_t       TotalSpheres;
         uint16_t       CountInPacket;
         FSphereNetData Spheres[MAX_SPHERES_PER_CHUNK];
     };
