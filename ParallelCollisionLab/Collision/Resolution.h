@@ -35,6 +35,9 @@ inline void ResolveCollisions(
 
             SphereA.Velocity += ImpulseA;
             SphereB.Velocity += ImpulseB;
+
+            if (ImpulseA.LengthSq() > 0.0001f) SphereA.WakeUp();
+            if (ImpulseB.LengthSq() > 0.0001f) SphereB.WakeUp();
         }
 
         // Position correction

@@ -27,7 +27,8 @@ public:
                 int ConfiguredThreads, bool bShowGridVis,
                 bool bMultiScale = false,
                 const wchar_t* NetStatus = nullptr,
-                bool bDamping = false)
+                bool bDamping = false,
+                size_t SleepingCount = 0)
     {
         TimeAccumulator        += DeltaTime;
         FrameCountAccumulator  += 1;
@@ -86,6 +87,12 @@ public:
             ResolveAccumMs        = 0.0;
         }
 
+        wchar_t dampStr[32];
+        if (bDamping)
+            swprintf_s(dampStr, L"ON (%zu asleep)", SleepingCount);
+        else
+            swprintf_s(dampStr, L"OFF");
+
         const IBVHVisualizer* bvhVis = dynamic_cast<const IBVHVisualizer*>(ActiveSolver);
         if (bvhVis && bShowGridVis)
         {
@@ -96,7 +103,7 @@ public:
                        CachedCollisions.c_str(),
                        bvhVis->GetVisualizerDepth(),
                        bvhVis->GetMaxTreeDepth(),
-                       bDamping ? L"ON" : L"OFF",
+                       dampStr,
                        bMultiScale ? L"Multi" : L"Uniform");
         }
         else
@@ -107,7 +114,7 @@ public:
                        CachedCandidates.c_str(),
                        CachedCollisions.c_str(),
                        ConfiguredThreads,
-                       bDamping ? L"ON" : L"OFF",
+                       dampStr,
                        bMultiScale ? L"Multi" : L"Uniform",
                        bShowGridVis ? L"ON" : L"OFF");
         }

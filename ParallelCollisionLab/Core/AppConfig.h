@@ -13,8 +13,12 @@ namespace Config
     static const wchar_t* const WINDOW_TITLE  = L"Parallel Collision Lab";
 
     // Simulation Domain & Physics
-    static const float          BOX_HALF_SIZE          = 2.0f;
-    static const float          DEFAULT_DAMPING_FACTOR = 0.992f; // Velocity retention rate at 60 FPS (~0.61 after 1s)
+    static const float          BOX_HALF_SIZE            = 2.0f;
+    static const float          DEFAULT_DAMPING_FACTOR   = 0.992f; // Velocity retention rate at 60 FPS (~0.61 after 1s)
+    static const float          SLEEP_VELOCITY_THRESHOLD = 0.06f;  // Speed below which sphere enters sleep timer
+    static const float          SLEEP_TIME_REQUIRED      = 0.25f;  // Seconds below threshold to enter dormant sleep state
+    static const float          COLOR_LERP_SPEED         = 6.0f;   // Speed factor for smooth color transitions
+    static const FVector4       COLOR_SLEEPING(0.35f, 0.36f, 0.40f, 1.0f); // Slate gray for dormant/sleeping spheres
 
     // Camera Defaults
     static const FVector3       CAMERA_DEFAULT_EYE(0.0f, 0.0f, -10.0f);

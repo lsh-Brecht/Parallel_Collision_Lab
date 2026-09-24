@@ -56,7 +56,12 @@ public:
 
         for (FSphere& s : Spheres)
         {
-            s.Update(DeltaTime, bDampingEnabled, Config::DEFAULT_DAMPING_FACTOR);
+            s.Update(DeltaTime, bDampingEnabled,
+                     Config::DEFAULT_DAMPING_FACTOR,
+                     Config::SLEEP_VELOCITY_THRESHOLD,
+                     Config::SLEEP_TIME_REQUIRED,
+                     Config::COLOR_SLEEPING,
+                     Config::COLOR_LERP_SPEED);
             s.BoxCollisionCheck(BoxHalfSize);
         }
 
@@ -95,9 +100,18 @@ public:
         RebuildActiveVisualizer();
     }
 
-    bool IsMultiScaleSpheres() const { return bMultiScaleSpheres; }
-    void ToggleDamping()             { bDampingEnabled = !bDampingEnabled; }
-    bool IsDampingEnabled()    const { return bDampingEnabled; }
+    bool IsMultiScaleSpheres()   const { return bMultiScaleSpheres; }
+    void ToggleDamping()               { bDampingEnabled = !bDampingEnabled; }
+    bool IsDampingEnabled()      const { return bDampingEnabled; }
+    size_t GetSleepingSphereCount() const
+    {
+        size_t count = 0;
+        for (const auto& s : Spheres)
+        {
+            if (s.bIsSleeping) count++;
+        }
+        return count;
+    }
 
     void AddSpheres(int Delta)
     {

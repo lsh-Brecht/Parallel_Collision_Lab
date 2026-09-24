@@ -78,6 +78,21 @@ struct FVector4
 	float x, y, z, w;
 	FVector4(float _x = 0.0f, float _y = 0.0f, float _z = 0.0f, float _w = 1.0f)
 		: x(_x), y(_y), z(_z), w(_w) {}
+
+	FVector4 operator+(const FVector4& v) const { return FVector4(x + v.x, y + v.y, z + v.z, w + v.w); }
+	FVector4 operator-(const FVector4& v) const { return FVector4(x - v.x, y - v.y, z - v.z, w - v.w); }
+	FVector4 operator*(float s)           const { return FVector4(x * s, y * s, z * s, w * s); }
+	FVector4& operator+=(const FVector4& v)     { x += v.x; y += v.y; z += v.z; w += v.w; return *this; }
+
+	static FVector4 Lerp(const FVector4& a, const FVector4& b, float t)
+	{
+		return FVector4(
+			a.x + (b.x - a.x) * t,
+			a.y + (b.y - a.y) * t,
+			a.z + (b.z - a.z) * t,
+			a.w + (b.w - a.w) * t
+		);
+	}
 };
 
 struct FVertexSimple

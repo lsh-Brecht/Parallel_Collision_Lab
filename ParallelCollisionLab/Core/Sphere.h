@@ -111,22 +111,60 @@ struct FSphere
 	FVector3 Center;
 	FVector3 Velocity;
 	FVector4 Color;
+	FVector4 BaseColor;
 	float    Radius;
 	float    Mass;
+	bool     bIsSleeping = false;
+	float    SleepTimer  = 0.0f;
 
 	FMatrix4x4 GetModelMatrix() const
 	{
 		return FMatrix4x4::Translate(Center.x, Center.y, Center.z) * FMatrix4x4::Scale(Radius, Radius, Radius);
 	}
 
-	void Update(float DeltaTime, bool bApplyDamping = false, float DampingFactor = 0.992f)
+	void WakeUp()
 	{
-		if (bApplyDamping)
+		bIsSleeping = false;
+		SleepTimer  = 0.0f;
+	}
+
+	void Update(float DeltaTime, bool bApplyDamping = false,
+	            float DampingFactor = 0.992f,
+	            float SleepThreshold = 0.06f,
+	            float SleepTimeReq = 0.25f,
+	            const FVector4& SleepColor = FVector4(0.35f, 0.36f, 0.40f, 1.0f),
+	            float ColorLerpSpeed = 6.0f)
+	{
+		if (bApplyDamping && !bIsSleeping)
 		{
 			float decay = powf(DampingFactor, DeltaTime * 60.0f);
 			Velocity *= decay;
+
+			float speedSq = Velocity.LengthSq();
+			if (speedSq < SleepThreshold * SleepThreshold)
+			{
+				SleepTimer += DeltaTime;
+				if (SleepTimer >= SleepTimeReq)
+				{
+					bIsSleeping = true;
+					Velocity = FVector3(0.0f, 0.0f, 0.0f);
+				}
+			}
+			else
+			{
+				SleepTimer = 0.0f;
+			}
 		}
-		Center += Velocity * (DeltaTime * SPEED_FACTOR);
+
+		if (!bIsSleeping)
+		{
+			Center += Velocity * (DeltaTime * SPEED_FACTOR);
+		}
+
+		// Smooth Color Lerp
+		FVector4 targetColor = bIsSleeping ? SleepColor : BaseColor;
+		float t = (std::min)(1.0f, DeltaTime * ColorLerpSpeed);
+		Color = FVector4::Lerp(Color, targetColor, t);
 	}
 
 	void BoxCollisionCheck(float BoxHalfSize)
@@ -230,9 +268,12 @@ inline std::vector<FSphere> CreateSpheres(int numSpheres, float L, bool bMultiSc
 
 			float bound = (L - c.Radius) * 0.95f;
 			if (bound < 0.01f) bound = 0.01f;
-			c.Center   = FVector3(RandF(-bound, bound), RandF(-bound, bound), RandF(-bound, bound));
-			c.Velocity = FVector3(RandF(-1.0f, 1.0f), RandF(-1.0f, 1.0f), RandF(-1.0f, 1.0f));
-			c.Color    = HSVtoRGB(RandF(0.0f, 360.0f), RandF(0.85f, 1.0f), RandF(0.85f, 1.0f));
+			c.Center      = FVector3(RandF(-bound, bound), RandF(-bound, bound), RandF(-bound, bound));
+			c.Velocity    = FVector3(RandF(-1.0f, 1.0f), RandF(-1.0f, 1.0f), RandF(-1.0f, 1.0f));
+			c.Color       = HSVtoRGB(RandF(0.0f, 360.0f), RandF(0.85f, 1.0f), RandF(0.85f, 1.0f));
+			c.BaseColor   = c.Color;
+			c.bIsSleeping = false;
+			c.SleepTimer  = 0.0f;
 
 			for (const FSphere& e : spheres)
 			{
