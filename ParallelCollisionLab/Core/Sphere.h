@@ -227,9 +227,8 @@ struct FSphere
 	}
 };
 
-//=============================================================================
-// Sphere Creation
-//=============================================================================
+static const float EARTH_BASE_RADIUS = 0.24f;
+
 inline std::vector<FSphere> CreateSpheres(int numSpheres, float L, bool bMultiScale = false)
 {
 	std::vector<FSphere> spheres;
@@ -237,6 +236,22 @@ inline std::vector<FSphere> CreateSpheres(int numSpheres, float L, bool bMultiSc
 
 	float scale = cbrtf((float)MIN_SPHERES) / cbrtf((float)numSpheres);
 
+	if (numSpheres > 0)
+	{
+		FSphere earth;
+		earth.Id          = 0;
+		earth.Radius      = EARTH_BASE_RADIUS * scale;
+		earth.Mass        = earth.Radius * earth.Radius * earth.Radius;
+		earth.Center      = FVector3(0.0f, 0.0f, 0.0f);
+		earth.Velocity    = FVector3(RandF(-0.8f, 0.8f), RandF(-0.8f, 0.8f), RandF(-0.8f, 0.8f));
+		earth.Color       = FVector4(1.0f, 1.0f, 1.0f, 1.0f);
+		earth.BaseColor   = earth.Color;
+		earth.bIsSleeping = false;
+		earth.SleepTimer  = 0.0f;
+		spheres.push_back(earth);
+	}
+
+	// 2. Remaining ordinary spheres initialization
 	int numLarge  = 0;
 	int numMedium = 0;
 	if (bMultiScale)
@@ -245,7 +260,7 @@ inline std::vector<FSphere> CreateSpheres(int numSpheres, float L, bool bMultiSc
 		numMedium = (numSpheres >= 128) ? 6 : (numSpheres >= 32 ? 2 : 1);
 	}
 
-	for (int i = 0; i < numSpheres; ++i)
+	for (int i = 1; i < numSpheres; ++i)
 	{
 		FSphere c;
 		c.Id = i;
