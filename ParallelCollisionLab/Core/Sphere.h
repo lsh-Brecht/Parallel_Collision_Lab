@@ -116,7 +116,7 @@ inline std::vector<FVertexSimple> CreateWallVertices(int wallType, float L)
 // FSphere
 //=============================================================================
 static const int   MIN_SPHERES  = 16;
-static const int   MAX_SPHERES  = 4096;
+static const int   MAX_SPHERES  = 2048;
 static const float SPEED_FACTOR = 0.8f;
 
 struct FSphere
@@ -227,7 +227,7 @@ struct FSphere
 	}
 };
 
-static const float EARTH_BASE_RADIUS = 0.24f;
+static const float EARTH_BASE_RADIUS = 0.36f;
 
 inline std::vector<FSphere> CreateSpheres(int numSpheres, float L, bool bMultiScale = false)
 {
@@ -299,7 +299,9 @@ inline std::vector<FSphere> CreateSpheres(int numSpheres, float L, bool bMultiSc
 			if (bound < 0.01f) bound = 0.01f;
 			c.Center      = FVector3(RandF(-bound, bound), RandF(-bound, bound), RandF(-bound, bound));
 			c.Velocity    = FVector3(RandF(-1.0f, 1.0f), RandF(-1.0f, 1.0f), RandF(-1.0f, 1.0f));
-			c.Color       = HSVtoRGB(RandF(0.0f, 360.0f), RandF(0.85f, 1.0f), RandF(0.85f, 1.0f));
+			float ColorRand = RandF(0.0f, 340.0f);
+			ColorRand = (ColorRand > 230.0f) ? ColorRand + 20.0f : ColorRand;
+			c.Color       = HSVtoRGB(ColorRand, RandF(0.85f, 1.0f), RandF(0.85f, 1.0f));
 			c.BaseColor   = c.Color;
 			c.bIsSleeping = false;
 			c.SleepTimer  = 0.0f;
