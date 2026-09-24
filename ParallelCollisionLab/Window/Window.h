@@ -39,6 +39,14 @@ struct FInputState
 	bool StartClient;
 	bool ToggleDamping;
 
+	// Earth Directional Controls (Arrows + Q/E)
+	bool MoveLeft;
+	bool MoveRight;
+	bool MoveUp;
+	bool MoveDown;
+	bool MoveForward;
+	bool MoveBackward;
+
 	bool bLButtonPressed;
 	bool bLButtonReleased;
 	bool bRButtonPressed;

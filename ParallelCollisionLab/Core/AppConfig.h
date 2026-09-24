@@ -20,6 +20,10 @@ namespace Config
     static const float          COLOR_LERP_SPEED         = 6.0f;   // Speed factor for smooth color transitions
     static const FVector4       COLOR_SLEEPING(0.35f, 0.36f, 0.40f, 1.0f); // Slate gray for dormant/sleeping spheres
 
+    // Player Earth Controls
+    static const float          EARTH_ACCELERATION       = 9.0f;   // Acceleration when pressing direction keys (m/s^2)
+    static const float          EARTH_MAX_SPEED          = 3.5f;   // Maximum speed cap for Earth (m/s)
+
     // Camera Defaults
     static const FVector3       CAMERA_DEFAULT_EYE(0.0f, 0.0f, -10.0f);
     static const FVector3       CAMERA_DEFAULT_AT(0.0f, 0.0f, 0.0f);

@@ -46,13 +46,18 @@ public:
         RebuildActiveVisualizer();
     }
 
-    double Update(float DeltaTime, bool bIsPaused, int64_t TimerFrequency)
+    double Update(float DeltaTime, bool bIsPaused, int64_t TimerFrequency, const FVector3& PlayerInput = FVector3(0.0f, 0.0f, 0.0f))
     {
         if (bIsPaused)
             return 0.0;
 
         LARGE_INTEGER t0, t1;
         QueryPerformanceCounter(&t0);
+
+        if (!Spheres.empty() && PlayerInput.LengthSq() > 0.001f)
+        {
+            ApplyPlayerAcceleration(PlayerInput, DeltaTime);
+        }
 
         for (FSphere& s : Spheres)
         {
@@ -111,6 +116,25 @@ public:
             if (s.bIsSleeping) count++;
         }
         return count;
+    }
+
+    void ApplyPlayerAcceleration(const FVector3& InDir, float DeltaTime)
+    {
+        if (Spheres.empty()) return;
+        FSphere& earth = Spheres[0];
+
+        if (InDir.LengthSq() > 0.001f)
+        {
+            FVector3 dir = InDir.Normalize();
+            earth.Velocity += dir * (Config::EARTH_ACCELERATION * DeltaTime);
+            earth.WakeUp();
+        }
+
+        float speedSq = earth.Velocity.LengthSq();
+        if (speedSq > Config::EARTH_MAX_SPEED * Config::EARTH_MAX_SPEED)
+        {
+            earth.Velocity = earth.Velocity.Normalize() * Config::EARTH_MAX_SPEED;
+        }
     }
 
     void AddSpheres(int Delta)

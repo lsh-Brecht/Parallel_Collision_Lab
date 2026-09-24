@@ -145,6 +145,14 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE, LPSTR lpCmdLine, int)
 		float dt = timer.Tick();
 		s_TickCounter++;
 
+		FVector3 playerInput(0.0f, 0.0f, 0.0f);
+		if (input.MoveLeft)     playerInput.x -= 1.0f;
+		if (input.MoveRight)    playerInput.x += 1.0f;
+		if (input.MoveUp)       playerInput.y += 1.0f;
+		if (input.MoveDown)     playerInput.y -= 1.0f;
+		if (input.MoveForward)  playerInput.z += 1.0f; // E: Forward (+Z)
+		if (input.MoveBackward) playerInput.z -= 1.0f; // Q: Backward (-Z)
+
 		double updateMs = 0.0;
 		if (netManager.GetRole() == Network::ENetworkRole::Client)
 		{
@@ -152,7 +160,7 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE, LPSTR lpCmdLine, int)
 		}
 		else
 		{
-			updateMs = world.Update(dt, controller.IsPaused(), timer.GetFrequency());
+			updateMs = world.Update(dt, controller.IsPaused(), timer.GetFrequency(), playerInput);
 			if (netManager.GetRole() == Network::ENetworkRole::Server)
 			{
 				netManager.UpdateServer(s_TickCounter, world.GetSpheres(), world.GetBoxHalfSize(), dt);

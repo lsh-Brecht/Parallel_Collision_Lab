@@ -56,6 +56,13 @@ bool FWindow::PumpMessages(FInputState& outInput)
 	bShiftHeld = (GetKeyState(VK_SHIFT) & 0x8000) != 0;
 	outInput.bShiftDown = bShiftHeld;
 
+	outInput.MoveLeft     = (GetKeyState(VK_LEFT) & 0x8000) != 0;
+	outInput.MoveRight    = (GetKeyState(VK_RIGHT) & 0x8000) != 0;
+	outInput.MoveUp       = (GetKeyState(VK_UP) & 0x8000) != 0;
+	outInput.MoveDown     = (GetKeyState(VK_DOWN) & 0x8000) != 0;
+	outInput.MoveForward  = (GetKeyState('E') & 0x8000) != 0;
+	outInput.MoveBackward = (GetKeyState('Q') & 0x8000) != 0;
+
 	MSG msg;
 	while (PeekMessageW(&msg, nullptr, 0, 0, PM_REMOVE))
 	{

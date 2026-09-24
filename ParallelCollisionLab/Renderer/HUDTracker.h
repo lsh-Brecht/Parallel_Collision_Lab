@@ -97,23 +97,20 @@ public:
         if (bvhVis && bShowGridVis)
         {
             swprintf_s(HudBottomText,
-                       L"Pairs: %s | Collisions: %s | BVH: %d/%d (PgUp/Dn) | Damp: %s (D)\n"
+                       L"Pairs: %s | Collisions: %s | [Arrows/Q,E] Earth | Damp: %s (D)\n"
                        L"[1..6] Solvers  [M] %s  [B] Bench  [G] Vis: ON  [H] HUD  (Tab: Cycle)",
                        CachedCandidates.c_str(),
                        CachedCollisions.c_str(),
-                       bvhVis->GetVisualizerDepth(),
-                       bvhVis->GetMaxTreeDepth(),
                        dampStr,
                        bMultiScale ? L"Multi" : L"Uniform");
         }
         else
         {
             swprintf_s(HudBottomText,
-                       L"Pairs: %s | Collisions: %s | Threads: %d (-:[ / +:]) | Damp: %s (D)\n"
+                       L"Pairs: %s | Collisions: %s | [Arrows/Q,E] Earth | Damp: %s (D)\n"
                        L"[1..6] Solvers  [M] %s  [B] Bench  [F9] Server  [F10] Client  [G] Grid: %s",
                        CachedCandidates.c_str(),
                        CachedCollisions.c_str(),
-                       ConfiguredThreads,
                        dampStr,
                        bMultiScale ? L"Multi" : L"Uniform",
                        bShowGridVis ? L"ON" : L"OFF");
