@@ -97,7 +97,8 @@ struct FVector4
 
 struct FVertexSimple
 {
-	float x, y, z;
+	float x = 0.0f, y = 0.0f, z = 0.0f;
+	float u = 0.0f, v = 0.0f;
 };
 
 //=============================================================================

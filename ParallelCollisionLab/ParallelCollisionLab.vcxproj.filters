@@ -163,5 +163,14 @@
     <ClInclude Include="Network\NetworkServer.h">
       <Filter>Header Files</Filter>
     </ClInclude>
+    <ClInclude Include="Collision\BVH\BVHSolver.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="Collision\BVH\BVHMTSolver.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="packages.config" />
   </ItemGroup>
 </Project>

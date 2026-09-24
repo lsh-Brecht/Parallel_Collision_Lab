@@ -42,9 +42,12 @@ public:
         Renderer.RenderSphere(FMatrix4x4::Identity(), Config::WALL_RIGHT_COLOR, RightWallVB, 6);
         Renderer.RenderSphere(FMatrix4x4::Identity(), Config::WALL_OTHER_COLOR, OtherWallsVB, 24);
 
-        for (const FSphere& s : World.GetSpheres())
+        const auto& spheres = World.GetSpheres();
+        for (size_t i = 0; i < spheres.size(); ++i)
         {
-            Renderer.RenderSphere(s.GetModelMatrix(), s.Color, SphereVB, SphereVertexCount);
+            const FSphere& s = spheres[i];
+            bool bIsPlayer = (i == 0);
+            Renderer.RenderSphere(s.GetModelMatrix(), s.Color, SphereVB, SphereVertexCount, bIsPlayer);
         }
 
         if (bShowGridVis)

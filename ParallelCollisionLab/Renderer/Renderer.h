@@ -22,6 +22,8 @@ struct FPerObjectConstants
 {
 	FMatrix4x4 Model;
 	FVector4   Color;
+	int        bUseTexture = 0;
+	float      Padding[3] = { 0.0f, 0.0f, 0.0f };
 };
 
 //=============================================================================
@@ -65,7 +67,7 @@ public:
 	void EndFrame();
 
 	void RenderSphere(const FMatrix4x4& model, const FVector4& color,
-	                  ID3D11Buffer* pVB, UINT vertexCount);
+	                  ID3D11Buffer* pVB, UINT vertexCount, bool bUseTexture = false);
 
 	void RenderDynamicLines(const std::vector<FVertexSimple>& lines, const FVector4& color);
 
@@ -77,6 +79,9 @@ public:
 	ID3D11Buffer* DynamicLineVB       = nullptr;
 	UINT          DynamicLineCapacity = 0;
 
+	ID3D11ShaderResourceView* EarthSRV     = nullptr;
+	ID3D11SamplerState*       EarthSampler = nullptr;
+
 private:
 	void CreateDeviceAndSwapChain(HWND hWnd);
 	void CreateFrameBuffer();
@@ -84,6 +89,7 @@ private:
 	void CreateRasterizerState();
 	void CreateShader();
 	void CreateConstantBuffers();
+	void CreateEarthTexture();
 
 	void ReleaseDeviceAndSwapChain();
 	void ReleaseFrameBuffer();
@@ -91,6 +97,7 @@ private:
 	void ReleaseRasterizerState();
 	void ReleaseShader();
 	void ReleaseConstantBuffers();
+	void ReleaseEarthTexture();
 
 	template<typename T>
 	void UpdateConstantBuffer(ID3D11Buffer* pBuffer, const T& data);

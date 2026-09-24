@@ -18,17 +18,31 @@ inline std::vector<FVertexSimple> CreateUnitSphereVertices()
 	{
 		float theta0 = (float)M_PI * (float)i / (float)SPHERE_STACKS;
 		float theta1 = (float)M_PI * (float)(i + 1) / (float)SPHERE_STACKS;
+		float v0     = (float)i / (float)SPHERE_STACKS;
+		float v1     = (float)(i + 1) / (float)SPHERE_STACKS;
 
 		for (int j = 0; j < SPHERE_SLICES; ++j)
 		{
 			float phi0 = 2.0f * (float)M_PI * (float)j / (float)SPHERE_SLICES;
 			float phi1 = 2.0f * (float)M_PI * (float)(j + 1) / (float)SPHERE_SLICES;
+			float u0   = (float)j / (float)SPHERE_SLICES;
+			float u1   = (float)(j + 1) / (float)SPHERE_SLICES;
 
-			FVertexSimple p0 = { sinf(theta0) * cosf(phi0), cosf(theta0), -sinf(theta0) * sinf(phi0) };
-			FVertexSimple p1 = { sinf(theta1) * cosf(phi0), cosf(theta1), -sinf(theta1) * sinf(phi0) };
-			FVertexSimple p2 = { sinf(theta1) * cosf(phi1), cosf(theta1), -sinf(theta1) * sinf(phi1) };
-			FVertexSimple p3 = { sinf(theta0) * cosf(phi1), cosf(theta0), -sinf(theta0) * sinf(phi1) };
+			auto MakeVertex = [](float theta, float phi, float u, float v) -> FVertexSimple
+			{
+				float sinT = sinf(theta);
+				float cosT = cosf(theta);
+				float sinP = sinf(phi);
+				float cosP = cosf(phi);
+				return { -sinT * sinP, cosT, sinT * cosP, u, v };
+			};
 
+			FVertexSimple p0 = MakeVertex(theta0, phi0, u0, v0);
+			FVertexSimple p1 = MakeVertex(theta1, phi0, u0, v1);
+			FVertexSimple p2 = MakeVertex(theta1, phi1, u1, v1);
+			FVertexSimple p3 = MakeVertex(theta0, phi1, u1, v0);
+
+			// Outward front-facing (CCW) winding order: exterior is front-facing, interior is culled
 			verts.push_back(p0);
 			verts.push_back(p1);
 			verts.push_back(p2);

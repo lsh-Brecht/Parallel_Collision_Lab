@@ -1,5 +1,7 @@
 #include "Renderer.h"
 #include <string>
+#include <vector>
+#include <DirectXTex.h>
 
 bool URenderer::Init(HWND hWnd)
 {
@@ -9,6 +11,7 @@ bool URenderer::Init(HWND hWnd)
 	CreateRasterizerState();
 	CreateShader();
 	CreateConstantBuffers();
+	CreateEarthTexture();
 
 	DynamicLineCapacity = 65536;
 	D3D11_BUFFER_DESC desc = {};
@@ -24,6 +27,7 @@ bool URenderer::Init(HWND hWnd)
 void URenderer::Shutdown()
 {
 	if (DynamicLineVB) { DynamicLineVB->Release(); DynamicLineVB = nullptr; }
+	ReleaseEarthTexture();
 	ReleaseConstantBuffers();
 	ReleaseShader();
 	ReleaseRasterizerState();
@@ -72,6 +76,12 @@ void URenderer::BeginFrame(const FMatrix4x4& viewProj)
 
 	ID3D11Buffer* cbs[2] = { CBPerFrame, CBPerObject };
 	DeviceContext->VSSetConstantBuffers(0, 2, cbs);
+	DeviceContext->PSSetConstantBuffers(1, 1, &CBPerObject);
+
+	if (EarthSRV)
+		DeviceContext->PSSetShaderResources(0, 1, &EarthSRV);
+	if (EarthSampler)
+		DeviceContext->PSSetSamplers(0, 1, &EarthSampler);
 
 	FPerFrameConstants perFrame;
 	perFrame.ViewProj = viewProj;
@@ -79,11 +89,12 @@ void URenderer::BeginFrame(const FMatrix4x4& viewProj)
 }
 
 void URenderer::RenderSphere(const FMatrix4x4& model, const FVector4& color,
-                              ID3D11Buffer* pVB, UINT vertexCount)
+                             ID3D11Buffer* pVB, UINT vertexCount, bool bUseTexture)
 {
 	FPerObjectConstants perObj;
 	perObj.Model = model;
 	perObj.Color = color;
+	perObj.bUseTexture = bUseTexture ? 1 : 0;
 	UpdateConstantBuffer(CBPerObject, perObj);
 
 	UINT offset = 0;
@@ -299,7 +310,8 @@ void URenderer::CreateShader()
 
 	D3D11_INPUT_ELEMENT_DESC layout[] =
 	{
-		{ "POSITION", 0, DXGI_FORMAT_R32G32B32_FLOAT, 0, 0, D3D11_INPUT_PER_VERTEX_DATA, 0 },
+		{ "POSITION", 0, DXGI_FORMAT_R32G32B32_FLOAT, 0, 0,                            D3D11_INPUT_PER_VERTEX_DATA, 0 },
+		{ "TEXCOORD", 0, DXGI_FORMAT_R32G32_FLOAT,    0, D3D11_APPEND_ALIGNED_ELEMENT, D3D11_INPUT_PER_VERTEX_DATA, 0 },
 	};
 	Device->CreateInputLayout(
 		layout, ARRAYSIZE(layout),
@@ -381,4 +393,61 @@ void URenderer::ReleaseConstantBuffers()
 {
 	if (CBPerFrame)  { CBPerFrame->Release();  CBPerFrame  = nullptr; }
 	if (CBPerObject) { CBPerObject->Release(); CBPerObject = nullptr; }
+}
+
+static bool LoadTextureWithDirectXTex(
+	ID3D11Device* Device,
+	const wchar_t* Filename,
+	ID3D11ShaderResourceView** OutSRV)
+{
+	if (!Device || !Filename || !OutSRV)
+		return false;
+
+	*OutSRV = nullptr;
+
+	DirectX::ScratchImage image;
+	HRESULT hr = DirectX::LoadFromWICFile(Filename, DirectX::WIC_FLAGS_NONE, nullptr, image);
+	if (FAILED(hr))
+		return false;
+
+	// High-resolution textures (5400x2700) benefit from mipmaps to prevent aliasing/flicker at distance
+	DirectX::ScratchImage mipChain;
+	if (SUCCEEDED(DirectX::GenerateMipMaps(image.GetImages(), image.GetImageCount(), image.GetMetadata(), DirectX::TEX_FILTER_DEFAULT, 0, mipChain)))
+	{
+		hr = DirectX::CreateShaderResourceView(Device, mipChain.GetImages(), mipChain.GetImageCount(), mipChain.GetMetadata(), OutSRV);
+	}
+	else
+	{
+		hr = DirectX::CreateShaderResourceView(Device, image.GetImages(), image.GetImageCount(), image.GetMetadata(), OutSRV);
+	}
+
+	return SUCCEEDED(hr);
+}
+
+void URenderer::CreateEarthTexture()
+{
+	ReleaseEarthTexture();
+
+	// Initialize COM for WIC/DirectXTex
+	CoInitializeEx(nullptr, COINIT_MULTITHREADED);
+
+	const wchar_t* texturePath = L"Resource/NASA_BlueMarble_May_5400x2700.jpg";
+	LoadTextureWithDirectXTex(Device, texturePath, &EarthSRV);
+
+	// Create bilinear wrap/clamp sampler
+	D3D11_SAMPLER_DESC sampDesc = {};
+	sampDesc.Filter = D3D11_FILTER_MIN_MAG_MIP_LINEAR;
+	sampDesc.AddressU = D3D11_TEXTURE_ADDRESS_WRAP;
+	sampDesc.AddressV = D3D11_TEXTURE_ADDRESS_CLAMP;
+	sampDesc.AddressW = D3D11_TEXTURE_ADDRESS_WRAP;
+	sampDesc.ComparisonFunc = D3D11_COMPARISON_NEVER;
+	sampDesc.MinLOD = 0;
+	sampDesc.MaxLOD = D3D11_FLOAT32_MAX;
+	Device->CreateSamplerState(&sampDesc, &EarthSampler);
+}
+
+void URenderer::ReleaseEarthTexture()
+{
+	if (EarthSRV)     { EarthSRV->Release();     EarthSRV     = nullptr; }
+	if (EarthSampler) { EarthSampler->Release(); EarthSampler = nullptr; }
 }
