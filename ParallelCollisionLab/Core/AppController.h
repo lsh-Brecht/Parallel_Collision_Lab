@@ -75,6 +75,10 @@ public:
         {
             World.ToggleSphereSizeMode();
         }
+        else if (Input.ToggleDamping)
+        {
+            World.ToggleDamping();
+        }
         else if (Input.Add || Input.AddMany)
         {
             World.AddSpheres(Input.AddMany ? 16 : 1);

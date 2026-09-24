@@ -36,6 +36,7 @@ struct FVector2
 	FVector2 operator+(const FVector2& v) const { return FVector2(x + v.x, y + v.y); }
 	FVector2 operator-(const FVector2& v) const { return FVector2(x - v.x, y - v.y); }
 	FVector2 operator*(float s)           const { return FVector2(x * s, y * s); }
+	FVector2& operator*=(float s)         { x *= s; y *= s; return *this; }
 	FVector2& operator+=(const FVector2& v) { x += v.x; y += v.y; return *this; }
 
 	float Dot(const FVector2& v)  const { return x * v.x + y * v.y; }
@@ -51,6 +52,7 @@ struct FVector3
 	FVector3 operator+(const FVector3& v) const { return FVector3(x + v.x, y + v.y, z + v.z); }
 	FVector3 operator-(const FVector3& v) const { return FVector3(x - v.x, y - v.y, z - v.z); }
 	FVector3 operator*(float s)           const { return FVector3(x * s, y * s, z * s); }
+	FVector3& operator*=(float s)         { x *= s; y *= s; z *= s; return *this; }
 	FVector3 operator-() const { return FVector3(-x, -y, -z); }
 	FVector3& operator+=(const FVector3& v) { x += v.x; y += v.y; z += v.z; return *this; }
 	FVector3& operator-=(const FVector3& v) { x -= v.x; y -= v.y; z -= v.z; return *this; }

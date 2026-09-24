@@ -125,6 +125,10 @@ bool FWindow::PumpMessages(FInputState& outInput)
 				outInput.ToggleSphereSize = true;
 				break;
 
+			case 'D':
+				outInput.ToggleDamping = true;
+				break;
+
 			case 'W':
 				outInput.Wireframe = true;
 				break;

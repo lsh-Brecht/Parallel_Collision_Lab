@@ -185,7 +185,8 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE, LPSTR lpCmdLine, int)
 		                  world.GetThreadCount(),
 		                  controller.IsGridVisEnabled(),
 		                  world.IsMultiScaleSpheres(),
-		                  netStatusStr);
+		                  netStatusStr,
+		                  world.IsDampingEnabled());
 
 		if (!window.IsMinimized())
 		{

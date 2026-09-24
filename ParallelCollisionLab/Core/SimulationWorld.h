@@ -56,7 +56,7 @@ public:
 
         for (FSphere& s : Spheres)
         {
-            s.Update(DeltaTime);
+            s.Update(DeltaTime, bDampingEnabled, Config::DEFAULT_DAMPING_FACTOR);
             s.BoxCollisionCheck(BoxHalfSize);
         }
 
@@ -96,6 +96,8 @@ public:
     }
 
     bool IsMultiScaleSpheres() const { return bMultiScaleSpheres; }
+    void ToggleDamping()             { bDampingEnabled = !bDampingEnabled; }
+    bool IsDampingEnabled()    const { return bDampingEnabled; }
 
     void AddSpheres(int Delta)
     {
@@ -179,4 +181,5 @@ private:
     int                                            ConfiguredThreads   = 4;
     float                                          BoxHalfSize         = 2.0f;
     bool                                           bMultiScaleSpheres  = false;
+    bool                                           bDampingEnabled     = false;
 };

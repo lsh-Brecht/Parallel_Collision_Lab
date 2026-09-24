@@ -12,8 +12,9 @@ namespace Config
     static const int            WINDOW_HEIGHT = 1024;
     static const wchar_t* const WINDOW_TITLE  = L"Parallel Collision Lab";
 
-    // Simulation Domain
-    static const float          BOX_HALF_SIZE = 2.0f;
+    // Simulation Domain & Physics
+    static const float          BOX_HALF_SIZE          = 2.0f;
+    static const float          DEFAULT_DAMPING_FACTOR = 0.992f; // Velocity retention rate at 60 FPS (~0.61 after 1s)
 
     // Camera Defaults
     static const FVector3       CAMERA_DEFAULT_EYE(0.0f, 0.0f, -10.0f);

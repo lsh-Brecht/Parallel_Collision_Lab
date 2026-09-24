@@ -26,7 +26,8 @@ public:
                 const ICollisionSolver* ActiveSolver,
                 int ConfiguredThreads, bool bShowGridVis,
                 bool bMultiScale = false,
-                const wchar_t* NetStatus = nullptr)
+                const wchar_t* NetStatus = nullptr,
+                bool bDamping = false)
     {
         TimeAccumulator        += DeltaTime;
         FrameCountAccumulator  += 1;
@@ -89,23 +90,24 @@ public:
         if (bvhVis && bShowGridVis)
         {
             swprintf_s(HudBottomText,
-                       L"Pairs: %s | Collisions: %s | BVH: %d/%d (PgUp/Dn) | %s (V)\n"
+                       L"Pairs: %s | Collisions: %s | BVH: %d/%d (PgUp/Dn) | Damp: %s (D)\n"
                        L"[1..6] Solvers  [M] %s  [B] Bench  [G] Vis: ON  [H] HUD  (Tab: Cycle)",
                        CachedCandidates.c_str(),
                        CachedCollisions.c_str(),
                        bvhVis->GetVisualizerDepth(),
                        bvhVis->GetMaxTreeDepth(),
-                       bvhVis->GetVisualizerModeName(),
+                       bDamping ? L"ON" : L"OFF",
                        bMultiScale ? L"Multi" : L"Uniform");
         }
         else
         {
             swprintf_s(HudBottomText,
-                       L"Pairs: %s | Collisions: %s | Threads: %d (-:[ / +:])\n"
+                       L"Pairs: %s | Collisions: %s | Threads: %d (-:[ / +:]) | Damp: %s (D)\n"
                        L"[1..6] Solvers  [M] %s  [B] Bench  [F9] Server  [F10] Client  [G] Grid: %s",
                        CachedCandidates.c_str(),
                        CachedCollisions.c_str(),
                        ConfiguredThreads,
+                       bDamping ? L"ON" : L"OFF",
                        bMultiScale ? L"Multi" : L"Uniform",
                        bShowGridVis ? L"ON" : L"OFF");
         }

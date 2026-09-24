@@ -119,8 +119,13 @@ struct FSphere
 		return FMatrix4x4::Translate(Center.x, Center.y, Center.z) * FMatrix4x4::Scale(Radius, Radius, Radius);
 	}
 
-	void Update(float DeltaTime)
+	void Update(float DeltaTime, bool bApplyDamping = false, float DampingFactor = 0.992f)
 	{
+		if (bApplyDamping)
+		{
+			float decay = powf(DampingFactor, DeltaTime * 60.0f);
+			Velocity *= decay;
+		}
 		Center += Velocity * (DeltaTime * SPEED_FACTOR);
 	}
 

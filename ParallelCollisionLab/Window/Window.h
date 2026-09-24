@@ -37,6 +37,7 @@ struct FInputState
 
 	bool StartServer;
 	bool StartClient;
+	bool ToggleDamping;
 
 	bool bLButtonPressed;
 	bool bLButtonReleased;
