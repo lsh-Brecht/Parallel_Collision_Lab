@@ -56,6 +56,9 @@ namespace Network
         LastReceivedSnapshotTick = 0;
         TotalPacketsSent         = 0;
         TotalPacketsReceived     = 0;
+        AssignedSphereId         = -1;
+        AssignedPlanet           = 0;
+        InputSeq                 = 0;
 
         // Send initial Handshake Request
         SendHandshakeRequest();
@@ -80,6 +83,9 @@ namespace Network
         LastReceivedSnapshotTick = 0;
         TotalPacketsSent         = 0;
         TotalPacketsReceived     = 0;
+        AssignedSphereId         = -1;
+        AssignedPlanet           = 0;
+        InputSeq                 = 0;
     }
 
     void FNetworkClient::Update(std::vector<FSphere>& Spheres, float BoxHalfSize, float DeltaTime)
@@ -139,7 +145,9 @@ namespace Network
                         continue;
 
                     const auto* resp = reinterpret_cast<const FHandshakeResponsePacket*>(recvBuffer);
-                    bIsConnected = true;
+                    bIsConnected     = true;
+                    AssignedSphereId = resp->AssignedSphereId;
+                    AssignedPlanet   = resp->AssignedPlanet;
 
                     // Validate sphere count sanity bounds
                     if (resp->SphereCount >= MIN_SPHERES && resp->SphereCount <= MAX_SPHERES && resp->SphereCount != Spheres.size())
@@ -190,13 +198,15 @@ namespace Network
                         uint32_t idx = netData.Id;
                         if (idx < Spheres.size())
                         {
-                            Spheres[idx].Center.x   = DecompressCoord(netData.PosX, BoxHalfSize);
-                            Spheres[idx].Center.y   = DecompressCoord(netData.PosY, BoxHalfSize);
-                            Spheres[idx].Center.z   = DecompressCoord(netData.PosZ, BoxHalfSize);
-                            Spheres[idx].Velocity.x = DecompressVelocity(netData.VelX);
-                            Spheres[idx].Velocity.y = DecompressVelocity(netData.VelY);
-                            Spheres[idx].Velocity.z = DecompressVelocity(netData.VelZ);
-                            Spheres[idx].Radius     = DecompressRadius(netData.Radius);
+                            Spheres[idx].Center.x    = DecompressCoord(netData.PosX, BoxHalfSize);
+                            Spheres[idx].Center.y    = DecompressCoord(netData.PosY, BoxHalfSize);
+                            Spheres[idx].Center.z    = DecompressCoord(netData.PosZ, BoxHalfSize);
+                            Spheres[idx].Velocity.x  = DecompressVelocity(netData.VelX);
+                            Spheres[idx].Velocity.y  = DecompressVelocity(netData.VelY);
+                            Spheres[idx].Velocity.z  = DecompressVelocity(netData.VelZ);
+                            Spheres[idx].Radius      = DecompressRadius(netData.Radius);
+                            Spheres[idx].PlanetType  = static_cast<EPlanetType>(netData.PlanetType);
+                            Spheres[idx].bIsSleeping = (netData.Flags & 1) != 0;
                             if (netData.ColorRGBA != 0)
                             {
                                 Spheres[idx].Color = UnpackRGBA(netData.ColorRGBA);
@@ -253,6 +263,31 @@ namespace Network
         FPacketHeader packet = {};
         packet.Magic = PROTOCOL_MAGIC;
         packet.Type  = EPacketType::Disconnect;
+
+        sendto(
+            ClientSocket,
+            reinterpret_cast<const char*>(&packet),
+            sizeof(packet),
+            0,
+            reinterpret_cast<const sockaddr*>(&ServerEndpoint),
+            sizeof(ServerEndpoint)
+        );
+        TotalPacketsSent++;
+    }
+
+    void FNetworkClient::SendInput(float x, float y, float z)
+    {
+        if (ClientSocket == INVALID_SOCKET || !bIsConnected || AssignedSphereId < 0)
+            return;
+
+        FClientInputPacket packet = {};
+        packet.Header.Magic     = PROTOCOL_MAGIC;
+        packet.Header.Type      = EPacketType::ClientInput;
+        packet.InputSeq         = ++InputSeq;
+        packet.AssignedSphereId = AssignedSphereId;
+        packet.InputX           = x;
+        packet.InputY           = y;
+        packet.InputZ           = z;
 
         sendto(
             ClientSocket,

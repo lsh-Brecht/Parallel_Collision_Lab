@@ -247,23 +247,6 @@ inline std::vector<FSphere> CreateSpheres(int numSpheres, float L, bool bMultiSc
 
 	float scale = cbrtf((float)MIN_SPHERES) / cbrtf((float)numSpheres);
 
-	if (numSpheres > 0)
-	{
-		FSphere earth;
-		earth.Id          = 0;
-		earth.PlanetType  = EPlanetType::Earth;
-		earth.Radius      = PLANET_BASE_RADIUS * scale;
-		earth.Mass        = earth.Radius * earth.Radius * earth.Radius;
-		earth.Center      = FVector3(0.0f, 0.0f, 0.0f);
-		earth.Velocity    = FVector3(RandF(-0.8f, 0.8f), RandF(-0.8f, 0.8f), RandF(-0.8f, 0.8f));
-		earth.Color       = FVector4(1.0f, 1.0f, 1.0f, 1.0f);
-		earth.BaseColor   = earth.Color;
-		earth.bIsSleeping = false;
-		earth.SleepTimer  = 0.0f;
-		spheres.push_back(earth);
-	}
-
-	// 2. Remaining ordinary spheres initialization
 	int numLarge  = 0;
 	int numMedium = 0;
 	if (bMultiScale)
@@ -272,10 +255,11 @@ inline std::vector<FSphere> CreateSpheres(int numSpheres, float L, bool bMultiSc
 		numMedium = (numSpheres >= 128) ? 6 : (numSpheres >= 32 ? 2 : 1);
 	}
 
-	for (int i = 1; i < numSpheres; ++i)
+	for (int i = 0; i < numSpheres; ++i)
 	{
 		FSphere c;
 		c.Id = i;
+		c.PlanetType = EPlanetType::None;
 		bool bColliding;
 		int attempts = 0;
 
@@ -317,23 +301,6 @@ inline std::vector<FSphere> CreateSpheres(int numSpheres, float L, bool bMultiSc
 			c.BaseColor   = c.Color;
 			c.bIsSleeping = false;
 			c.SleepTimer  = 0.0f;
-
-			if (i == 1)
-			{
-				c.PlanetType = EPlanetType::Mars;
-				c.Radius     = PLANET_BASE_RADIUS * scale;
-				c.Mass       = c.Radius * c.Radius * c.Radius;
-				c.Color      = FVector4(1.0f, 1.0f, 1.0f, 1.0f);
-				c.BaseColor  = c.Color;
-			}
-			else if (i == 2)
-			{
-				c.PlanetType = EPlanetType::UVMap;
-				c.Radius     = PLANET_BASE_RADIUS * scale;
-				c.Mass       = c.Radius * c.Radius * c.Radius;
-				c.Color      = FVector4(1.0f, 1.0f, 1.0f, 1.0f);
-				c.BaseColor  = c.Color;
-			}
 
 			for (const FSphere& e : spheres)
 			{

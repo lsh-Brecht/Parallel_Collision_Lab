@@ -1,4 +1,5 @@
 #include "NetworkServer.h"
+#include "../Core/SimulationWorld.h"
 #include <algorithm>
 
 namespace Network
@@ -61,7 +62,7 @@ namespace Network
         TotalPacketsReceived = 0;
     }
 
-    void FNetworkServer::Update(uint32_t CurrentTick, const std::vector<FSphere>& Spheres, float BoxHalfSize, float DeltaTime)
+    void FNetworkServer::ProcessIncoming(FSimulationWorld& World, float DeltaTime)
     {
         if (ServerSocket == INVALID_SOCKET)
             return;
@@ -105,41 +106,76 @@ namespace Network
                     if (bytesRead < static_cast<int>(sizeof(FHandshakeRequestPacket)))
                         continue;
 
-                    RegisterOrRefreshClient(senderAddr);
-                    SendHandshakeResponse(senderAddr, static_cast<uint32_t>(Spheres.size()), BoxHalfSize);
+                    RegisterOrRefreshClient(senderAddr, World);
                 }
                 else if (header->Type == EPacketType::Heartbeat)
                 {
                     if (bytesRead < static_cast<int>(sizeof(FPacketHeader)))
                         continue;
 
-                    RegisterOrRefreshClient(senderAddr);
+                    for (auto& client : ConnectedClients)
+                    {
+                        if (client.Addr.sin_addr.s_addr == senderAddr.sin_addr.s_addr &&
+                            client.Addr.sin_port == senderAddr.sin_port)
+                        {
+                            client.TimeSinceLastSeen = 0.0f;
+                            break;
+                        }
+                    }
                 }
                 else if (header->Type == EPacketType::Disconnect)
                 {
                     if (bytesRead < static_cast<int>(sizeof(FPacketHeader)))
                         continue;
 
-                    RemoveClient(senderAddr);
+                    RemoveClient(senderAddr, World);
+                }
+                else if (header->Type == EPacketType::ClientInput)
+                {
+                    if (bytesRead < static_cast<int>(sizeof(FClientInputPacket)))
+                        continue;
+
+                    const auto* inputPacket = reinterpret_cast<const FClientInputPacket*>(recvBuffer);
+                    for (auto& client : ConnectedClients)
+                    {
+                        if (client.Addr.sin_addr.s_addr == senderAddr.sin_addr.s_addr &&
+                            client.Addr.sin_port == senderAddr.sin_port)
+                        {
+                            client.TimeSinceLastSeen = 0.0f;
+                            if (client.AssignedSphereId >= 0 && client.AssignedSphereId == inputPacket->AssignedSphereId)
+                            {
+                                FVector3 inputDir(inputPacket->InputX, inputPacket->InputY, inputPacket->InputZ);
+                                World.ApplySphereAcceleration(client.AssignedSphereId, inputDir, DeltaTime);
+                            }
+                            break;
+                        }
+                    }
                 }
             }
         }
 
-        // 2. Client heartbeat timeout check (Zombie client cleanup: 5.0 seconds threshold)
-        for (auto& client : ConnectedClients)
+        // 2. Client heartbeat timeout check (5.0s threshold)
+        for (auto it = ConnectedClients.begin(); it != ConnectedClients.end(); )
         {
-            client.TimeSinceLastSeen += DeltaTime;
+            it->TimeSinceLastSeen += DeltaTime;
+            if (it->TimeSinceLastSeen > 5.0f)
+            {
+                if (it->AssignedSphereId >= 0)
+                {
+                    World.DemotePlanet(it->AssignedSphereId);
+                }
+                it = ConnectedClients.erase(it);
+            }
+            else
+            {
+                ++it;
+            }
         }
+    }
 
-        ConnectedClients.erase(
-            std::remove_if(ConnectedClients.begin(), ConnectedClients.end(), [](const FConnectedClient& client) {
-                return client.TimeSinceLastSeen > 5.0f;
-            }),
-            ConnectedClients.end()
-        );
-
-        // 3. Broadcast current world snapshot to all registered clients
-        if (ConnectedClients.empty() || Spheres.empty())
+    void FNetworkServer::BroadcastSnapshot(uint32_t CurrentTick, const std::vector<FSphere>& Spheres, float BoxHalfSize)
+    {
+        if (ServerSocket == INVALID_SOCKET || ConnectedClients.empty() || Spheres.empty())
             return;
 
         const int totalSpheres = static_cast<int>(Spheres.size());
@@ -162,15 +198,17 @@ namespace Network
             for (int i = 0; i < count; ++i)
             {
                 const FSphere& src = Spheres[startIdx + i];
-                chunkPacket.Spheres[i].Id        = static_cast<uint32_t>((src.Id >= 0) ? src.Id : (startIdx + i));
-                chunkPacket.Spheres[i].PosX      = CompressCoord(src.Center.x, BoxHalfSize);
-                chunkPacket.Spheres[i].PosY      = CompressCoord(src.Center.y, BoxHalfSize);
-                chunkPacket.Spheres[i].PosZ      = CompressCoord(src.Center.z, BoxHalfSize);
-                chunkPacket.Spheres[i].VelX      = CompressVelocity(src.Velocity.x);
-                chunkPacket.Spheres[i].VelY      = CompressVelocity(src.Velocity.y);
-                chunkPacket.Spheres[i].VelZ      = CompressVelocity(src.Velocity.z);
-                chunkPacket.Spheres[i].Radius    = CompressRadius(src.Radius);
-                chunkPacket.Spheres[i].ColorRGBA = PackRGBA(src.Color);
+                chunkPacket.Spheres[i].Id         = static_cast<uint32_t>((src.Id >= 0) ? src.Id : (startIdx + i));
+                chunkPacket.Spheres[i].PosX       = CompressCoord(src.Center.x, BoxHalfSize);
+                chunkPacket.Spheres[i].PosY       = CompressCoord(src.Center.y, BoxHalfSize);
+                chunkPacket.Spheres[i].PosZ       = CompressCoord(src.Center.z, BoxHalfSize);
+                chunkPacket.Spheres[i].VelX       = CompressVelocity(src.Velocity.x);
+                chunkPacket.Spheres[i].VelY       = CompressVelocity(src.Velocity.y);
+                chunkPacket.Spheres[i].VelZ       = CompressVelocity(src.Velocity.z);
+                chunkPacket.Spheres[i].Radius     = CompressRadius(src.Radius);
+                chunkPacket.Spheres[i].PlanetType = static_cast<uint8_t>(src.PlanetType);
+                chunkPacket.Spheres[i].Flags      = src.bIsSleeping ? 1 : 0;
+                chunkPacket.Spheres[i].ColorRGBA  = PackRGBA(src.Color);
             }
 
             int packetSize = sizeof(chunkPacket) - sizeof(chunkPacket.Spheres) + (count * sizeof(FSphereNetData));
@@ -190,7 +228,13 @@ namespace Network
         }
     }
 
-    void FNetworkServer::RegisterOrRefreshClient(const sockaddr_in& ClientAddr)
+    void FNetworkServer::Update(uint32_t CurrentTick, FSimulationWorld& World, float DeltaTime)
+    {
+        ProcessIncoming(World, DeltaTime);
+        BroadcastSnapshot(CurrentTick, World.GetSpheres(), World.GetBoxHalfSize());
+    }
+
+    void FNetworkServer::RegisterOrRefreshClient(const sockaddr_in& ClientAddr, FSimulationWorld& World)
     {
         for (auto& existing : ConnectedClients)
         {
@@ -198,35 +242,93 @@ namespace Network
                 existing.Addr.sin_port == ClientAddr.sin_port)
             {
                 existing.TimeSinceLastSeen = 0.0f; // Heartbeat refreshed
+                SendHandshakeResponse(existing.Addr, static_cast<uint32_t>(World.GetSphereCount()), World.GetBoxHalfSize(), existing.AssignedSphereId, existing.AssignedPlanet);
                 return;
             }
         }
+
+        // New client: check available planet slots
+        bool bEarthTaken = false;
+        bool bMarsTaken  = false;
+        bool bUvTaken    = false;
+
+        for (const auto& c : ConnectedClients)
+        {
+            if (c.AssignedPlanet == static_cast<uint8_t>(EPlanetType::Earth)) bEarthTaken = true;
+            else if (c.AssignedPlanet == static_cast<uint8_t>(EPlanetType::Mars)) bMarsTaken = true;
+            else if (c.AssignedPlanet == static_cast<uint8_t>(EPlanetType::UVMap)) bUvTaken = true;
+        }
+
+        int32_t assignedSphere = -1;
+        uint8_t assignedPlanet = 0;
+
+        if (!bEarthTaken && World.GetSphereCount() > 0)
+        {
+            assignedSphere = 0;
+            assignedPlanet = static_cast<uint8_t>(EPlanetType::Earth);
+        }
+        else if (!bMarsTaken && World.GetSphereCount() > 1)
+        {
+            assignedSphere = 1;
+            assignedPlanet = static_cast<uint8_t>(EPlanetType::Mars);
+        }
+        else if (!bUvTaken && World.GetSphereCount() > 2)
+        {
+            assignedSphere = 2;
+            assignedPlanet = static_cast<uint8_t>(EPlanetType::UVMap);
+        }
+        else
+        {
+            assignedSphere = -1;
+            assignedPlanet = static_cast<uint8_t>(EPlanetType::None);
+        }
+
+        if (assignedSphere >= 0)
+        {
+            World.PromoteToPlanet(assignedSphere, static_cast<EPlanetType>(assignedPlanet));
+        }
+
         FConnectedClient newClient;
-        newClient.Addr = ClientAddr;
+        newClient.Addr              = ClientAddr;
         newClient.TimeSinceLastSeen = 0.0f;
+        newClient.AssignedSphereId  = assignedSphere;
+        newClient.AssignedPlanet    = assignedPlanet;
         ConnectedClients.push_back(newClient);
+
+        SendHandshakeResponse(newClient.Addr, static_cast<uint32_t>(World.GetSphereCount()), World.GetBoxHalfSize(), assignedSphere, assignedPlanet);
     }
 
-    void FNetworkServer::RemoveClient(const sockaddr_in& ClientAddr)
+    void FNetworkServer::RemoveClient(const sockaddr_in& ClientAddr, FSimulationWorld& World)
     {
-        ConnectedClients.erase(
-            std::remove_if(ConnectedClients.begin(), ConnectedClients.end(), [&](const FConnectedClient& client) {
-                return client.Addr.sin_addr.s_addr == ClientAddr.sin_addr.s_addr &&
-                       client.Addr.sin_port == ClientAddr.sin_port;
-            }),
-            ConnectedClients.end()
-        );
+        for (auto it = ConnectedClients.begin(); it != ConnectedClients.end(); )
+        {
+            if (it->Addr.sin_addr.s_addr == ClientAddr.sin_addr.s_addr &&
+                it->Addr.sin_port == ClientAddr.sin_port)
+            {
+                if (it->AssignedSphereId >= 0)
+                {
+                    World.DemotePlanet(it->AssignedSphereId);
+                }
+                it = ConnectedClients.erase(it);
+            }
+            else
+            {
+                ++it;
+            }
+        }
     }
 
-    void FNetworkServer::SendHandshakeResponse(const sockaddr_in& Target, uint32_t SphereCount, float BoxHalfSize)
+    void FNetworkServer::SendHandshakeResponse(const sockaddr_in& Target, uint32_t SphereCount, float BoxHalfSize, int32_t AssignedSphereId, uint8_t AssignedPlanet)
     {
         if (ServerSocket == INVALID_SOCKET) return;
 
         FHandshakeResponsePacket packet = {};
-        packet.Header.Magic = PROTOCOL_MAGIC;
-        packet.Header.Type  = EPacketType::HandshakeResponse;
-        packet.SphereCount  = SphereCount;
-        packet.BoxHalfSize  = BoxHalfSize;
+        packet.Header.Magic     = PROTOCOL_MAGIC;
+        packet.Header.Type      = EPacketType::HandshakeResponse;
+        packet.SphereCount      = SphereCount;
+        packet.BoxHalfSize      = BoxHalfSize;
+        packet.AssignedSphereId = AssignedSphereId;
+        packet.AssignedPlanet   = AssignedPlanet;
 
         sendto(
             ServerSocket,
@@ -237,5 +339,25 @@ namespace Network
             sizeof(Target)
         );
         TotalPacketsSent++;
+    }
+
+    bool FNetworkServer::IsPlanetActive(EPlanetType type) const
+    {
+        uint8_t target = static_cast<uint8_t>(type);
+        for (const auto& c : ConnectedClients)
+        {
+            if (c.AssignedPlanet == target) return true;
+        }
+        return false;
+    }
+
+    int32_t FNetworkServer::GetPlanetSphereId(EPlanetType type) const
+    {
+        uint8_t target = static_cast<uint8_t>(type);
+        for (const auto& c : ConnectedClients)
+        {
+            if (c.AssignedPlanet == target) return c.AssignedSphereId;
+        }
+        return -1;
     }
 }

@@ -21,10 +21,11 @@ namespace Network
     enum class EPacketType : uint8_t
     {
         HandshakeRequest  = 1, // Client -> Server
-        HandshakeResponse = 2, // Server -> Client (Sphere count, bounds)
+        HandshakeResponse = 2, // Server -> Client (Sphere count, bounds, assigned sphere & planet)
         SnapshotChunk     = 3, // Server -> Client (Batch of sphere states)
         Heartbeat         = 4, // Keep-alive
-        Disconnect        = 5  // Client -> Server
+        Disconnect        = 5, // Client -> Server
+        ClientInput       = 6  // Client -> Server (Inputs for assigned sphere)
     };
 
     // 32-bit RGBA packing/unpacking helpers
@@ -98,10 +99,12 @@ namespace Network
         int16_t  VelY;      // 2 bytes: Quantized Velocity Y in [-16.0, +16.0]
         int16_t  VelZ;      // 2 bytes: Quantized Velocity Z in [-16.0, +16.0]
         uint16_t Radius;    // 2 bytes: Quantized Radius in [0.0, 1.0]
+        uint8_t  PlanetType;// 1 byte: EPlanetType (0: None, 1: Earth, 2: Mars, 3: UVMap)
+        uint8_t  Flags;     // 1 byte: bit 0: bIsSleeping
         uint32_t ColorRGBA; // 4 bytes: 32-bit packed RGBA
-    };                      // Total: exactly 22 bytes!
+    };                      // Total: exactly 24 bytes!
 
-    static_assert(sizeof(FSphereNetData) == 22, "FSphereNetData must be exactly 22 bytes");
+    static_assert(sizeof(FSphereNetData) == 24, "FSphereNetData must be exactly 24 bytes");
 
     struct FPacketHeader
     {
@@ -120,6 +123,8 @@ namespace Network
         FPacketHeader Header;
         uint32_t      SphereCount;
         float         BoxHalfSize;
+        int32_t       AssignedSphereId; // e.g. 0: Earth, 1: Mars, 2: UVMap, -1: Spectator
+        uint8_t       AssignedPlanet;   // 1: Earth, 2: Mars, 3: UVMap, 0: None/Spectator
     };
 
     struct FSnapshotChunkPacket
@@ -131,6 +136,16 @@ namespace Network
         uint32_t       TotalSpheres;
         uint16_t       CountInPacket;
         FSphereNetData Spheres[MAX_SPHERES_PER_CHUNK];
+    };
+
+    struct FClientInputPacket
+    {
+        FPacketHeader Header;
+        uint32_t      InputSeq;
+        int32_t       AssignedSphereId;
+        float         InputX; // Left/Right (-1.0 ~ 1.0)
+        float         InputY; // Up/Down (-1.0 ~ 1.0)
+        float         InputZ; // Backward/Forward (-1.0 ~ 1.0)
     };
 
     #pragma pack(pop)

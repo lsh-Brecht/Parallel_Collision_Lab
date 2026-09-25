@@ -118,23 +118,56 @@ public:
         return count;
     }
 
-    void ApplyPlayerAcceleration(const FVector3& InDir, float DeltaTime)
+    void PromoteToPlanet(int32_t SphereId, EPlanetType Type)
     {
-        if (Spheres.empty()) return;
-        FSphere& earth = Spheres[0];
+        if (SphereId < 0 || SphereId >= static_cast<int32_t>(Spheres.size())) return;
+        FSphere& s = Spheres[SphereId];
+        s.PlanetType = Type;
+        float scale = cbrtf((float)MIN_SPHERES) / cbrtf((float)Spheres.size());
+        s.Radius = PLANET_BASE_RADIUS * scale;
+        s.Mass = s.Radius * s.Radius * s.Radius;
+        s.Color = FVector4(1.0f, 1.0f, 1.0f, 1.0f);
+        s.BaseColor = s.Color;
+        s.WakeUp();
+    }
+
+    void DemotePlanet(int32_t SphereId)
+    {
+        if (SphereId < 0 || SphereId >= static_cast<int32_t>(Spheres.size())) return;
+        FSphere& s = Spheres[SphereId];
+        s.PlanetType = EPlanetType::None;
+        float scale = cbrtf((float)MIN_SPHERES) / cbrtf((float)Spheres.size());
+        s.Radius = RandF(0.08f, 0.22f) * scale;
+        s.Mass = s.Radius * s.Radius * s.Radius;
+        float ColorRand = RandF(0.0f, 340.0f);
+        ColorRand = (ColorRand > 230.0f) ? ColorRand + 20.0f : ColorRand;
+        s.Color = HSVtoRGB(ColorRand, RandF(0.85f, 1.0f), RandF(0.85f, 1.0f));
+        s.BaseColor = s.Color;
+        s.WakeUp();
+    }
+
+    void ApplySphereAcceleration(int32_t SphereId, const FVector3& InDir, float DeltaTime)
+    {
+        if (SphereId < 0 || SphereId >= static_cast<int32_t>(Spheres.size())) return;
+        FSphere& s = Spheres[SphereId];
 
         if (InDir.LengthSq() > 0.001f)
         {
             FVector3 dir = InDir.Normalize();
-            earth.Velocity += dir * (Config::EARTH_ACCELERATION * DeltaTime);
-            earth.WakeUp();
+            s.Velocity += dir * (Config::EARTH_ACCELERATION * DeltaTime);
+            s.WakeUp();
         }
 
-        float speedSq = earth.Velocity.LengthSq();
+        float speedSq = s.Velocity.LengthSq();
         if (speedSq > Config::EARTH_MAX_SPEED * Config::EARTH_MAX_SPEED)
         {
-            earth.Velocity = earth.Velocity.Normalize() * Config::EARTH_MAX_SPEED;
+            s.Velocity = s.Velocity.Normalize() * Config::EARTH_MAX_SPEED;
         }
+    }
+
+    void ApplyPlayerAcceleration(const FVector3& InDir, float DeltaTime)
+    {
+        ApplySphereAcceleration(0, InDir, DeltaTime);
     }
 
     void AddSpheres(int Delta)

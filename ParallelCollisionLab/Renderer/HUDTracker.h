@@ -28,7 +28,8 @@ public:
                 bool bMultiScale = false,
                 const wchar_t* NetStatus = nullptr,
                 bool bDamping = false,
-                size_t SleepingCount = 0)
+                size_t SleepingCount = 0,
+                const wchar_t* ControlPrompt = nullptr)
     {
         TimeAccumulator        += DeltaTime;
         FrameCountAccumulator  += 1;
@@ -93,24 +94,28 @@ public:
         else
             swprintf_s(dampStr, L"OFF");
 
+        const wchar_t* prompt = ControlPrompt ? ControlPrompt : L"[Arrows/Q,E] Move";
+
         const IBVHVisualizer* bvhVis = dynamic_cast<const IBVHVisualizer*>(ActiveSolver);
         if (bvhVis && bShowGridVis)
         {
             swprintf_s(HudBottomText,
-                       L"Pairs: %s | Collisions: %s | [Arrows/Q,E] Earth | Damp: %s (D)\n"
+                       L"Pairs: %s | Collisions: %s | %s | Damp: %s (D)\n"
                        L"[1..6] Solvers  [M] %s  [B] Bench  [G] Vis: ON  [H] HUD  (Tab: Cycle)",
                        CachedCandidates.c_str(),
                        CachedCollisions.c_str(),
+                       prompt,
                        dampStr,
                        bMultiScale ? L"Multi" : L"Uniform");
         }
         else
         {
             swprintf_s(HudBottomText,
-                       L"Pairs: %s | Collisions: %s | [Arrows/Q,E] Earth | Damp: %s (D)\n"
+                       L"Pairs: %s | Collisions: %s | %s | Damp: %s (D)\n"
                        L"[1..6] Solvers  [M] %s  [B] Bench  [F9] Server  [F10] Client  [G] Grid: %s",
                        CachedCandidates.c_str(),
                        CachedCollisions.c_str(),
+                       prompt,
                        dampStr,
                        bMultiScale ? L"Multi" : L"Uniform",
                        bShowGridVis ? L"ON" : L"OFF");

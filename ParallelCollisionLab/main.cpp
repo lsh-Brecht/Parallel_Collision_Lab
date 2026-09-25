@@ -156,27 +156,91 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE, LPSTR lpCmdLine, int)
 		double updateMs = 0.0;
 		if (netManager.GetRole() == Network::ENetworkRole::Client)
 		{
+			netManager.SendClientInput(playerInput.x, playerInput.y, playerInput.z);
 			netManager.UpdateClient(world.GetSpheres(), Config::BOX_HALF_SIZE, dt);
+		}
+		else if (netManager.GetRole() == Network::ENetworkRole::Server)
+		{
+			netManager.ProcessServerIncoming(world, dt);
+			updateMs = world.Update(dt, controller.IsPaused(), timer.GetFrequency(), FVector3(0.0f, 0.0f, 0.0f));
+			netManager.BroadcastServerSnapshot(s_TickCounter, world.GetSpheres(), world.GetBoxHalfSize());
 		}
 		else
 		{
 			updateMs = world.Update(dt, controller.IsPaused(), timer.GetFrequency(), playerInput);
-			if (netManager.GetRole() == Network::ENetworkRole::Server)
+		}
+
+		static EPlanetType s_LastAssignedPlanet = EPlanetType::None;
+		if (netManager.GetRole() == Network::ENetworkRole::Client)
+		{
+			EPlanetType currentPlanet = netManager.GetClientAssignedPlanet();
+			if (currentPlanet != s_LastAssignedPlanet)
 			{
-				netManager.UpdateServer(s_TickCounter, world.GetSpheres(), world.GetBoxHalfSize(), dt);
+				s_LastAssignedPlanet = currentPlanet;
+				wchar_t titleBuf[128];
+				if (currentPlanet == EPlanetType::Earth)
+				{
+					swprintf_s(titleBuf, L"[CLIENT 1 - EARTH (지구)] Parallel Collision Lab");
+				}
+				else if (currentPlanet == EPlanetType::Mars)
+				{
+					swprintf_s(titleBuf, L"[CLIENT 2 - MARS (화성)] Parallel Collision Lab");
+				}
+				else if (currentPlanet == EPlanetType::UVMap)
+				{
+					swprintf_s(titleBuf, L"[CLIENT 3 - UV MAP] Parallel Collision Lab");
+				}
+				else
+				{
+					std::wstring wIp(targetServerIp.begin(), targetServerIp.end());
+					swprintf_s(titleBuf, L"[CLIENT - SPECTATOR -> %s:%u] Parallel Collision Lab", wIp.c_str(), targetPort);
+				}
+				window.SetTitle(titleBuf);
 			}
 		}
 
-		wchar_t netStatusStr[128];
+		wchar_t netStatusStr[256];
+		const wchar_t* controlPromptStr = L"[Arrows/Q,E] Camera";
+
 		if (netManager.GetRole() == Network::ENetworkRole::Server)
 		{
-			swprintf_s(netStatusStr, L"Server (Port: %u | Clients: %zu | Sent: %u)",
-			           targetPort, netManager.GetClientCount(), netManager.GetPacketsSent());
+			bool bEarth = netManager.IsServerPlanetActive(EPlanetType::Earth);
+			bool bMars  = netManager.IsServerPlanetActive(EPlanetType::Mars);
+			bool bUV    = netManager.IsServerPlanetActive(EPlanetType::UVMap);
+			swprintf_s(netStatusStr, L"Server (Port: %u | Clients: %zu [Earth: %s | Mars: %s | UV: %s])",
+			           targetPort, netManager.GetClientCount(),
+			           bEarth ? L"ON" : L"OFF",
+			           bMars  ? L"ON" : L"OFF",
+			           bUV    ? L"ON" : L"OFF");
+			controlPromptStr = L"Server Authority (Client Controls Only)";
 		}
 		else if (netManager.GetRole() == Network::ENetworkRole::Client)
 		{
 			std::wstring wIp(targetServerIp.begin(), targetServerIp.end());
-			swprintf_s(netStatusStr, L"Client -> %s:%u (%s | Recv: %u)",
+			EPlanetType currentPlanet = netManager.GetClientAssignedPlanet();
+			const wchar_t* planetName = L"Spectator";
+			if (currentPlanet == EPlanetType::Earth)
+			{
+				planetName = L"Earth";
+				controlPromptStr = L"[Arrows/Q,E] Earth";
+			}
+			else if (currentPlanet == EPlanetType::Mars)
+			{
+				planetName = L"Mars";
+				controlPromptStr = L"[Arrows/Q,E] Mars";
+			}
+			else if (currentPlanet == EPlanetType::UVMap)
+			{
+				planetName = L"UVMap";
+				controlPromptStr = L"[Arrows/Q,E] UV Sphere";
+			}
+			else
+			{
+				controlPromptStr = L"Spectator Mode";
+			}
+
+			swprintf_s(netStatusStr, L"Client [%s] -> %s:%u (%s | Recv: %u)",
+			           planetName,
 			           wIp.c_str(), targetPort,
 			           netManager.IsConnected() ? L"Connected" : L"Searching...",
 			           netManager.GetPacketsReceived());
@@ -184,6 +248,7 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE, LPSTR lpCmdLine, int)
 		else
 		{
 			swprintf_s(netStatusStr, L"Standalone [F9: Server, F10: Client]");
+			controlPromptStr = L"Standalone (No Planets)";
 		}
 
 		hudTracker.Update(dt, updateMs, sceneRenderer.GetLastRenderTimeMs(),
@@ -195,7 +260,8 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE, LPSTR lpCmdLine, int)
 		                  world.IsMultiScaleSpheres(),
 		                  netStatusStr,
 		                  world.IsDampingEnabled(),
-		                  world.GetSleepingSphereCount());
+		                  world.GetSleepingSphereCount(),
+		                  controlPromptStr);
 
 		if (!window.IsMinimized())
 		{

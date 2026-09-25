@@ -1,4 +1,5 @@
 #include "NetworkManager.h"
+#include "../Core/SimulationWorld.h"
 
 namespace Network
 {
@@ -55,11 +56,27 @@ namespace Network
         return false;
     }
 
-    void FNetworkManager::UpdateServer(uint32_t CurrentTick, const std::vector<FSphere>& Spheres, float BoxHalfSize, float DeltaTime)
+    void FNetworkManager::ProcessServerIncoming(FSimulationWorld& World, float DeltaTime)
     {
         if (CurrentRole == ENetworkRole::Server)
         {
-            ServerInstance.Update(CurrentTick, Spheres, BoxHalfSize, DeltaTime);
+            ServerInstance.ProcessIncoming(World, DeltaTime);
+        }
+    }
+
+    void FNetworkManager::BroadcastServerSnapshot(uint32_t CurrentTick, const std::vector<FSphere>& Spheres, float BoxHalfSize)
+    {
+        if (CurrentRole == ENetworkRole::Server)
+        {
+            ServerInstance.BroadcastSnapshot(CurrentTick, Spheres, BoxHalfSize);
+        }
+    }
+
+    void FNetworkManager::UpdateServer(uint32_t CurrentTick, FSimulationWorld& World, float DeltaTime)
+    {
+        if (CurrentRole == ENetworkRole::Server)
+        {
+            ServerInstance.Update(CurrentTick, World, DeltaTime);
         }
     }
 
@@ -68,6 +85,14 @@ namespace Network
         if (CurrentRole == ENetworkRole::Client)
         {
             ClientInstance.Update(Spheres, BoxHalfSize, DeltaTime);
+        }
+    }
+
+    void FNetworkManager::SendClientInput(float x, float y, float z)
+    {
+        if (CurrentRole == ENetworkRole::Client)
+        {
+            ClientInstance.SendInput(x, y, z);
         }
     }
 
@@ -118,5 +143,26 @@ namespace Network
         case ENetworkRole::Client: return L"Client";
         default:                   return L"Standalone";
         }
+    }
+
+    int32_t FNetworkManager::GetClientAssignedSphereId() const
+    {
+        if (CurrentRole == ENetworkRole::Client)
+            return ClientInstance.GetAssignedSphereId();
+        return -1;
+    }
+
+    EPlanetType FNetworkManager::GetClientAssignedPlanet() const
+    {
+        if (CurrentRole == ENetworkRole::Client)
+            return ClientInstance.GetAssignedPlanet();
+        return EPlanetType::None;
+    }
+
+    bool FNetworkManager::IsServerPlanetActive(EPlanetType type) const
+    {
+        if (CurrentRole == ENetworkRole::Server)
+            return ServerInstance.IsPlanetActive(type);
+        return false;
     }
 }
