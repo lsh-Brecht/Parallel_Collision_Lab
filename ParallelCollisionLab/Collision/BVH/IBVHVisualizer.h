@@ -1,9 +1,11 @@
 #pragma once
 
 #include <vector>
+#include <algorithm>
 #include "../../Core/Common.h"
 #include "../../Core/Sphere.h"
 #include "AABB.h"
+#include "BVHNode.h"
 
 //=============================================================================
 // EBVHVisualizerMode - Display modes for hierarchical bounding boxes
@@ -93,4 +95,145 @@ public:
         const int count = sizeof(PALETTE) / sizeof(PALETTE[0]);
         return PALETTE[Depth % count];
     }
+};
+
+//=============================================================================
+// FBVHVisualizerBase - Common visualizer state & tree traversal implementation
+//=============================================================================
+class FBVHVisualizerBase : public IBVHVisualizer
+{
+public:
+    virtual ~FBVHVisualizerBase() = default;
+
+    void GenerateVisualizerLineGroups(std::vector<FBVHLineGroup>& OutGroups) const override
+    {
+        OutGroups.clear();
+        if (Nodes.empty()) return;
+
+        const int TargetDepth = (std::max)(0, (std::min)(VisualizerDepth, MaxTreeDepth));
+
+        if (VisualizerMode == EBVHVisualizerMode::SingleLevel)
+        {
+            OutGroups.resize(1);
+            OutGroups[0].Color = IBVHVisualizer::GetDepthColor(TargetDepth);
+            CollectSingleLevelLines(0, 0, TargetDepth, OutGroups[0].Lines);
+        }
+        else if (VisualizerMode == EBVHVisualizerMode::LOD)
+        {
+            OutGroups.resize(TargetDepth + 1);
+            for (int d = 0; d <= TargetDepth; ++d)
+            {
+                OutGroups[d].Color = IBVHVisualizer::GetDepthColor(d);
+            }
+            CollectLODLines(0, 0, TargetDepth, OutGroups);
+        }
+        else // LeafOnly
+        {
+            OutGroups.resize(1);
+            OutGroups[0].Color = FVector4(0.20f, 0.95f, 0.40f, 1.0f);
+            CollectLeafLines(0, OutGroups[0].Lines);
+        }
+    }
+
+    int  GetVisualizerDepth() const override
+    {
+        return (std::max)(0, (std::min)(VisualizerDepth, MaxTreeDepth));
+    }
+    int  GetMaxTreeDepth() const override { return MaxTreeDepth; }
+    void SetVisualizerDepth(int Depth) override
+    {
+        VisualizerDepth = (std::max)(0, (std::min)(Depth, MaxTreeDepth));
+    }
+    void IncrementVisualizerDepth() override
+    {
+        if (VisualizerDepth > MaxTreeDepth)
+        {
+            VisualizerDepth = MaxTreeDepth;
+        }
+        else if (VisualizerDepth < MaxTreeDepth)
+        {
+            VisualizerDepth++;
+        }
+    }
+    void DecrementVisualizerDepth() override
+    {
+        if (VisualizerDepth > MaxTreeDepth)
+        {
+            VisualizerDepth = MaxTreeDepth;
+        }
+        if (VisualizerDepth > 0)
+        {
+            VisualizerDepth--;
+        }
+    }
+
+    EBVHVisualizerMode GetVisualizerMode() const override { return VisualizerMode; }
+    void CycleVisualizerMode() override
+    {
+        if (VisualizerMode == EBVHVisualizerMode::LOD)
+            VisualizerMode = EBVHVisualizerMode::SingleLevel;
+        else if (VisualizerMode == EBVHVisualizerMode::SingleLevel)
+            VisualizerMode = EBVHVisualizerMode::LeafOnly;
+        else
+            VisualizerMode = EBVHVisualizerMode::LOD;
+    }
+    const wchar_t* GetVisualizerModeName() const override
+    {
+        switch (VisualizerMode)
+        {
+        case EBVHVisualizerMode::LOD:         return L"LOD (0~Depth)";
+        case EBVHVisualizerMode::SingleLevel: return L"Single Level";
+        case EBVHVisualizerMode::LeafOnly:    return L"Leaves Only";
+        default:                              return L"Unknown";
+        }
+    }
+
+protected:
+    void CollectSingleLevelLines(int NodeIdx, int CurrentDepth, int TargetDepth, std::vector<FVertexSimple>& Lines) const
+    {
+        if (CurrentDepth == TargetDepth)
+        {
+            IBVHVisualizer::AppendAABBWireframe(Lines, Nodes[NodeIdx].Bounds);
+            return;
+        }
+
+        if (!Nodes[NodeIdx].IsLeaf())
+        {
+            CollectSingleLevelLines(Nodes[NodeIdx].LeftChild,  CurrentDepth + 1, TargetDepth, Lines);
+            CollectSingleLevelLines(Nodes[NodeIdx].RightChild, CurrentDepth + 1, TargetDepth, Lines);
+        }
+    }
+
+    void CollectLODLines(int NodeIdx, int CurrentDepth, int MaxDepth, std::vector<FBVHLineGroup>& OutGroups) const
+    {
+        if (CurrentDepth <= MaxDepth)
+        {
+            IBVHVisualizer::AppendAABBWireframe(OutGroups[CurrentDepth].Lines, Nodes[NodeIdx].Bounds);
+        }
+
+        if (CurrentDepth < MaxDepth && !Nodes[NodeIdx].IsLeaf())
+        {
+            CollectLODLines(Nodes[NodeIdx].LeftChild,  CurrentDepth + 1, MaxDepth, OutGroups);
+            CollectLODLines(Nodes[NodeIdx].RightChild, CurrentDepth + 1, MaxDepth, OutGroups);
+        }
+    }
+
+    void CollectLeafLines(int NodeIdx, std::vector<FVertexSimple>& Lines) const
+    {
+        if (Nodes[NodeIdx].IsLeaf())
+        {
+            IBVHVisualizer::AppendAABBWireframe(Lines, Nodes[NodeIdx].Bounds);
+        }
+        else
+        {
+            CollectLeafLines(Nodes[NodeIdx].LeftChild,  Lines);
+            CollectLeafLines(Nodes[NodeIdx].RightChild, Lines);
+        }
+    }
+
+protected:
+    std::vector<FBVHNode> Nodes;
+    int                   MaxTreeDepth    = 0;
+    int                   VisualizerDepth = 3;
+    EBVHVisualizerMode    VisualizerMode  = EBVHVisualizerMode::LOD;
 };
