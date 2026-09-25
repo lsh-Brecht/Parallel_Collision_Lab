@@ -243,7 +243,7 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE, LPSTR lpCmdLine, int)
 		else
 		{
 			swprintf_s(netStatusStr, L"Standalone");
-			controlPromptStr = L"Standalone (No Planets)";
+			controlPromptStr = nullptr;
 		}
 
 		bool bIsClient = (netManager.GetRole() == Network::ENetworkRole::Client);

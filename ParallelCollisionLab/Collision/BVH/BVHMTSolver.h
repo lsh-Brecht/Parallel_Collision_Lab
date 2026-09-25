@@ -111,7 +111,7 @@ public:
 
         CurrentSpheres = &Spheres;
 
-        LARGE_INTEGER TimerStart, TimerBroad, TimerNarrow, TimerResolve;
+        LARGE_INTEGER TimerStart, TimerBroad, TimerNarrow;
 
         QueryPerformanceCounter(&TimerStart);
         BuildBVH(Spheres);
@@ -171,13 +171,11 @@ public:
         QueryPerformanceCounter(&TimerNarrow);
 
         ResolveCollisions(Spheres, Manifolds);
-        QueryPerformanceCounter(&TimerResolve);
 
         const double ToMilliseconds = 1000.0 / static_cast<double>(TimerFrequency.QuadPart);
         LastStats.BroadPhaseTimeMs  = static_cast<double>(TimerBroad.QuadPart - TimerStart.QuadPart) * ToMilliseconds;
         LastStats.NarrowPhaseTimeMs = static_cast<double>(TimerNarrow.QuadPart - TimerBroad.QuadPart) * ToMilliseconds;
-        LastStats.ResolutionTimeMs  = static_cast<double>(TimerResolve.QuadPart - TimerNarrow.QuadPart) * ToMilliseconds;
-        LastStats.TotalSolveTimeMs  = static_cast<double>(TimerResolve.QuadPart - TimerStart.QuadPart) * ToMilliseconds;
+        LastStats.TotalSolveTimeMs  = static_cast<double>(TimerNarrow.QuadPart - TimerStart.QuadPart) * ToMilliseconds;
     }
 
     const wchar_t* GetName()          const override { return L"BVH (MT)"; }

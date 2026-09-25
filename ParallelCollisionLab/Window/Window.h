@@ -33,7 +33,6 @@ struct FInputState
 	bool CycleBvhMode;
 
 	int  SelectSolver;
-	bool CycleSolver;
 	bool ToggleDamping;
 
 	// Earth Directional Controls (Arrows + Q/E)

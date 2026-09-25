@@ -205,10 +205,6 @@ bool FWindow::PumpMessages(FInputState& outInput)
 				outInput.SelectSolver = 5;
 				break;
 
-			case VK_TAB:
-				outInput.CycleSolver = true;
-				break;
-
 			case 'B':
 				outInput.Benchmark = true;
 				break;

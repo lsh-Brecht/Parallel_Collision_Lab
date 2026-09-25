@@ -100,10 +100,6 @@ public:
         {
             World.SelectSolver(static_cast<size_t>(Input.SelectSolver));
         }
-        else if (Input.CycleSolver)
-        {
-            World.CycleSolver();
-        }
 
         // BVH Visualizer Controls
         if (Input.IncBvhDepth || Input.DecBvhDepth || Input.CycleBvhMode)

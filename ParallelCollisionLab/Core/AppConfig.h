@@ -9,7 +9,7 @@ namespace Config
 {
     // Window settings
     static const int            WINDOW_WIDTH  = 768;
-    static const int            WINDOW_HEIGHT = 1024;
+    static const int            WINDOW_HEIGHT = 896;
     static const wchar_t* const WINDOW_TITLE  = L"Parallel Collision Lab";
 
     // Simulation Domain & Physics

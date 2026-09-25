@@ -38,7 +38,6 @@ public:
         RenderAccumMs          += RenderTimeMs;
         BroadAccumMs           += Stats.BroadPhaseTimeMs;
         NarrowAccumMs          += Stats.NarrowPhaseTimeMs;
-        ResolveAccumMs         += Stats.ResolutionTimeMs;
 
         if (TimeAccumulator >= Config::HUD_REFRESH_INTERVAL && FrameCountAccumulator > 0)
         {
@@ -48,9 +47,8 @@ public:
             double avgRenderMs  = RenderAccumMs / static_cast<double>(FrameCountAccumulator);
             double avgBroadMs   = BroadAccumMs / static_cast<double>(FrameCountAccumulator);
             double avgNarrowMs  = NarrowAccumMs / static_cast<double>(FrameCountAccumulator);
-            double avgResolveMs = ResolveAccumMs / static_cast<double>(FrameCountAccumulator);
 
-            std::wstring strBalls = FormatCommas(BallCount);
+            CachedBallCount       = FormatCommas(BallCount);
             CachedCandidates      = FormatCommas(Stats.CandidatePairCount);
             CachedCollisions      = FormatCommas(Stats.ActualCollisionCount);
 
@@ -61,13 +59,10 @@ public:
                            L"Cache       : %s\n"
                            L"Network     : %s\n"
                            L"\n"
-                           L"Balls       : %s\n"
-                           L"\n"
                            L"Frame Time  : %.1f ms (%.1f FPS) | Render: %.2f ms",
                            CPUInfo.GetSummaryString().c_str(),
                            CPUInfo.GetCacheString().c_str(),
                            NetStatus ? NetStatus : L"Client",
-                           strBalls.c_str(),
                            frameTimeMs, currentFPS,
                            avgRenderMs);
             }
@@ -78,26 +73,21 @@ public:
                            L"Cache       : %s\n"
                            L"Network     : %s\n"
                            L"\n"
-                           L"Balls       : %s [%s] | Threads: %d\n"
-                           L"Algorithm   : %s [%s]\n"
+                           L"Algorithm   : %s [%s] | Threads: %d\n"
                            L"\n"
                            L"Frame Time  : %.1f ms (%.1f FPS) | Render: %.2f ms\n"
                            L"Broad Phase : %.3f ms\n"
-                           L"Narrow Phase: %.2f ms\n"
-                           L"Resolution  : %.3f ms",
+                           L"Narrow Phase: %.3f ms",
                            CPUInfo.GetSummaryString().c_str(),
                            CPUInfo.GetCacheString().c_str(),
                            NetStatus ? NetStatus : L"Standalone",
-                           strBalls.c_str(),
-                           bMultiScale ? L"Multi-Scale" : L"Uniform",
-                           ActiveSolver ? ActiveSolver->GetThreadCount() : 1,
                            ActiveSolver ? ActiveSolver->GetAlgorithmName() : L"Unknown",
                            ActiveSolver ? ActiveSolver->GetExecutionMode() : L"Unknown",
+                           ActiveSolver ? ActiveSolver->GetThreadCount() : 1,
                            frameTimeMs, currentFPS,
                            avgRenderMs,
                            avgBroadMs,
-                           avgNarrowMs,
-                           avgResolveMs);
+                           avgNarrowMs);
             }
 
             TimeAccumulator       = 0.0;
@@ -106,7 +96,11 @@ public:
             RenderAccumMs         = 0.0;
             BroadAccumMs          = 0.0;
             NarrowAccumMs         = 0.0;
-            ResolveAccumMs        = 0.0;
+        }
+
+        if (CachedBallCount == L"0" && BallCount > 0)
+        {
+            CachedBallCount = FormatCommas(BallCount);
         }
 
         wchar_t dampStr[32];
@@ -115,49 +109,41 @@ public:
         else
             swprintf_s(dampStr, L"OFF");
 
-        const wchar_t* prompt = ControlPrompt ? ControlPrompt : L"[Arrows/Q,E] Move";
+        const wchar_t* prompt = ControlPrompt;
 
         if (bIsClient)
         {
             swprintf_s(HudBottomText,
+                       L"Balls: %s\n"
                        L"%s\n"
                        L"[H] Toggle HUD",
-                       prompt);
+                       CachedBallCount.c_str(),
+                       prompt ? prompt : L"");
         }
         else
         {
             const IBVHVisualizer* bvhVis = dynamic_cast<const IBVHVisualizer*>(ActiveSolver);
-            if (bvhVis && bShowGridVis)
-            {
-                swprintf_s(HudBottomText,
-                           L"Pairs: %s | Collisions: %s | %s | Damp: %s (D)\n"
-                           L"[1..6] Solvers  [M] %s  [B] Bench  [G] Vis: ON  [H] HUD  (Tab: Cycle)",
-                           CachedCandidates.c_str(),
-                           CachedCollisions.c_str(),
-                           prompt,
-                           dampStr,
-                           bMultiScale ? L"Multi" : L"Uniform");
-            }
-            else
-            {
-                swprintf_s(HudBottomText,
-                           L"Pairs: %s | Collisions: %s | %s | Damp: %s (D)\n"
-                           L"[1..6] Solvers  [M] %s  [B] Bench  [G] Grid: %s  [H] HUD  (Tab: Cycle)",
-                           CachedCandidates.c_str(),
-                           CachedCollisions.c_str(),
-                           prompt,
-                           dampStr,
-                           bMultiScale ? L"Multi" : L"Uniform",
-                           bShowGridVis ? L"ON" : L"OFF");
-            }
+            const wchar_t* visLabel = (bvhVis && bShowGridVis) ? L"Vis: ON" : (bShowGridVis ? L"Grid: ON" : L"Grid: OFF");
+
+            swprintf_s(HudBottomText,
+                       L"Balls: %s\n"
+                       L"Pairs: %s | Collisions: %s\n"
+                       L"[1] Naive (2 MT) | [3] Grid (4 MT) | [5] BVH (6 MT)\n"
+                       L"[D] Damp: %s  [M] %s  [B] Bench  [G] %s  [H] HUD",
+                       CachedBallCount.c_str(),
+                       CachedCandidates.c_str(),
+                       CachedCollisions.c_str(),
+                       dampStr,
+                       bMultiScale ? L"Multi" : L"Uniform",
+                       visLabel);
         }
     }
 
     void Draw(FTextRenderer& TextRenderer, int ClientWidth, int ClientHeight)
     {
-        float bottomY = static_cast<float>(ClientHeight) - 52.0f;
+        float bottomY = static_cast<float>(ClientHeight) - 90.0f;
         TextRenderer.DrawTextOverlay(HudTopText, 10.0f, 10.0f, 700.0f, 240.0f);
-        TextRenderer.DrawTextOverlay(HudBottomText, 10.0f, bottomY, static_cast<float>(ClientWidth) - 20.0f, 50.0f);
+        TextRenderer.DrawTextOverlay(HudBottomText, 10.0f, bottomY, static_cast<float>(ClientWidth) - 20.0f, 88.0f);
     }
 
 private:
@@ -181,8 +167,8 @@ private:
     double       RenderAccumMs          = 0.0;
     double       BroadAccumMs           = 0.0;
     double       NarrowAccumMs          = 0.0;
-    double       ResolveAccumMs         = 0.0;
 
+    std::wstring CachedBallCount        = L"0";
     std::wstring CachedCandidates       = L"0";
     std::wstring CachedCollisions       = L"0";
 

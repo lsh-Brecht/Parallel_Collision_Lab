@@ -14,7 +14,6 @@ struct FCollisionStats
 {
     double   BroadPhaseTimeMs     = 0.0;
     double   NarrowPhaseTimeMs    = 0.0;
-    double   ResolutionTimeMs     = 0.0;
     double   TotalSolveTimeMs     = 0.0;
     uint64_t CandidatePairCount   = 0;
     uint64_t ActualCollisionCount = 0;

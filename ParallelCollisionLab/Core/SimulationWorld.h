@@ -159,11 +159,6 @@ public:
         }
     }
 
-    void ApplyPlayerAcceleration(const FVector3& InDir, float DeltaTime)
-    {
-        ApplySphereAcceleration(0, InDir, DeltaTime);
-    }
-
     void AddSpheres(int Delta)
     {
         int count = (std::min)(static_cast<int>(Spheres.size()) + Delta, MAX_SPHERES);
@@ -192,15 +187,6 @@ public:
         if (InIndex < Solvers.size())
         {
             ActiveSolverIndex = InIndex;
-            RebuildActiveVisualizer();
-        }
-    }
-
-    void CycleSolver()
-    {
-        if (!Solvers.empty())
-        {
-            ActiveSolverIndex = (ActiveSolverIndex + 1) % Solvers.size();
             RebuildActiveVisualizer();
         }
     }

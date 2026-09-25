@@ -22,7 +22,7 @@ public:
         LastStats = {};
         if (Count < 2) return;
 
-        LARGE_INTEGER TimerStart, TimerBroad, TimerNarrow, TimerResolve;
+        LARGE_INTEGER TimerStart, TimerBroad, TimerNarrow;
 
         QueryPerformanceCounter(&TimerStart);
         LastStats.CandidatePairCount = static_cast<uint64_t>(Count) * (Count - 1) / 2;
@@ -52,17 +52,15 @@ public:
         QueryPerformanceCounter(&TimerNarrow);
 
         ResolveCollisions(Spheres, Manifolds);
-        QueryPerformanceCounter(&TimerResolve);
 
         const double ToMilliseconds = 1000.0 / static_cast<double>(TimerFrequency.QuadPart);
         LastStats.BroadPhaseTimeMs   = static_cast<double>(TimerBroad.QuadPart - TimerStart.QuadPart) * ToMilliseconds;
         LastStats.NarrowPhaseTimeMs  = static_cast<double>(TimerNarrow.QuadPart - TimerBroad.QuadPart) * ToMilliseconds;
-        LastStats.ResolutionTimeMs   = static_cast<double>(TimerResolve.QuadPart - TimerNarrow.QuadPart) * ToMilliseconds;
-        LastStats.TotalSolveTimeMs   = static_cast<double>(TimerResolve.QuadPart - TimerStart.QuadPart) * ToMilliseconds;
+        LastStats.TotalSolveTimeMs   = static_cast<double>(TimerNarrow.QuadPart - TimerStart.QuadPart) * ToMilliseconds;
     }
 
     const wchar_t* GetName()          const override { return L"NestedLoop (ST)"; }
-    const wchar_t* GetAlgorithmName() const override { return L"Nested Loop (Naive)"; }
+    const wchar_t* GetAlgorithmName() const override { return L"Nested Loop"; }
     const wchar_t* GetExecutionMode() const override { return L"Single Thread"; }
     int            GetThreadCount()   const override { return 1; }
 
