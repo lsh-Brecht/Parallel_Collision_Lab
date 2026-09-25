@@ -46,18 +46,13 @@ public:
         RebuildActiveVisualizer();
     }
 
-    double Update(float DeltaTime, bool bIsPaused, int64_t TimerFrequency, const FVector3& PlayerInput = FVector3(0.0f, 0.0f, 0.0f))
+    double Update(float DeltaTime, bool bIsPaused, int64_t TimerFrequency)
     {
         if (bIsPaused)
             return 0.0;
 
         LARGE_INTEGER t0, t1;
         QueryPerformanceCounter(&t0);
-
-        if (!Spheres.empty() && PlayerInput.LengthSq() > 0.001f)
-        {
-            ApplyPlayerAcceleration(PlayerInput, DeltaTime);
-        }
 
         for (FSphere& s : Spheres)
         {

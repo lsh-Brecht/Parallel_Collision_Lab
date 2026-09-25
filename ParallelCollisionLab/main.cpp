@@ -124,23 +124,19 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE, LPSTR lpCmdLine, int)
 			textRenderer.CreateRenderTarget(renderer.SwapChain);
 		}
 
-		if (input.StartServer)
+		if (netManager.GetRole() == Network::ENetworkRole::Client)
 		{
-			netManager.StartServer(targetPort);
-			wchar_t titleBuf[128];
-			swprintf_s(titleBuf, L"[SERVER :%u] Parallel Collision Lab", targetPort);
-			window.SetTitle(titleBuf);
-		}
-		else if (input.StartClient)
-		{
-			netManager.StartClient(targetServerIp.c_str(), targetPort);
-			std::wstring wIp(targetServerIp.begin(), targetServerIp.end());
-			wchar_t titleBuf[128];
-			swprintf_s(titleBuf, L"[CLIENT -> %s:%u] Parallel Collision Lab", wIp.c_str(), targetPort);
-			window.SetTitle(titleBuf);
+			input.Reset = false;
+			input.Toggle = false;
+			input.ToggleSphereSize = false;
+			input.Add = false;
+			input.AddMany = false;
+			input.Sub = false;
+			input.SubMany = false;
 		}
 
 		controller.ProcessInput(input, world, window, renderer, cpuInfo);
+		netManager.SyncServerPlanets(world);
 
 		float dt = timer.Tick();
 		s_TickCounter++;
@@ -162,12 +158,12 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE, LPSTR lpCmdLine, int)
 		else if (netManager.GetRole() == Network::ENetworkRole::Server)
 		{
 			netManager.ProcessServerIncoming(world, dt);
-			updateMs = world.Update(dt, controller.IsPaused(), timer.GetFrequency(), FVector3(0.0f, 0.0f, 0.0f));
+			updateMs = world.Update(dt, controller.IsPaused(), timer.GetFrequency());
 			netManager.BroadcastServerSnapshot(s_TickCounter, world.GetSpheres(), world.GetBoxHalfSize());
 		}
 		else
 		{
-			updateMs = world.Update(dt, controller.IsPaused(), timer.GetFrequency(), playerInput);
+			updateMs = world.Update(dt, controller.IsPaused(), timer.GetFrequency());
 		}
 
 		static EPlanetType s_LastAssignedPlanet = EPlanetType::None;
@@ -247,10 +243,11 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE, LPSTR lpCmdLine, int)
 		}
 		else
 		{
-			swprintf_s(netStatusStr, L"Standalone [F9: Server, F10: Client]");
+			swprintf_s(netStatusStr, L"Standalone");
 			controlPromptStr = L"Standalone (No Planets)";
 		}
 
+		bool bIsClient = (netManager.GetRole() == Network::ENetworkRole::Client);
 		hudTracker.Update(dt, updateMs, sceneRenderer.GetLastRenderTimeMs(),
 		                  world.GetActiveSolver()->GetLastStats(),
 		                  world.GetSphereCount(),
@@ -261,7 +258,8 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE, LPSTR lpCmdLine, int)
 		                  netStatusStr,
 		                  world.IsDampingEnabled(),
 		                  world.GetSleepingSphereCount(),
-		                  controlPromptStr);
+		                  controlPromptStr,
+		                  bIsClient);
 
 		if (!window.IsMinimized())
 		{

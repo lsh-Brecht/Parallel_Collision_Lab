@@ -53,15 +53,20 @@ bool FWindow::PumpMessages(FInputState& outInput)
 {
 	outInput.Clear();
 
-	bShiftHeld = (GetKeyState(VK_SHIFT) & 0x8000) != 0;
+	bool bHasFocus = (GetForegroundWindow() == hWnd);
+
+	bShiftHeld = bHasFocus && ((GetKeyState(VK_SHIFT) & 0x8000) != 0);
 	outInput.bShiftDown = bShiftHeld;
 
-	outInput.MoveLeft     = (GetKeyState(VK_LEFT) & 0x8000) != 0;
-	outInput.MoveRight    = (GetKeyState(VK_RIGHT) & 0x8000) != 0;
-	outInput.MoveUp       = (GetKeyState(VK_UP) & 0x8000) != 0;
-	outInput.MoveDown     = (GetKeyState(VK_DOWN) & 0x8000) != 0;
-	outInput.MoveForward  = (GetKeyState('E') & 0x8000) != 0;
-	outInput.MoveBackward = (GetKeyState('Q') & 0x8000) != 0;
+	if (bHasFocus)
+	{
+		outInput.MoveLeft     = (GetAsyncKeyState(VK_LEFT) & 0x8000) != 0;
+		outInput.MoveRight    = (GetAsyncKeyState(VK_RIGHT) & 0x8000) != 0;
+		outInput.MoveUp       = (GetAsyncKeyState(VK_UP) & 0x8000) != 0;
+		outInput.MoveDown     = (GetAsyncKeyState(VK_DOWN) & 0x8000) != 0;
+		outInput.MoveForward  = (GetAsyncKeyState('E') & 0x8000) != 0;
+		outInput.MoveBackward = (GetAsyncKeyState('Q') & 0x8000) != 0;
+	}
 
 	MSG msg;
 	while (PeekMessageW(&msg, nullptr, 0, 0, PM_REMOVE))
@@ -214,14 +219,6 @@ bool FWindow::PumpMessages(FInputState& outInput)
 
 			case 'H':
 				outInput.ToggleHUD = true;
-				break;
-
-			case VK_F9:
-				outInput.StartServer = true;
-				break;
-
-			case VK_F10:
-				outInput.StartClient = true;
 				break;
 
 			case 'V':

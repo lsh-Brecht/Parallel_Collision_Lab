@@ -171,6 +171,9 @@ namespace Network
                 ++it;
             }
         }
+
+        // 3. Keep assigned planets active across world resets
+        SyncPromotedPlanets(World);
     }
 
     void FNetworkServer::BroadcastSnapshot(uint32_t CurrentTick, const std::vector<FSphere>& Spheres, float BoxHalfSize)
@@ -359,5 +362,20 @@ namespace Network
             if (c.AssignedPlanet == target) return c.AssignedSphereId;
         }
         return -1;
+    }
+
+    void FNetworkServer::SyncPromotedPlanets(FSimulationWorld& World)
+    {
+        for (const auto& client : ConnectedClients)
+        {
+            if (client.AssignedSphereId >= 0 && client.AssignedSphereId < World.GetSphereCount())
+            {
+                FSphere& s = World.GetSpheres()[client.AssignedSphereId];
+                if (s.PlanetType != static_cast<EPlanetType>(client.AssignedPlanet))
+                {
+                    World.PromoteToPlanet(client.AssignedSphereId, static_cast<EPlanetType>(client.AssignedPlanet));
+                }
+            }
+        }
     }
 }

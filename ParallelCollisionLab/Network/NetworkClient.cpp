@@ -280,6 +280,9 @@ namespace Network
         if (ClientSocket == INVALID_SOCKET || !bIsConnected || AssignedSphereId < 0)
             return;
 
+        if (x == 0.0f && y == 0.0f && z == 0.0f)
+            return;
+
         FClientInputPacket packet = {};
         packet.Header.Magic     = PROTOCOL_MAGIC;
         packet.Header.Type      = EPacketType::ClientInput;

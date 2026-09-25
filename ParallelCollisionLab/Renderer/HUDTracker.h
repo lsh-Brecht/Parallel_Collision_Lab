@@ -29,7 +29,8 @@ public:
                 const wchar_t* NetStatus = nullptr,
                 bool bDamping = false,
                 size_t SleepingCount = 0,
-                const wchar_t* ControlPrompt = nullptr)
+                const wchar_t* ControlPrompt = nullptr,
+                bool bIsClient = false)
     {
         TimeAccumulator        += DeltaTime;
         FrameCountAccumulator  += 1;
@@ -53,31 +54,51 @@ public:
             CachedCandidates      = FormatCommas(Stats.CandidatePairCount);
             CachedCollisions      = FormatCommas(Stats.ActualCollisionCount);
 
-            swprintf_s(HudTopText,
-                       L"CPU         : %s\n"
-                       L"Cache       : %s\n"
-                       L"Network     : %s\n"
-                       L"\n"
-                       L"Balls       : %s [%s] | Threads: %d\n"
-                       L"Algorithm   : %s [%s]\n"
-                       L"\n"
-                       L"Frame Time  : %.1f ms (%.1f FPS) | Render: %.2f ms\n"
-                       L"Broad Phase : %.3f ms\n"
-                       L"Narrow Phase: %.2f ms\n"
-                       L"Resolution  : %.3f ms",
-                       CPUInfo.GetSummaryString().c_str(),
-                       CPUInfo.GetCacheString().c_str(),
-                       NetStatus ? NetStatus : L"Standalone",
-                       strBalls.c_str(),
-                       bMultiScale ? L"Multi-Scale" : L"Uniform",
-                       ActiveSolver ? ActiveSolver->GetThreadCount() : 1,
-                       ActiveSolver ? ActiveSolver->GetAlgorithmName() : L"Unknown",
-                       ActiveSolver ? ActiveSolver->GetExecutionMode() : L"Unknown",
-                       frameTimeMs, currentFPS,
-                       avgRenderMs,
-                       avgBroadMs,
-                       avgNarrowMs,
-                       avgResolveMs);
+            if (bIsClient)
+            {
+                swprintf_s(HudTopText,
+                           L"CPU         : %s\n"
+                           L"Cache       : %s\n"
+                           L"Network     : %s\n"
+                           L"\n"
+                           L"Balls       : %s\n"
+                           L"\n"
+                           L"Frame Time  : %.1f ms (%.1f FPS) | Render: %.2f ms",
+                           CPUInfo.GetSummaryString().c_str(),
+                           CPUInfo.GetCacheString().c_str(),
+                           NetStatus ? NetStatus : L"Client",
+                           strBalls.c_str(),
+                           frameTimeMs, currentFPS,
+                           avgRenderMs);
+            }
+            else
+            {
+                swprintf_s(HudTopText,
+                           L"CPU         : %s\n"
+                           L"Cache       : %s\n"
+                           L"Network     : %s\n"
+                           L"\n"
+                           L"Balls       : %s [%s] | Threads: %d\n"
+                           L"Algorithm   : %s [%s]\n"
+                           L"\n"
+                           L"Frame Time  : %.1f ms (%.1f FPS) | Render: %.2f ms\n"
+                           L"Broad Phase : %.3f ms\n"
+                           L"Narrow Phase: %.2f ms\n"
+                           L"Resolution  : %.3f ms",
+                           CPUInfo.GetSummaryString().c_str(),
+                           CPUInfo.GetCacheString().c_str(),
+                           NetStatus ? NetStatus : L"Standalone",
+                           strBalls.c_str(),
+                           bMultiScale ? L"Multi-Scale" : L"Uniform",
+                           ActiveSolver ? ActiveSolver->GetThreadCount() : 1,
+                           ActiveSolver ? ActiveSolver->GetAlgorithmName() : L"Unknown",
+                           ActiveSolver ? ActiveSolver->GetExecutionMode() : L"Unknown",
+                           frameTimeMs, currentFPS,
+                           avgRenderMs,
+                           avgBroadMs,
+                           avgNarrowMs,
+                           avgResolveMs);
+            }
 
             TimeAccumulator       = 0.0;
             FrameCountAccumulator = 0;
@@ -96,29 +117,39 @@ public:
 
         const wchar_t* prompt = ControlPrompt ? ControlPrompt : L"[Arrows/Q,E] Move";
 
-        const IBVHVisualizer* bvhVis = dynamic_cast<const IBVHVisualizer*>(ActiveSolver);
-        if (bvhVis && bShowGridVis)
+        if (bIsClient)
         {
             swprintf_s(HudBottomText,
-                       L"Pairs: %s | Collisions: %s | %s | Damp: %s (D)\n"
-                       L"[1..6] Solvers  [M] %s  [B] Bench  [G] Vis: ON  [H] HUD  (Tab: Cycle)",
-                       CachedCandidates.c_str(),
-                       CachedCollisions.c_str(),
-                       prompt,
-                       dampStr,
-                       bMultiScale ? L"Multi" : L"Uniform");
+                       L"%s\n"
+                       L"[H] Toggle HUD",
+                       prompt);
         }
         else
         {
-            swprintf_s(HudBottomText,
-                       L"Pairs: %s | Collisions: %s | %s | Damp: %s (D)\n"
-                       L"[1..6] Solvers  [M] %s  [B] Bench  [F9] Server  [F10] Client  [G] Grid: %s",
-                       CachedCandidates.c_str(),
-                       CachedCollisions.c_str(),
-                       prompt,
-                       dampStr,
-                       bMultiScale ? L"Multi" : L"Uniform",
-                       bShowGridVis ? L"ON" : L"OFF");
+            const IBVHVisualizer* bvhVis = dynamic_cast<const IBVHVisualizer*>(ActiveSolver);
+            if (bvhVis && bShowGridVis)
+            {
+                swprintf_s(HudBottomText,
+                           L"Pairs: %s | Collisions: %s | %s | Damp: %s (D)\n"
+                           L"[1..6] Solvers  [M] %s  [B] Bench  [G] Vis: ON  [H] HUD  (Tab: Cycle)",
+                           CachedCandidates.c_str(),
+                           CachedCollisions.c_str(),
+                           prompt,
+                           dampStr,
+                           bMultiScale ? L"Multi" : L"Uniform");
+            }
+            else
+            {
+                swprintf_s(HudBottomText,
+                           L"Pairs: %s | Collisions: %s | %s | Damp: %s (D)\n"
+                           L"[1..6] Solvers  [M] %s  [B] Bench  [G] Grid: %s  [H] HUD  (Tab: Cycle)",
+                           CachedCandidates.c_str(),
+                           CachedCollisions.c_str(),
+                           prompt,
+                           dampStr,
+                           bMultiScale ? L"Multi" : L"Uniform",
+                           bShowGridVis ? L"ON" : L"OFF");
+            }
         }
     }
 

@@ -41,6 +41,7 @@ namespace Network
 
         bool IsPlanetActive(EPlanetType type) const;
         int32_t GetPlanetSphereId(EPlanetType type) const;
+        void SyncPromotedPlanets(FSimulationWorld& World);
 
     private:
         void RegisterOrRefreshClient(const sockaddr_in& ClientAddr, FSimulationWorld& World);

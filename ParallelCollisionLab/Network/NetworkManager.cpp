@@ -80,6 +80,14 @@ namespace Network
         }
     }
 
+    void FNetworkManager::SyncServerPlanets(FSimulationWorld& World)
+    {
+        if (CurrentRole == ENetworkRole::Server)
+        {
+            ServerInstance.SyncPromotedPlanets(World);
+        }
+    }
+
     void FNetworkManager::UpdateClient(std::vector<FSphere>& Spheres, float BoxHalfSize, float DeltaTime)
     {
         if (CurrentRole == ENetworkRole::Client)

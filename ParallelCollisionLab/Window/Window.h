@@ -34,9 +34,6 @@ struct FInputState
 
 	int  SelectSolver;
 	bool CycleSolver;
-
-	bool StartServer;
-	bool StartClient;
 	bool ToggleDamping;
 
 	// Earth Directional Controls (Arrows + Q/E)

@@ -28,6 +28,7 @@ namespace Network
         void ProcessServerIncoming(FSimulationWorld& World, float DeltaTime = 0.016f);
         void BroadcastServerSnapshot(uint32_t CurrentTick, const std::vector<FSphere>& Spheres, float BoxHalfSize);
         void UpdateServer(uint32_t CurrentTick, FSimulationWorld& World, float DeltaTime = 0.016f);
+        void SyncServerPlanets(FSimulationWorld& World);
 
         void UpdateClient(std::vector<FSphere>& Spheres, float BoxHalfSize, float DeltaTime);
         void SendClientInput(float x, float y, float z);
