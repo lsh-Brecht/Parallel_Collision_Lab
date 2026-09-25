@@ -27,11 +27,10 @@ namespace Network
         EPlanetType GetAssignedPlanet() const { return static_cast<EPlanetType>(AssignedPlanet); }
 
     private:
+        void SendSimplePacket(EPacketType type);
         void SendHandshakeRequest();
         void SendHeartbeat();
         void SendDisconnect();
-
-    private:
         SOCKET      ClientSocket             = INVALID_SOCKET;
         sockaddr_in ServerEndpoint           = {};
         bool        bIsConnected             = false;

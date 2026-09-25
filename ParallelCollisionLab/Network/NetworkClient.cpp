@@ -215,13 +215,13 @@ namespace Network
         }
     }
 
-    void FNetworkClient::SendHandshakeRequest()
+    void FNetworkClient::SendSimplePacket(EPacketType type)
     {
         if (ClientSocket == INVALID_SOCKET) return;
 
-        FHandshakeRequestPacket packet = {};
-        packet.Header.Magic = PROTOCOL_MAGIC;
-        packet.Header.Type  = EPacketType::HandshakeRequest;
+        FPacketHeader packet = {};
+        packet.Magic = PROTOCOL_MAGIC;
+        packet.Type  = type;
 
         sendto(
             ClientSocket,
@@ -232,44 +232,21 @@ namespace Network
             sizeof(ServerEndpoint)
         );
         TotalPacketsSent++;
+    }
+
+    void FNetworkClient::SendHandshakeRequest()
+    {
+        SendSimplePacket(EPacketType::HandshakeRequest);
     }
 
     void FNetworkClient::SendHeartbeat()
     {
-        if (ClientSocket == INVALID_SOCKET) return;
-
-        FPacketHeader packet = {};
-        packet.Magic = PROTOCOL_MAGIC;
-        packet.Type  = EPacketType::Heartbeat;
-
-        sendto(
-            ClientSocket,
-            reinterpret_cast<const char*>(&packet),
-            sizeof(packet),
-            0,
-            reinterpret_cast<const sockaddr*>(&ServerEndpoint),
-            sizeof(ServerEndpoint)
-        );
-        TotalPacketsSent++;
+        SendSimplePacket(EPacketType::Heartbeat);
     }
 
     void FNetworkClient::SendDisconnect()
     {
-        if (ClientSocket == INVALID_SOCKET) return;
-
-        FPacketHeader packet = {};
-        packet.Magic = PROTOCOL_MAGIC;
-        packet.Type  = EPacketType::Disconnect;
-
-        sendto(
-            ClientSocket,
-            reinterpret_cast<const char*>(&packet),
-            sizeof(packet),
-            0,
-            reinterpret_cast<const sockaddr*>(&ServerEndpoint),
-            sizeof(ServerEndpoint)
-        );
-        TotalPacketsSent++;
+        SendSimplePacket(EPacketType::Disconnect);
     }
 
     void FNetworkClient::SendInput(float x, float y, float z)

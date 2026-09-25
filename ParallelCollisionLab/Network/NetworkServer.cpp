@@ -4,6 +4,21 @@
 
 namespace Network
 {
+    inline void PackSphereNetData(FSphereNetData& dst, const FSphere& src, int fallbackId, float boxHalfSize)
+    {
+        dst.Id         = static_cast<uint32_t>((src.Id >= 0) ? src.Id : fallbackId);
+        dst.PosX       = CompressCoord(src.Center.x, boxHalfSize);
+        dst.PosY       = CompressCoord(src.Center.y, boxHalfSize);
+        dst.PosZ       = CompressCoord(src.Center.z, boxHalfSize);
+        dst.VelX       = CompressVelocity(src.Velocity.x);
+        dst.VelY       = CompressVelocity(src.Velocity.y);
+        dst.VelZ       = CompressVelocity(src.Velocity.z);
+        dst.Radius     = CompressRadius(src.Radius);
+        dst.PlanetType = static_cast<uint8_t>(src.PlanetType);
+        dst.Flags      = src.bIsSleeping ? 1 : 0;
+        dst.ColorRGBA  = PackRGBA(src.Color);
+    }
+
     FNetworkServer::FNetworkServer()
         : ServerSocket(INVALID_SOCKET)
     {
@@ -112,8 +127,7 @@ namespace Network
                 {
                     for (auto& client : ConnectedClients)
                     {
-                        if (client.Addr.sin_addr.s_addr == senderAddr.sin_addr.s_addr &&
-                            client.Addr.sin_port == senderAddr.sin_port)
+                        if (MatchesAddress(client.Addr, senderAddr))
                         {
                             client.TimeSinceLastSeen = 0.0f;
                             break;
@@ -132,8 +146,7 @@ namespace Network
                     const auto* inputPacket = reinterpret_cast<const FClientInputPacket*>(recvBuffer);
                     for (auto& client : ConnectedClients)
                     {
-                        if (client.Addr.sin_addr.s_addr == senderAddr.sin_addr.s_addr &&
-                            client.Addr.sin_port == senderAddr.sin_port)
+                        if (MatchesAddress(client.Addr, senderAddr))
                         {
                             client.TimeSinceLastSeen = 0.0f;
                             if (client.AssignedSphereId >= 0 && client.AssignedSphereId == inputPacket->AssignedSphereId)
@@ -210,6 +223,22 @@ namespace Network
             }
         }
 
+        auto SendPacketTo = [&](const void* packet, int packetSize, const std::vector<sockaddr_in>& addrs)
+        {
+            for (const auto& targetAddr : addrs)
+            {
+                sendto(
+                    ServerSocket,
+                    reinterpret_cast<const char*>(packet),
+                    packetSize,
+                    0,
+                    reinterpret_cast<const sockaddr*>(&targetAddr),
+                    sizeof(targetAddr)
+                );
+                TotalPacketsSent++;
+            }
+        };
+
         // 1. Send Full Snapshot to clients that need it (New joins, reconnects, or periodic 2s sync)
         if (!fullSyncAddrs.empty())
         {
@@ -230,34 +259,11 @@ namespace Network
 
                 for (int i = 0; i < count; ++i)
                 {
-                    const FSphere& src = Spheres[startIdx + i];
-                    chunkPacket.Spheres[i].Id         = static_cast<uint32_t>((src.Id >= 0) ? src.Id : (startIdx + i));
-                    chunkPacket.Spheres[i].PosX       = CompressCoord(src.Center.x, BoxHalfSize);
-                    chunkPacket.Spheres[i].PosY       = CompressCoord(src.Center.y, BoxHalfSize);
-                    chunkPacket.Spheres[i].PosZ       = CompressCoord(src.Center.z, BoxHalfSize);
-                    chunkPacket.Spheres[i].VelX       = CompressVelocity(src.Velocity.x);
-                    chunkPacket.Spheres[i].VelY       = CompressVelocity(src.Velocity.y);
-                    chunkPacket.Spheres[i].VelZ       = CompressVelocity(src.Velocity.z);
-                    chunkPacket.Spheres[i].Radius     = CompressRadius(src.Radius);
-                    chunkPacket.Spheres[i].PlanetType = static_cast<uint8_t>(src.PlanetType);
-                    chunkPacket.Spheres[i].Flags      = src.bIsSleeping ? 1 : 0;
-                    chunkPacket.Spheres[i].ColorRGBA  = PackRGBA(src.Color);
+                    PackSphereNetData(chunkPacket.Spheres[i], Spheres[startIdx + i], startIdx + i, BoxHalfSize);
                 }
 
                 int packetSize = sizeof(chunkPacket) - sizeof(chunkPacket.Spheres) + (count * sizeof(FSphereNetData));
-
-                for (const auto& targetAddr : fullSyncAddrs)
-                {
-                    sendto(
-                        ServerSocket,
-                        reinterpret_cast<const char*>(&chunkPacket),
-                        packetSize,
-                        0,
-                        reinterpret_cast<const sockaddr*>(&targetAddr),
-                        sizeof(targetAddr)
-                    );
-                    TotalPacketsSent++;
-                }
+                SendPacketTo(&chunkPacket, packetSize, fullSyncAddrs);
             }
         }
 
@@ -292,19 +298,7 @@ namespace Network
                 keepAlivePacket.CountInPacket = 0;
 
                 int packetSize = sizeof(keepAlivePacket) - sizeof(keepAlivePacket.Spheres);
-
-                for (const auto& targetAddr : deltaSyncAddrs)
-                {
-                    sendto(
-                        ServerSocket,
-                        reinterpret_cast<const char*>(&keepAlivePacket),
-                        packetSize,
-                        0,
-                        reinterpret_cast<const sockaddr*>(&targetAddr),
-                        sizeof(targetAddr)
-                    );
-                    TotalPacketsSent++;
-                }
+                SendPacketTo(&keepAlivePacket, packetSize, deltaSyncAddrs);
             }
             else
             {
@@ -327,34 +321,11 @@ namespace Network
 
                     for (int i = 0; i < count; ++i)
                     {
-                        const FSphere* src = activeSpheres[startIdx + i];
-                        chunkPacket.Spheres[i].Id         = static_cast<uint32_t>((src->Id >= 0) ? src->Id : (startIdx + i));
-                        chunkPacket.Spheres[i].PosX       = CompressCoord(src->Center.x, BoxHalfSize);
-                        chunkPacket.Spheres[i].PosY       = CompressCoord(src->Center.y, BoxHalfSize);
-                        chunkPacket.Spheres[i].PosZ       = CompressCoord(src->Center.z, BoxHalfSize);
-                        chunkPacket.Spheres[i].VelX       = CompressVelocity(src->Velocity.x);
-                        chunkPacket.Spheres[i].VelY       = CompressVelocity(src->Velocity.y);
-                        chunkPacket.Spheres[i].VelZ       = CompressVelocity(src->Velocity.z);
-                        chunkPacket.Spheres[i].Radius     = CompressRadius(src->Radius);
-                        chunkPacket.Spheres[i].PlanetType = static_cast<uint8_t>(src->PlanetType);
-                        chunkPacket.Spheres[i].Flags      = src->bIsSleeping ? 1 : 0;
-                        chunkPacket.Spheres[i].ColorRGBA  = PackRGBA(src->Color);
+                        PackSphereNetData(chunkPacket.Spheres[i], *activeSpheres[startIdx + i], startIdx + i, BoxHalfSize);
                     }
 
                     int packetSize = sizeof(chunkPacket) - sizeof(chunkPacket.Spheres) + (count * sizeof(FSphereNetData));
-
-                    for (const auto& targetAddr : deltaSyncAddrs)
-                    {
-                        sendto(
-                            ServerSocket,
-                            reinterpret_cast<const char*>(&chunkPacket),
-                            packetSize,
-                            0,
-                            reinterpret_cast<const sockaddr*>(&targetAddr),
-                            sizeof(targetAddr)
-                        );
-                        TotalPacketsSent++;
-                    }
+                    SendPacketTo(&chunkPacket, packetSize, deltaSyncAddrs);
                 }
             }
         }
@@ -365,8 +336,7 @@ namespace Network
     {
         for (auto& existing : ConnectedClients)
         {
-            if (existing.Addr.sin_addr.s_addr == ClientAddr.sin_addr.s_addr &&
-                existing.Addr.sin_port == ClientAddr.sin_port)
+            if (MatchesAddress(existing.Addr, ClientAddr))
             {
                 existing.TimeSinceLastSeen = 0.0f; // Heartbeat refreshed
                 existing.FullSyncRemainingTicks = 60; // Refresh full snapshot
@@ -429,10 +399,9 @@ namespace Network
 
     void FNetworkServer::RemoveClient(const sockaddr_in& ClientAddr, FSimulationWorld& World)
     {
-        for (auto it = ConnectedClients.begin(); it != ConnectedClients.end(); )
+        for (auto it = ConnectedClients.begin(); it != ConnectedClients.end(); ++it)
         {
-            if (it->Addr.sin_addr.s_addr == ClientAddr.sin_addr.s_addr &&
-                it->Addr.sin_port == ClientAddr.sin_port)
+            if (MatchesAddress(it->Addr, ClientAddr))
             {
                 if (it->AssignedSphereId >= 0)
                 {
@@ -440,10 +409,6 @@ namespace Network
                 }
                 ConnectedClients.erase(it);
                 break;
-            }
-            else
-            {
-                ++it;
             }
         }
     }
