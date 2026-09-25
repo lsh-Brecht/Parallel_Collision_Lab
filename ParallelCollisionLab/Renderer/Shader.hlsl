@@ -10,12 +10,13 @@ cbuffer PerObject : register(b1)
 {
     row_major float4x4 Model;
     float4             BallColor;
-    int                bUseTexture; // 0: Solid color, 1: Textured (Player)
+    int                RenderMode; // 0: None, 1: Earth, 2: Mars, 3: UVMap
     float3             Padding;
 };
 
-Texture2D    g_Texture : register(t0);
-SamplerState g_Sampler : register(s0);
+Texture2D    g_TextureEarth : register(t0);
+Texture2D    g_TextureMars  : register(t1);
+SamplerState g_Sampler      : register(s0);
 
 struct VS_INPUT
 {
@@ -44,9 +45,17 @@ PS_INPUT mainVS(VS_INPUT input)
 
 float4 mainPS(PS_INPUT input) : SV_TARGET
 {
-    if (bUseTexture != 0)
+    if (RenderMode == 1)
     {
-        return g_Texture.Sample(g_Sampler, input.TexCoord);
+        return g_TextureEarth.Sample(g_Sampler, input.TexCoord);
+    }
+    else if (RenderMode == 2)
+    {
+        return g_TextureMars.Sample(g_Sampler, input.TexCoord);
+    }
+    else if (RenderMode == 3)
+    {
+        return float4(input.TexCoord.x, input.TexCoord.y, 0.0f, 1.0f);
     }
     return input.Color;
 }

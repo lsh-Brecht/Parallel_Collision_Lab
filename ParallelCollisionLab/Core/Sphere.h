@@ -119,17 +119,26 @@ static const int   MIN_SPHERES  = 16;
 static const int   MAX_SPHERES  = 2048;
 static const float SPEED_FACTOR = 0.8f;
 
+enum class EPlanetType : uint8_t
+{
+	None  = 0,
+	Earth = 1,
+	Mars  = 2,
+	UVMap = 3
+};
+
 struct FSphere
 {
-	int32_t  Id = 0;
-	FVector3 Center;
-	FVector3 Velocity;
-	FVector4 Color;
-	FVector4 BaseColor;
-	float    Radius;
-	float    Mass;
-	bool     bIsSleeping = false;
-	float    SleepTimer  = 0.0f;
+	int32_t     Id = 0;
+	EPlanetType PlanetType = EPlanetType::None;
+	FVector3    Center;
+	FVector3    Velocity;
+	FVector4    Color;
+	FVector4    BaseColor;
+	float       Radius;
+	float       Mass;
+	bool        bIsSleeping = false;
+	float       SleepTimer  = 0.0f;
 
 	FMatrix4x4 GetModelMatrix() const
 	{
@@ -227,7 +236,9 @@ struct FSphere
 	}
 };
 
-static const float EARTH_BASE_RADIUS = 0.36f;
+static const float PLANET_BASE_RADIUS = 0.36f;
+static const float EARTH_BASE_RADIUS  = PLANET_BASE_RADIUS;
+static const float MARS_BASE_RADIUS   = PLANET_BASE_RADIUS;
 
 inline std::vector<FSphere> CreateSpheres(int numSpheres, float L, bool bMultiScale = false)
 {
@@ -240,7 +251,8 @@ inline std::vector<FSphere> CreateSpheres(int numSpheres, float L, bool bMultiSc
 	{
 		FSphere earth;
 		earth.Id          = 0;
-		earth.Radius      = EARTH_BASE_RADIUS * scale;
+		earth.PlanetType  = EPlanetType::Earth;
+		earth.Radius      = PLANET_BASE_RADIUS * scale;
 		earth.Mass        = earth.Radius * earth.Radius * earth.Radius;
 		earth.Center      = FVector3(0.0f, 0.0f, 0.0f);
 		earth.Velocity    = FVector3(RandF(-0.8f, 0.8f), RandF(-0.8f, 0.8f), RandF(-0.8f, 0.8f));
@@ -305,6 +317,23 @@ inline std::vector<FSphere> CreateSpheres(int numSpheres, float L, bool bMultiSc
 			c.BaseColor   = c.Color;
 			c.bIsSleeping = false;
 			c.SleepTimer  = 0.0f;
+
+			if (i == 1)
+			{
+				c.PlanetType = EPlanetType::Mars;
+				c.Radius     = PLANET_BASE_RADIUS * scale;
+				c.Mass       = c.Radius * c.Radius * c.Radius;
+				c.Color      = FVector4(1.0f, 1.0f, 1.0f, 1.0f);
+				c.BaseColor  = c.Color;
+			}
+			else if (i == 2)
+			{
+				c.PlanetType = EPlanetType::UVMap;
+				c.Radius     = PLANET_BASE_RADIUS * scale;
+				c.Mass       = c.Radius * c.Radius * c.Radius;
+				c.Color      = FVector4(1.0f, 1.0f, 1.0f, 1.0f);
+				c.BaseColor  = c.Color;
+			}
 
 			for (const FSphere& e : spheres)
 			{

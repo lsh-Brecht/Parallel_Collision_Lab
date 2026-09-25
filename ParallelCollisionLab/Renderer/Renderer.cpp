@@ -11,7 +11,7 @@ bool URenderer::Init(HWND hWnd)
 	CreateRasterizerState();
 	CreateShader();
 	CreateConstantBuffers();
-	CreateEarthTexture();
+	CreatePlanetTextures();
 
 	DynamicLineCapacity = 65536;
 	D3D11_BUFFER_DESC desc = {};
@@ -27,7 +27,7 @@ bool URenderer::Init(HWND hWnd)
 void URenderer::Shutdown()
 {
 	if (DynamicLineVB) { DynamicLineVB->Release(); DynamicLineVB = nullptr; }
-	ReleaseEarthTexture();
+	ReleasePlanetTextures();
 	ReleaseConstantBuffers();
 	ReleaseShader();
 	ReleaseRasterizerState();
@@ -78,10 +78,10 @@ void URenderer::BeginFrame(const FMatrix4x4& viewProj)
 	DeviceContext->VSSetConstantBuffers(0, 2, cbs);
 	DeviceContext->PSSetConstantBuffers(1, 1, &CBPerObject);
 
-	if (EarthSRV)
-		DeviceContext->PSSetShaderResources(0, 1, &EarthSRV);
-	if (EarthSampler)
-		DeviceContext->PSSetSamplers(0, 1, &EarthSampler);
+	ID3D11ShaderResourceView* srvs[2] = { EarthSRV, MarsSRV };
+	DeviceContext->PSSetShaderResources(0, 2, srvs);
+	if (PlanetSampler)
+		DeviceContext->PSSetSamplers(0, 1, &PlanetSampler);
 
 	FPerFrameConstants perFrame;
 	perFrame.ViewProj = viewProj;
@@ -89,12 +89,12 @@ void URenderer::BeginFrame(const FMatrix4x4& viewProj)
 }
 
 void URenderer::RenderSphere(const FMatrix4x4& model, const FVector4& color,
-                             ID3D11Buffer* pVB, UINT vertexCount, bool bUseTexture)
+                             ID3D11Buffer* pVB, UINT vertexCount, int renderMode)
 {
 	FPerObjectConstants perObj;
 	perObj.Model = model;
 	perObj.Color = color;
-	perObj.bUseTexture = bUseTexture ? 1 : 0;
+	perObj.RenderMode = renderMode;
 	UpdateConstantBuffer(CBPerObject, perObj);
 
 	UINT offset = 0;
@@ -424,15 +424,18 @@ static bool LoadTextureWithDirectXTex(
 	return SUCCEEDED(hr);
 }
 
-void URenderer::CreateEarthTexture()
+void URenderer::CreatePlanetTextures()
 {
-	ReleaseEarthTexture();
+	ReleasePlanetTextures();
 
 	// Initialize COM for WIC/DirectXTex
 	CoInitializeEx(nullptr, COINIT_MULTITHREADED);
 
-	const wchar_t* texturePath = L"Resource/NASA_BlueMarble_May_5400x2700.jpg";
-	LoadTextureWithDirectXTex(Device, texturePath, &EarthSRV);
+	const wchar_t* earthTexturePath = L"Resource/NASA_BlueMarble_May_540x270.jpg";
+	LoadTextureWithDirectXTex(Device, earthTexturePath, &EarthSRV);
+
+	const wchar_t* marsTexturePath = L"Resource/NASA_Mars Projection Map_400x183.jpg";
+	LoadTextureWithDirectXTex(Device, marsTexturePath, &MarsSRV);
 
 	// Create bilinear wrap/clamp sampler
 	D3D11_SAMPLER_DESC sampDesc = {};
@@ -443,11 +446,12 @@ void URenderer::CreateEarthTexture()
 	sampDesc.ComparisonFunc = D3D11_COMPARISON_NEVER;
 	sampDesc.MinLOD = 0;
 	sampDesc.MaxLOD = D3D11_FLOAT32_MAX;
-	Device->CreateSamplerState(&sampDesc, &EarthSampler);
+	Device->CreateSamplerState(&sampDesc, &PlanetSampler);
 }
 
-void URenderer::ReleaseEarthTexture()
+void URenderer::ReleasePlanetTextures()
 {
-	if (EarthSRV)     { EarthSRV->Release();     EarthSRV     = nullptr; }
-	if (EarthSampler) { EarthSampler->Release(); EarthSampler = nullptr; }
+	if (EarthSRV)      { EarthSRV->Release();      EarthSRV      = nullptr; }
+	if (MarsSRV)       { MarsSRV->Release();       MarsSRV       = nullptr; }
+	if (PlanetSampler) { PlanetSampler->Release(); PlanetSampler = nullptr; }
 }

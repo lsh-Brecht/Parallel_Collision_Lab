@@ -46,8 +46,7 @@ public:
         for (size_t i = 0; i < spheres.size(); ++i)
         {
             const FSphere& s = spheres[i];
-            bool bIsPlayer = (i == 0);
-            Renderer.RenderSphere(s.GetModelMatrix(), s.Color, SphereVB, SphereVertexCount, bIsPlayer);
+            Renderer.RenderSphere(s.GetModelMatrix(), s.Color, SphereVB, SphereVertexCount, static_cast<int>(s.PlanetType));
         }
 
         if (bShowGridVis)
