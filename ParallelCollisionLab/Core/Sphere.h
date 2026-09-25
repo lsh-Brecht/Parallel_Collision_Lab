@@ -137,8 +137,9 @@ struct FSphere
 	FVector4    BaseColor;
 	float       Radius;
 	float       Mass;
-	bool        bIsSleeping = false;
-	float       SleepTimer  = 0.0f;
+	bool        bIsSleeping     = false;
+	float       SleepTimer      = 0.0f;
+	uint8_t     SleepSyncFrames = 60;
 
 	FMatrix4x4 GetModelMatrix() const
 	{
@@ -147,8 +148,9 @@ struct FSphere
 
 	void WakeUp()
 	{
-		bIsSleeping = false;
-		SleepTimer  = 0.0f;
+		bIsSleeping     = false;
+		SleepTimer      = 0.0f;
+		SleepSyncFrames = 60;
 	}
 
 	void Update(float DeltaTime, bool bApplyDamping = false,
@@ -181,7 +183,12 @@ struct FSphere
 
 		if (!bIsSleeping)
 		{
+			SleepSyncFrames = 60;
 			Center += Velocity * (DeltaTime * SPEED_FACTOR);
+		}
+		else if (SleepSyncFrames > 0)
+		{
+			SleepSyncFrames--;
 		}
 
 		// Smooth Color Lerp
@@ -299,8 +306,9 @@ inline std::vector<FSphere> CreateSpheres(int numSpheres, float L, bool bMultiSc
 			ColorRand = (ColorRand > 230.0f) ? ColorRand + 20.0f : ColorRand;
 			c.Color       = HSVtoRGB(ColorRand, RandF(0.85f, 1.0f), RandF(0.85f, 1.0f));
 			c.BaseColor   = c.Color;
-			c.bIsSleeping = false;
-			c.SleepTimer  = 0.0f;
+			c.bIsSleeping     = false;
+			c.SleepTimer      = 0.0f;
+			c.SleepSyncFrames = 60;
 
 			for (const FSphere& e : spheres)
 			{

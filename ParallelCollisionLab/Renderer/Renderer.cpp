@@ -408,7 +408,20 @@ static bool LoadTextureWithDirectXTex(
 	DirectX::ScratchImage image;
 	HRESULT hr = DirectX::LoadFromWICFile(Filename, DirectX::WIC_FLAGS_NONE, nullptr, image);
 	if (FAILED(hr))
-		return false;
+	{
+		wchar_t modulePath[MAX_PATH];
+		GetModuleFileNameW(nullptr, modulePath, MAX_PATH);
+		std::wstring exeDir = modulePath;
+		size_t lastSlash = exeDir.find_last_of(L"\\/");
+		if (lastSlash != std::wstring::npos)
+		{
+			exeDir = exeDir.substr(0, lastSlash + 1);
+		}
+		std::wstring candidate = exeDir + Filename;
+		hr = DirectX::LoadFromWICFile(candidate.c_str(), DirectX::WIC_FLAGS_NONE, nullptr, image);
+		if (FAILED(hr))
+			return false;
+	}
 
 	// High-resolution textures (5400x2700) benefit from mipmaps to prevent aliasing/flicker at distance
 	DirectX::ScratchImage mipChain;

@@ -11,9 +11,10 @@ namespace Network
     struct FConnectedClient
     {
         sockaddr_in Addr;
-        float       TimeSinceLastSeen = 0.0f;
-        int32_t     AssignedSphereId  = -1;
-        uint8_t     AssignedPlanet    = 0; // 0: None/Spectator, 1: Earth, 2: Mars, 3: UVMap
+        float       TimeSinceLastSeen      = 0.0f;
+        int32_t     AssignedSphereId       = -1;
+        uint8_t     AssignedPlanet         = 0; // 0: None/Spectator, 1: Earth, 2: Mars, 3: UVMap
+        uint32_t    FullSyncRemainingTicks = 120; // Full snapshot for first 120 ticks upon joining/reconnecting
     };
 
     class FNetworkServer
@@ -49,10 +50,11 @@ namespace Network
         void SendHandshakeResponse(const sockaddr_in& Target, uint32_t SphereCount, float BoxHalfSize, int32_t AssignedSphereId, uint8_t AssignedPlanet);
 
     private:
-        SOCKET                        ServerSocket         = INVALID_SOCKET;
-        uint16_t                      ListenPort           = DEFAULT_SERVER_PORT;
+        SOCKET                        ServerSocket             = INVALID_SOCKET;
+        uint16_t                      ListenPort               = DEFAULT_SERVER_PORT;
         std::vector<FConnectedClient> ConnectedClients;
-        uint32_t                      TotalPacketsSent     = 0;
-        uint32_t                      TotalPacketsReceived = 0;
+        uint32_t                      TotalPacketsSent         = 0;
+        uint32_t                      TotalPacketsReceived     = 0;
+        uint32_t                      LastBroadcastSphereCount = 0;
     };
 }

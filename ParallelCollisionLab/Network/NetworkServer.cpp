@@ -154,11 +154,11 @@ namespace Network
             }
         }
 
-        // 2. Client heartbeat timeout check (5.0s threshold)
+        // 2. Client heartbeat timeout check (20.0s threshold to tolerate WAN lag and window dragging)
         for (auto it = ConnectedClients.begin(); it != ConnectedClients.end(); )
         {
             it->TimeSinceLastSeen += DeltaTime;
-            if (it->TimeSinceLastSeen > 5.0f)
+            if (it->TimeSinceLastSeen > 20.0f)
             {
                 if (it->AssignedSphereId >= 0)
                 {
@@ -182,51 +182,186 @@ namespace Network
             return;
 
         const int totalSpheres = static_cast<int>(Spheres.size());
-        const uint16_t totalChunks = static_cast<uint16_t>((totalSpheres + MAX_SPHERES_PER_CHUNK - 1) / MAX_SPHERES_PER_CHUNK);
 
-        for (uint16_t c = 0; c < totalChunks; ++c)
+        // Check if sphere count changed (e.g. world reset or count toggle)
+        if (static_cast<uint32_t>(totalSpheres) != LastBroadcastSphereCount)
         {
-            FSnapshotChunkPacket chunkPacket = {};
-            chunkPacket.Header.Magic = PROTOCOL_MAGIC;
-            chunkPacket.Header.Type  = EPacketType::SnapshotChunk;
-            chunkPacket.ChunkIndex   = c;
-            chunkPacket.TotalChunks  = totalChunks;
-            chunkPacket.ServerTick   = CurrentTick;
-            chunkPacket.TotalSpheres = static_cast<uint32_t>(totalSpheres);
-
-            int startIdx = c * MAX_SPHERES_PER_CHUNK;
-            int count    = (std::min)(MAX_SPHERES_PER_CHUNK, totalSpheres - startIdx);
-            chunkPacket.CountInPacket = static_cast<uint16_t>(count);
-
-            for (int i = 0; i < count; ++i)
+            LastBroadcastSphereCount = static_cast<uint32_t>(totalSpheres);
+            for (auto& client : ConnectedClients)
             {
-                const FSphere& src = Spheres[startIdx + i];
-                chunkPacket.Spheres[i].Id         = static_cast<uint32_t>((src.Id >= 0) ? src.Id : (startIdx + i));
-                chunkPacket.Spheres[i].PosX       = CompressCoord(src.Center.x, BoxHalfSize);
-                chunkPacket.Spheres[i].PosY       = CompressCoord(src.Center.y, BoxHalfSize);
-                chunkPacket.Spheres[i].PosZ       = CompressCoord(src.Center.z, BoxHalfSize);
-                chunkPacket.Spheres[i].VelX       = CompressVelocity(src.Velocity.x);
-                chunkPacket.Spheres[i].VelY       = CompressVelocity(src.Velocity.y);
-                chunkPacket.Spheres[i].VelZ       = CompressVelocity(src.Velocity.z);
-                chunkPacket.Spheres[i].Radius     = CompressRadius(src.Radius);
-                chunkPacket.Spheres[i].PlanetType = static_cast<uint8_t>(src.PlanetType);
-                chunkPacket.Spheres[i].Flags      = src.bIsSleeping ? 1 : 0;
-                chunkPacket.Spheres[i].ColorRGBA  = PackRGBA(src.Color);
+                client.FullSyncRemainingTicks = 60;
+            }
+        }
+
+        // Periodic baseline full sync every 120 ticks (~2 sec) for WAN packet loss self-healing
+        const bool bPeriodicFullSync = (CurrentTick % 120 == 0);
+
+        // Partition clients into FullSync recipients vs Dormancy-Optimized (Delta) recipients
+        std::vector<sockaddr_in> fullSyncAddrs;
+        std::vector<sockaddr_in> deltaSyncAddrs;
+
+        for (auto& client : ConnectedClients)
+        {
+            if (bPeriodicFullSync || client.FullSyncRemainingTicks > 0)
+            {
+                fullSyncAddrs.push_back(client.Addr);
+                if (client.FullSyncRemainingTicks > 0)
+                {
+                    client.FullSyncRemainingTicks--;
+                }
+            }
+            else
+            {
+                deltaSyncAddrs.push_back(client.Addr);
+            }
+        }
+
+        // 1. Send Full Snapshot to clients that need it (New joins, reconnects, or periodic 2s sync)
+        if (!fullSyncAddrs.empty())
+        {
+            const uint16_t totalChunks = static_cast<uint16_t>((totalSpheres + MAX_SPHERES_PER_CHUNK - 1) / MAX_SPHERES_PER_CHUNK);
+            for (uint16_t c = 0; c < totalChunks; ++c)
+            {
+                FSnapshotChunkPacket chunkPacket = {};
+                chunkPacket.Header.Magic = PROTOCOL_MAGIC;
+                chunkPacket.Header.Type  = EPacketType::SnapshotChunk;
+                chunkPacket.ChunkIndex   = c;
+                chunkPacket.TotalChunks  = totalChunks;
+                chunkPacket.ServerTick   = CurrentTick;
+                chunkPacket.TotalSpheres = static_cast<uint32_t>(totalSpheres);
+
+                int startIdx = c * MAX_SPHERES_PER_CHUNK;
+                int count    = (std::min)(MAX_SPHERES_PER_CHUNK, totalSpheres - startIdx);
+                chunkPacket.CountInPacket = static_cast<uint16_t>(count);
+
+                for (int i = 0; i < count; ++i)
+                {
+                    const FSphere& src = Spheres[startIdx + i];
+                    chunkPacket.Spheres[i].Id         = static_cast<uint32_t>((src.Id >= 0) ? src.Id : (startIdx + i));
+                    chunkPacket.Spheres[i].PosX       = CompressCoord(src.Center.x, BoxHalfSize);
+                    chunkPacket.Spheres[i].PosY       = CompressCoord(src.Center.y, BoxHalfSize);
+                    chunkPacket.Spheres[i].PosZ       = CompressCoord(src.Center.z, BoxHalfSize);
+                    chunkPacket.Spheres[i].VelX       = CompressVelocity(src.Velocity.x);
+                    chunkPacket.Spheres[i].VelY       = CompressVelocity(src.Velocity.y);
+                    chunkPacket.Spheres[i].VelZ       = CompressVelocity(src.Velocity.z);
+                    chunkPacket.Spheres[i].Radius     = CompressRadius(src.Radius);
+                    chunkPacket.Spheres[i].PlanetType = static_cast<uint8_t>(src.PlanetType);
+                    chunkPacket.Spheres[i].Flags      = src.bIsSleeping ? 1 : 0;
+                    chunkPacket.Spheres[i].ColorRGBA  = PackRGBA(src.Color);
+                }
+
+                int packetSize = sizeof(chunkPacket) - sizeof(chunkPacket.Spheres) + (count * sizeof(FSphereNetData));
+
+                for (const auto& targetAddr : fullSyncAddrs)
+                {
+                    sendto(
+                        ServerSocket,
+                        reinterpret_cast<const char*>(&chunkPacket),
+                        packetSize,
+                        0,
+                        reinterpret_cast<const sockaddr*>(&targetAddr),
+                        sizeof(targetAddr)
+                    );
+                    TotalPacketsSent++;
+                }
+            }
+        }
+
+        // 2. Send Dormancy-Filtered Active Snapshot to established clients
+        if (!deltaSyncAddrs.empty())
+        {
+            // Collect spheres that require replication:
+            // - Active/moving spheres (!s.bIsSleeping)
+            // - Spheres settling into sleep during grace period (s.SleepSyncFrames > 0)
+            // - Assigned player planets (s.PlanetType != EPlanetType::None)
+            std::vector<const FSphere*> activeSpheres;
+            activeSpheres.reserve(Spheres.size());
+
+            for (const auto& s : Spheres)
+            {
+                if (!s.bIsSleeping || s.SleepSyncFrames > 0 || s.PlanetType != EPlanetType::None)
+                {
+                    activeSpheres.push_back(&s);
+                }
             }
 
-            int packetSize = sizeof(chunkPacket) - sizeof(chunkPacket.Spheres) + (count * sizeof(FSphereNetData));
-
-            for (const auto& client : ConnectedClients)
+            if (activeSpheres.empty())
             {
-                sendto(
-                    ServerSocket,
-                    reinterpret_cast<const char*>(&chunkPacket),
-                    packetSize,
-                    0,
-                    reinterpret_cast<const sockaddr*>(&client.Addr),
-                    sizeof(client.Addr)
-                );
-                TotalPacketsSent++;
+                // All spheres are dormant! Send 1 tiny keep-alive chunk so clients know connection is active
+                FSnapshotChunkPacket keepAlivePacket = {};
+                keepAlivePacket.Header.Magic = PROTOCOL_MAGIC;
+                keepAlivePacket.Header.Type  = EPacketType::SnapshotChunk;
+                keepAlivePacket.ChunkIndex   = 0;
+                keepAlivePacket.TotalChunks  = 1;
+                keepAlivePacket.ServerTick   = CurrentTick;
+                keepAlivePacket.TotalSpheres = static_cast<uint32_t>(totalSpheres);
+                keepAlivePacket.CountInPacket = 0;
+
+                int packetSize = sizeof(keepAlivePacket) - sizeof(keepAlivePacket.Spheres);
+
+                for (const auto& targetAddr : deltaSyncAddrs)
+                {
+                    sendto(
+                        ServerSocket,
+                        reinterpret_cast<const char*>(&keepAlivePacket),
+                        packetSize,
+                        0,
+                        reinterpret_cast<const sockaddr*>(&targetAddr),
+                        sizeof(targetAddr)
+                    );
+                    TotalPacketsSent++;
+                }
+            }
+            else
+            {
+                const int totalActive = static_cast<int>(activeSpheres.size());
+                const uint16_t totalActiveChunks = static_cast<uint16_t>((totalActive + MAX_SPHERES_PER_CHUNK - 1) / MAX_SPHERES_PER_CHUNK);
+
+                for (uint16_t c = 0; c < totalActiveChunks; ++c)
+                {
+                    FSnapshotChunkPacket chunkPacket = {};
+                    chunkPacket.Header.Magic = PROTOCOL_MAGIC;
+                    chunkPacket.Header.Type  = EPacketType::SnapshotChunk;
+                    chunkPacket.ChunkIndex   = c;
+                    chunkPacket.TotalChunks  = totalActiveChunks;
+                    chunkPacket.ServerTick   = CurrentTick;
+                    chunkPacket.TotalSpheres = static_cast<uint32_t>(totalSpheres);
+
+                    int startIdx = c * MAX_SPHERES_PER_CHUNK;
+                    int count    = (std::min)(MAX_SPHERES_PER_CHUNK, totalActive - startIdx);
+                    chunkPacket.CountInPacket = static_cast<uint16_t>(count);
+
+                    for (int i = 0; i < count; ++i)
+                    {
+                        const FSphere* src = activeSpheres[startIdx + i];
+                        chunkPacket.Spheres[i].Id         = static_cast<uint32_t>((src->Id >= 0) ? src->Id : (startIdx + i));
+                        chunkPacket.Spheres[i].PosX       = CompressCoord(src->Center.x, BoxHalfSize);
+                        chunkPacket.Spheres[i].PosY       = CompressCoord(src->Center.y, BoxHalfSize);
+                        chunkPacket.Spheres[i].PosZ       = CompressCoord(src->Center.z, BoxHalfSize);
+                        chunkPacket.Spheres[i].VelX       = CompressVelocity(src->Velocity.x);
+                        chunkPacket.Spheres[i].VelY       = CompressVelocity(src->Velocity.y);
+                        chunkPacket.Spheres[i].VelZ       = CompressVelocity(src->Velocity.z);
+                        chunkPacket.Spheres[i].Radius     = CompressRadius(src->Radius);
+                        chunkPacket.Spheres[i].PlanetType = static_cast<uint8_t>(src->PlanetType);
+                        chunkPacket.Spheres[i].Flags      = src->bIsSleeping ? 1 : 0;
+                        chunkPacket.Spheres[i].ColorRGBA  = PackRGBA(src->Color);
+                    }
+
+                    int packetSize = sizeof(chunkPacket) - sizeof(chunkPacket.Spheres) + (count * sizeof(FSphereNetData));
+
+                    for (const auto& targetAddr : deltaSyncAddrs)
+                    {
+                        sendto(
+                            ServerSocket,
+                            reinterpret_cast<const char*>(&chunkPacket),
+                            packetSize,
+                            0,
+                            reinterpret_cast<const sockaddr*>(&targetAddr),
+                            sizeof(targetAddr)
+                        );
+                        TotalPacketsSent++;
+                    }
+                }
             }
         }
     }
@@ -245,6 +380,7 @@ namespace Network
                 existing.Addr.sin_port == ClientAddr.sin_port)
             {
                 existing.TimeSinceLastSeen = 0.0f; // Heartbeat refreshed
+                existing.FullSyncRemainingTicks = 60; // Refresh full snapshot
                 SendHandshakeResponse(existing.Addr, static_cast<uint32_t>(World.GetSphereCount()), World.GetBoxHalfSize(), existing.AssignedSphereId, existing.AssignedPlanet);
                 return;
             }
@@ -292,10 +428,11 @@ namespace Network
         }
 
         FConnectedClient newClient;
-        newClient.Addr              = ClientAddr;
-        newClient.TimeSinceLastSeen = 0.0f;
-        newClient.AssignedSphereId  = assignedSphere;
-        newClient.AssignedPlanet    = assignedPlanet;
+        newClient.Addr                   = ClientAddr;
+        newClient.TimeSinceLastSeen      = 0.0f;
+        newClient.AssignedSphereId       = assignedSphere;
+        newClient.AssignedPlanet         = assignedPlanet;
+        newClient.FullSyncRemainingTicks = 120;
         ConnectedClients.push_back(newClient);
 
         SendHandshakeResponse(newClient.Addr, static_cast<uint32_t>(World.GetSphereCount()), World.GetBoxHalfSize(), assignedSphere, assignedPlanet);
