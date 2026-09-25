@@ -1,6 +1,5 @@
 #include "Renderer.h"
 #include <string>
-#include <vector>
 #include <DirectXTex.h>
 
 bool URenderer::Init(HWND hWnd)

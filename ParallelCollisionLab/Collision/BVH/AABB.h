@@ -26,11 +26,6 @@ struct FAABB
         );
     }
 
-    static FAABB FromPoint(const FVector3& Point)
-    {
-        return FAABB(Point, Point);
-    }
-
     void ExpandBy(const FAABB& Other)
     {
         Min.x = (std::min)(Min.x, Other.Min.x);
@@ -51,14 +46,6 @@ struct FAABB
         Max.x = (std::max)(Max.x, Point.x);
         Max.y = (std::max)(Max.y, Point.y);
         Max.z = (std::max)(Max.z, Point.z);
-    }
-
-    FAABB Union(const FAABB& Other) const
-    {
-        return FAABB(
-            FVector3((std::min)(Min.x, Other.Min.x), (std::min)(Min.y, Other.Min.y), (std::min)(Min.z, Other.Min.z)),
-            FVector3((std::max)(Max.x, Other.Max.x), (std::max)(Max.y, Other.Max.y), (std::max)(Max.z, Other.Max.z))
-        );
     }
 
     bool Intersects(const FAABB& Other) const
@@ -86,22 +73,11 @@ struct FAABB
         );
     }
 
-    float GetSurfaceArea() const
-    {
-        FVector3 d = GetExtent();
-        return 2.0f * (d.x * d.y + d.y * d.z + d.z * d.x);
-    }
-
     int GetLongestAxis() const
     {
         FVector3 d = GetExtent();
         if (d.x >= d.y && d.x >= d.z) return 0;
         if (d.y >= d.z)               return 1;
         return 2;
-    }
-
-    bool IsValid() const
-    {
-        return Min.x <= Max.x && Min.y <= Max.y && Min.z <= Max.z;
     }
 };

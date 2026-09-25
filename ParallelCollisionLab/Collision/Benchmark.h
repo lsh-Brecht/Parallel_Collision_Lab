@@ -19,7 +19,6 @@ struct FBenchmarkItem
     double       AvgNarrowMs = 0.0;
     double       MinNarrowMs = 0.0;
     double       MaxNarrowMs = 0.0;
-    double       AvgTotalMs  = 0.0;
     double       Speedup     = 1.0;
 };
 
@@ -214,7 +213,6 @@ inline FBenchmarkReport RunBenchmark(
         item.AvgNarrowMs = avgNarrowMs;
         item.MinNarrowMs = minNarrowMs;
         item.MaxNarrowMs = maxNarrowMs;
-        item.AvgTotalMs  = avgTotalMs;
         item.Speedup     = speedup;
 
         report.Items.push_back(item);

@@ -110,9 +110,6 @@ namespace Network
                 }
                 else if (header->Type == EPacketType::Heartbeat)
                 {
-                    if (bytesRead < static_cast<int>(sizeof(FPacketHeader)))
-                        continue;
-
                     for (auto& client : ConnectedClients)
                     {
                         if (client.Addr.sin_addr.s_addr == senderAddr.sin_addr.s_addr &&
@@ -125,9 +122,6 @@ namespace Network
                 }
                 else if (header->Type == EPacketType::Disconnect)
                 {
-                    if (bytesRead < static_cast<int>(sizeof(FPacketHeader)))
-                        continue;
-
                     RemoveClient(senderAddr, World);
                 }
                 else if (header->Type == EPacketType::ClientInput)
@@ -366,11 +360,6 @@ namespace Network
         }
     }
 
-    void FNetworkServer::Update(uint32_t CurrentTick, FSimulationWorld& World, float DeltaTime)
-    {
-        ProcessIncoming(World, DeltaTime);
-        BroadcastSnapshot(CurrentTick, World.GetSpheres(), World.GetBoxHalfSize());
-    }
 
     void FNetworkServer::RegisterOrRefreshClient(const sockaddr_in& ClientAddr, FSimulationWorld& World)
     {
@@ -449,7 +438,8 @@ namespace Network
                 {
                     World.DemotePlanet(it->AssignedSphereId);
                 }
-                it = ConnectedClients.erase(it);
+                ConnectedClients.erase(it);
+                break;
             }
             else
             {

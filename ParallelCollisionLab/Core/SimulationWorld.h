@@ -9,7 +9,6 @@
 #include "Sphere.h"
 #include "Timer.h"
 #include "AppConfig.h"
-#include "CPUInfo.h"
 #include "../Collision/ICollisionSolver.h"
 #include "../Collision/NestedLoop/NestedLoopSolver.h"
 #include "../Collision/NestedLoop/NestedLoopMTSolver.h"

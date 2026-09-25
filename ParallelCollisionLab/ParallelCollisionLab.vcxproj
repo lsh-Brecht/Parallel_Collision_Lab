@@ -177,7 +177,6 @@
     <ClInclude Include="Window\BenchmarkWindow.h" />
     <ClInclude Include="Collision\ICollisionSolver.h" />
     <ClInclude Include="Collision\CollisionTypes.h" />
-    <ClInclude Include="Collision\NarrowPhase.h" />
     <ClInclude Include="Collision\Resolution.h" />
     <ClInclude Include="Collision\NestedLoop\NestedLoopSolver.h" />
     <ClInclude Include="Collision\NestedLoop\NestedLoopMTSolver.h" />

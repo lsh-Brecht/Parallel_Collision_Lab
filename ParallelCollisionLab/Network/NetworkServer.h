@@ -32,9 +32,6 @@ namespace Network
         // Broadcast current physics snapshot to all connected clients
         void BroadcastSnapshot(uint32_t CurrentTick, const std::vector<FSphere>& Spheres, float BoxHalfSize);
 
-        // Unified update
-        void Update(uint32_t CurrentTick, FSimulationWorld& World, float DeltaTime = 0.016f);
-
         bool IsRunning() const { return ServerSocket != INVALID_SOCKET; }
         size_t GetClientCount() const { return ConnectedClients.size(); }
         uint32_t GetPacketsSent() const { return TotalPacketsSent; }

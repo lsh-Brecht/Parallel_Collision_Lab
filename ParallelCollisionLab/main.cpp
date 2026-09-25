@@ -110,8 +110,7 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE, LPSTR lpCmdLine, int)
 	}
 
 	uint32_t s_TickCounter = 0;
-	bool bRunning = true;
-	while (bRunning)
+	while (true)
 	{
 		FInputState input;
 		if (!window.PumpMessages(input) || input.Quit)
@@ -252,7 +251,6 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE, LPSTR lpCmdLine, int)
 		                  world.GetActiveSolver()->GetLastStats(),
 		                  world.GetSphereCount(),
 		                  world.GetActiveSolver(),
-		                  world.GetThreadCount(),
 		                  controller.IsGridVisEnabled(),
 		                  world.IsMultiScaleSpheres(),
 		                  netStatusStr,

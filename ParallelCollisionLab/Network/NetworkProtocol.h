@@ -115,7 +115,6 @@ namespace Network
     struct FHandshakeRequestPacket
     {
         FPacketHeader Header;
-        uint16_t      ClientListenPort;
     };
 
     struct FHandshakeResponsePacket

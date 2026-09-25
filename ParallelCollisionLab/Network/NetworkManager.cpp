@@ -72,13 +72,6 @@ namespace Network
         }
     }
 
-    void FNetworkManager::UpdateServer(uint32_t CurrentTick, FSimulationWorld& World, float DeltaTime)
-    {
-        if (CurrentRole == ENetworkRole::Server)
-        {
-            ServerInstance.Update(CurrentTick, World, DeltaTime);
-        }
-    }
 
     void FNetworkManager::SyncServerPlanets(FSimulationWorld& World)
     {

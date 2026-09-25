@@ -48,9 +48,6 @@ namespace Network
         ServerEndpoint.sin_family = AF_INET;
         ServerEndpoint.sin_port   = htons(InServerPort);
         inet_pton(AF_INET, InServerIp, &ServerEndpoint.sin_addr);
-
-        ServerIpAddress          = InServerIp;
-        ServerPort               = InServerPort;
         bIsConnected             = false;
         KeepAliveTimer           = 0.0f;
         LastReceivedSnapshotTick = 0;

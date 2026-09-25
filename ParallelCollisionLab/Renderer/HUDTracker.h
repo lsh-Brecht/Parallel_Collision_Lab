@@ -24,7 +24,7 @@ public:
     void Update(float DeltaTime, double UpdateTimeMs, double RenderTimeMs,
                 const FCollisionStats& Stats, size_t BallCount,
                 const ICollisionSolver* ActiveSolver,
-                int ConfiguredThreads, bool bShowGridVis,
+                bool bShowGridVis,
                 bool bMultiScale = false,
                 const wchar_t* NetStatus = nullptr,
                 bool bDamping = false,

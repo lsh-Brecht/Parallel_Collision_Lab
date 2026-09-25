@@ -13,17 +13,6 @@
 #define M_PI 3.14159265358979323846
 #endif
 
-//=============================================================================
-// Unreal Engine Standard Type Aliases
-//=============================================================================
-using int8   = int8_t;
-using int16  = int16_t;
-using int32  = int32_t;
-using int64  = int64_t;
-using uint8  = uint8_t;
-using uint16 = uint16_t;
-using uint32 = uint32_t;
-using uint64 = uint64_t;
 
 //=============================================================================
 // Math Types
@@ -135,18 +124,6 @@ struct FMatrix4x4
 		return M;
 	}
 
-	static FMatrix4x4 OrthoLH(float left, float right, float bottom, float top, float nearZ, float farZ)
-	{
-		FMatrix4x4 M;
-		M.m[0][0] = 2.0f / (right - left);
-		M.m[0][3] = -(right + left) / (right - left);
-		M.m[1][1] = 2.0f / (top - bottom);
-		M.m[1][3] = -(top + bottom) / (top - bottom);
-		M.m[2][2] = 1.0f / (farZ - nearZ);
-		M.m[2][3] = -nearZ / (farZ - nearZ);
-		M.m[3][3] = 1.0f;
-		return M;
-	}
 
 	static FMatrix4x4 PerspectiveFovLH(float fovY, float aspect, float nearZ, float farZ)
 	{

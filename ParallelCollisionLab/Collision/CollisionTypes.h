@@ -1,16 +1,6 @@
 #pragma once
 
-#include <cstdint>
 #include "../Core/Common.h"
-
-//=============================================================================
-// FCollisionPair - Broad Phase output: candidate sphere indices
-//=============================================================================
-struct FCollisionPair
-{
-    int IndexA = -1;
-    int IndexB = -1;
-};
 
 struct FCollisionManifold
 {

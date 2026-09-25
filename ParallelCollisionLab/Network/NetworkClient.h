@@ -34,8 +34,6 @@ namespace Network
     private:
         SOCKET      ClientSocket             = INVALID_SOCKET;
         sockaddr_in ServerEndpoint           = {};
-        std::string ServerIpAddress          = "127.0.0.1";
-        uint16_t    ServerPort               = DEFAULT_SERVER_PORT;
         bool        bIsConnected             = false;
         float       KeepAliveTimer           = 0.0f;
         uint32_t    LastReceivedSnapshotTick = 0;

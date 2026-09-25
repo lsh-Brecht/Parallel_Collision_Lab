@@ -244,8 +244,6 @@ struct FSphere
 };
 
 static const float PLANET_BASE_RADIUS = 0.36f;
-static const float EARTH_BASE_RADIUS  = PLANET_BASE_RADIUS;
-static const float MARS_BASE_RADIUS   = PLANET_BASE_RADIUS;
 
 inline std::vector<FSphere> CreateSpheres(int numSpheres, float L, bool bMultiScale = false)
 {

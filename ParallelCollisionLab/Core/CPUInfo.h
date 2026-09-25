@@ -13,7 +13,6 @@ struct FCPUInfo
     std::wstring BrandName;
     int          PhysicalCores = 0;
     int          LogicalCores  = 0;
-    size_t       L1CacheBytes  = 0;
     size_t       L2CacheBytes  = 0;
     size_t       L3CacheBytes  = 0;
 
@@ -142,11 +141,7 @@ inline FCPUInfo QueryCPUInfo()
                 }
                 else if (curr->Relationship == RelationCache)
                 {
-                    if (curr->Cache.Level == 1 && (curr->Cache.Type == CacheData || curr->Cache.Type == CacheUnified))
-                    {
-                        info.L1CacheBytes += curr->Cache.CacheSize;
-                    }
-                    else if (curr->Cache.Level == 2)
+                    if (curr->Cache.Level == 2)
                     {
                         info.L2CacheBytes += curr->Cache.CacheSize;
                     }
