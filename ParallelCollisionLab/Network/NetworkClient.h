@@ -28,9 +28,6 @@ namespace Network
 
     private:
         void SendSimplePacket(EPacketType type);
-        void SendHandshakeRequest();
-        void SendHeartbeat();
-        void SendDisconnect();
         SOCKET      ClientSocket             = INVALID_SOCKET;
         sockaddr_in ServerEndpoint           = {};
         bool        bIsConnected             = false;

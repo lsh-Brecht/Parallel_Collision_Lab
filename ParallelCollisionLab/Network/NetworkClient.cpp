@@ -58,7 +58,7 @@ namespace Network
         InputSeq                 = 0;
 
         // Send initial Handshake Request
-        SendHandshakeRequest();
+        SendSimplePacket(EPacketType::HandshakeRequest);
         return true;
     }
 
@@ -66,7 +66,7 @@ namespace Network
     {
         if (bIsConnected && ClientSocket != INVALID_SOCKET)
         {
-            SendDisconnect();
+            SendSimplePacket(EPacketType::Disconnect);
         }
 
         if (ClientSocket != INVALID_SOCKET)
@@ -94,12 +94,12 @@ namespace Network
         KeepAliveTimer += DeltaTime;
         if (!bIsConnected && KeepAliveTimer >= 0.5f)
         {
-            SendHandshakeRequest();
+            SendSimplePacket(EPacketType::HandshakeRequest);
             KeepAliveTimer = 0.0f;
         }
         else if (bIsConnected && KeepAliveTimer >= 2.0f)
         {
-            SendHeartbeat();
+            SendSimplePacket(EPacketType::Heartbeat);
             KeepAliveTimer = 0.0f;
         }
 
@@ -234,20 +234,6 @@ namespace Network
         TotalPacketsSent++;
     }
 
-    void FNetworkClient::SendHandshakeRequest()
-    {
-        SendSimplePacket(EPacketType::HandshakeRequest);
-    }
-
-    void FNetworkClient::SendHeartbeat()
-    {
-        SendSimplePacket(EPacketType::Heartbeat);
-    }
-
-    void FNetworkClient::SendDisconnect()
-    {
-        SendSimplePacket(EPacketType::Disconnect);
-    }
 
     void FNetworkClient::SendInput(float x, float y, float z)
     {

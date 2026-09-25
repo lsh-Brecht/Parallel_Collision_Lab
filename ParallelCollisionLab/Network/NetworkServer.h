@@ -45,8 +45,6 @@ namespace Network
         void RegisterOrRefreshClient(const sockaddr_in& ClientAddr, FSimulationWorld& World);
         void RemoveClient(const sockaddr_in& ClientAddr, FSimulationWorld& World);
         void SendHandshakeResponse(const sockaddr_in& Target, uint32_t SphereCount, float BoxHalfSize, int32_t AssignedSphereId, uint8_t AssignedPlanet);
-
-    private:
         SOCKET                        ServerSocket             = INVALID_SOCKET;
         uint16_t                      ListenPort               = DEFAULT_SERVER_PORT;
         std::vector<FConnectedClient> ConnectedClients;
