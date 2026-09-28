@@ -186,6 +186,7 @@
     <ClInclude Include="Network\NetworkManager.h" />
     <ClInclude Include="Network\NetworkClient.h" />
     <ClInclude Include="Network\NetworkServer.h" />
+    <ClInclude Include="Network\NetworkSimulator.h" />
   </ItemGroup>
   <ItemGroup>
     <None Include="packages.config" />

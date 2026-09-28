@@ -130,85 +130,109 @@ namespace Network
 
             TotalPacketsReceived++;
 
-            if (bytesRead >= sizeof(FPacketHeader))
+            // If simulator is active, enqueue packet for latency/loss/jitter simulation
+            if (Simulator && Simulator->IsEnabled())
             {
-                const auto* header = reinterpret_cast<const FPacketHeader*>(recvBuffer);
-                if (header->Magic != PROTOCOL_MAGIC)
-                    continue;
+                Simulator->EnqueuePacket(recvBuffer, bytesRead, senderAddr);
+            }
+            else
+            {
+                ProcessPacket(recvBuffer, bytesRead, Spheres, BoxHalfSize);
+            }
+        }
 
-                if (header->Type == EPacketType::HandshakeResponse)
+        // Process packets released by simulator whose delay has elapsed
+        if (Simulator && Simulator->IsEnabled())
+        {
+            std::vector<uint8_t> readyData;
+            sockaddr_in readySender = {};
+            while (Simulator->PopReadyPacket(readyData, readySender))
+            {
+                ProcessPacket(readyData.data(), static_cast<int>(readyData.size()), Spheres, BoxHalfSize);
+            }
+        }
+    }
+
+    void FNetworkClient::ProcessPacket(const uint8_t* buffer, int bytesRead, std::vector<FSphere>& Spheres, float BoxHalfSize)
+    {
+        if (bytesRead < static_cast<int>(sizeof(FPacketHeader)))
+            return;
+
+        const auto* header = reinterpret_cast<const FPacketHeader*>(buffer);
+        if (header->Magic != PROTOCOL_MAGIC)
+            return;
+
+        if (header->Type == EPacketType::HandshakeResponse)
+        {
+            if (bytesRead < static_cast<int>(sizeof(FHandshakeResponsePacket)))
+                return;
+
+            const auto* resp = reinterpret_cast<const FHandshakeResponsePacket*>(buffer);
+            bIsConnected     = true;
+            AssignedSphereId = resp->AssignedSphereId;
+            AssignedPlanet   = resp->AssignedPlanet;
+
+            // Validate sphere count sanity bounds
+            if (resp->SphereCount >= MIN_SPHERES && resp->SphereCount <= MAX_SPHERES && resp->SphereCount != Spheres.size())
+            {
+                Spheres = CreateSpheres(resp->SphereCount, BoxHalfSize);
+            }
+        }
+        else if (header->Type == EPacketType::SnapshotChunk)
+        {
+            // 1. Validate minimum header size for snapshot chunk
+            const size_t minChunkHeaderSize = offsetof(FSnapshotChunkPacket, Spheres);
+            if (bytesRead < static_cast<int>(minChunkHeaderSize))
+                return;
+
+            const auto* chunk = reinterpret_cast<const FSnapshotChunkPacket*>(buffer);
+
+            // 2. Validate CountInPacket and ChunkIndex bounds
+            if (chunk->CountInPacket > MAX_SPHERES_PER_CHUNK || chunk->TotalChunks == 0 || chunk->ChunkIndex >= chunk->TotalChunks)
+                return;
+
+            // 3. Validate that buffer actually contains all CountInPacket sphere elements
+            const size_t expectedPacketSize = minChunkHeaderSize + (chunk->CountInPacket * sizeof(FSphereNetData));
+            if (bytesRead < static_cast<int>(expectedPacketSize))
+                return;
+
+            bIsConnected = true;
+            if (LastReceivedSnapshotTick > 0)
+            {
+                int32_t tickDiff = static_cast<int32_t>(chunk->ServerTick - LastReceivedSnapshotTick);
+                if (tickDiff < 0)
                 {
-                    if (bytesRead < static_cast<int>(sizeof(FHandshakeResponsePacket)))
-                        continue;
-
-                    const auto* resp = reinterpret_cast<const FHandshakeResponsePacket*>(recvBuffer);
-                    bIsConnected     = true;
-                    AssignedSphereId = resp->AssignedSphereId;
-                    AssignedPlanet   = resp->AssignedPlanet;
-
-                    // Validate sphere count sanity bounds
-                    if (resp->SphereCount >= MIN_SPHERES && resp->SphereCount <= MAX_SPHERES && resp->SphereCount != Spheres.size())
-                    {
-                        Spheres = CreateSpheres(resp->SphereCount, BoxHalfSize);
-                    }
+                    return; // Past tick packet arrived late, drop it
                 }
-                else if (header->Type == EPacketType::SnapshotChunk)
+            }
+
+            LastReceivedSnapshotTick = (std::max)(LastReceivedSnapshotTick, chunk->ServerTick);
+
+            // Ensure sphere buffer is sized to match (with sanity bounds)
+            if (chunk->TotalSpheres >= MIN_SPHERES && chunk->TotalSpheres <= MAX_SPHERES && chunk->TotalSpheres != Spheres.size())
+            {
+                Spheres = CreateSpheres(chunk->TotalSpheres, BoxHalfSize);
+            }
+
+            // Apply received sphere positions and properties directly (Dequantization)
+            for (uint16_t i = 0; i < chunk->CountInPacket; ++i)
+            {
+                const auto& netData = chunk->Spheres[i];
+                uint32_t idx = netData.Id;
+                if (idx < Spheres.size())
                 {
-                    // 1. Validate minimum header size for snapshot chunk
-                    const size_t minChunkHeaderSize = offsetof(FSnapshotChunkPacket, Spheres);
-                    if (bytesRead < static_cast<int>(minChunkHeaderSize))
-                        continue;
-
-                    const auto* chunk = reinterpret_cast<const FSnapshotChunkPacket*>(recvBuffer);
-
-                    // 2. Validate CountInPacket and ChunkIndex bounds
-                    if (chunk->CountInPacket > MAX_SPHERES_PER_CHUNK || chunk->TotalChunks == 0 || chunk->ChunkIndex >= chunk->TotalChunks)
-                        continue;
-
-                    // 3. Validate that buffer actually contains all CountInPacket sphere elements
-                    const size_t expectedPacketSize = minChunkHeaderSize + (chunk->CountInPacket * sizeof(FSphereNetData));
-                    if (bytesRead < static_cast<int>(expectedPacketSize))
-                        continue;
-
-                    bIsConnected = true;
-                    if (LastReceivedSnapshotTick > 0)
+                    Spheres[idx].Center.x    = DecompressCoord(netData.PosX, BoxHalfSize);
+                    Spheres[idx].Center.y    = DecompressCoord(netData.PosY, BoxHalfSize);
+                    Spheres[idx].Center.z    = DecompressCoord(netData.PosZ, BoxHalfSize);
+                    Spheres[idx].Velocity.x  = DecompressVelocity(netData.VelX);
+                    Spheres[idx].Velocity.y  = DecompressVelocity(netData.VelY);
+                    Spheres[idx].Velocity.z  = DecompressVelocity(netData.VelZ);
+                    Spheres[idx].Radius      = DecompressRadius(netData.Radius);
+                    Spheres[idx].PlanetType  = static_cast<EPlanetType>(netData.PlanetType);
+                    Spheres[idx].bIsSleeping = (netData.Flags & 1) != 0;
+                    if (netData.ColorRGBA != 0)
                     {
-                        int32_t tickDiff = static_cast<int32_t>(chunk->ServerTick - LastReceivedSnapshotTick);
-                        if (tickDiff < 0)
-                        {
-                            continue; // Past tick packet arrived late, drop it
-                        }
-                    }
-
-                    LastReceivedSnapshotTick = (std::max)(LastReceivedSnapshotTick, chunk->ServerTick);
-
-                    // Ensure sphere buffer is sized to match (with sanity bounds)
-                    if (chunk->TotalSpheres >= MIN_SPHERES && chunk->TotalSpheres <= MAX_SPHERES && chunk->TotalSpheres != Spheres.size())
-                    {
-                        Spheres = CreateSpheres(chunk->TotalSpheres, BoxHalfSize);
-                    }
-
-                    // Apply received sphere positions and properties directly (Dequantization)
-                    for (uint16_t i = 0; i < chunk->CountInPacket; ++i)
-                    {
-                        const auto& netData = chunk->Spheres[i];
-                        uint32_t idx = netData.Id;
-                        if (idx < Spheres.size())
-                        {
-                            Spheres[idx].Center.x    = DecompressCoord(netData.PosX, BoxHalfSize);
-                            Spheres[idx].Center.y    = DecompressCoord(netData.PosY, BoxHalfSize);
-                            Spheres[idx].Center.z    = DecompressCoord(netData.PosZ, BoxHalfSize);
-                            Spheres[idx].Velocity.x  = DecompressVelocity(netData.VelX);
-                            Spheres[idx].Velocity.y  = DecompressVelocity(netData.VelY);
-                            Spheres[idx].Velocity.z  = DecompressVelocity(netData.VelZ);
-                            Spheres[idx].Radius      = DecompressRadius(netData.Radius);
-                            Spheres[idx].PlanetType  = static_cast<EPlanetType>(netData.PlanetType);
-                            Spheres[idx].bIsSleeping = (netData.Flags & 1) != 0;
-                            if (netData.ColorRGBA != 0)
-                            {
-                                Spheres[idx].Color = UnpackRGBA(netData.ColorRGBA);
-                            }
-                        }
+                        Spheres[idx].Color = UnpackRGBA(netData.ColorRGBA);
                     }
                 }
             }

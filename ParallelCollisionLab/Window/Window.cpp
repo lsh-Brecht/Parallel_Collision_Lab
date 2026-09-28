@@ -217,6 +217,16 @@ bool FWindow::PumpMessages(FInputState& outInput)
 				outInput.ToggleHUD = true;
 				break;
 
+			case 'L':
+			case VK_F7:
+				outInput.CycleNetLatency = true;
+				break;
+
+			case 'K':
+			case VK_F8:
+				outInput.CycleNetLoss = true;
+				break;
+
 			case 'V':
 				outInput.CycleBvhMode = true;
 				break;

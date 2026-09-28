@@ -35,6 +35,9 @@ struct FInputState
 	int  SelectSolver;
 	bool ToggleDamping;
 
+	bool CycleNetLatency;
+	bool CycleNetLoss;
+
 	// Earth Directional Controls (Arrows + Q/E)
 	bool MoveLeft;
 	bool MoveRight;

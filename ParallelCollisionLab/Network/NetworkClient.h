@@ -1,6 +1,7 @@
 #pragma once
 
 #include "NetworkProtocol.h"
+#include "NetworkSimulator.h"
 #include "../Core/Sphere.h"
 #include <vector>
 #include <string>
@@ -26,18 +27,24 @@ namespace Network
         int32_t GetAssignedSphereId() const { return AssignedSphereId; }
         EPlanetType GetAssignedPlanet() const { return static_cast<EPlanetType>(AssignedPlanet); }
 
-    private:
-        void SendSimplePacket(EPacketType type);
-        SOCKET      ClientSocket             = INVALID_SOCKET;
-        sockaddr_in ServerEndpoint           = {};
-        bool        bIsConnected             = false;
-        float       KeepAliveTimer           = 0.0f;
-        uint32_t    LastReceivedSnapshotTick = 0;
-        uint32_t    TotalPacketsSent         = 0;
-        uint32_t    TotalPacketsReceived     = 0;
+        void SetSimulator(FNetworkSimulator* InSimulator) { Simulator = InSimulator; }
+        FNetworkSimulator* GetSimulator() { return Simulator; }
 
-        int32_t     AssignedSphereId         = -1;
-        uint8_t     AssignedPlanet           = 0;
-        uint32_t    InputSeq                 = 0;
+    private:
+        void ProcessPacket(const uint8_t* buffer, int bytesRead, std::vector<FSphere>& Spheres, float BoxHalfSize);
+        void SendSimplePacket(EPacketType type);
+
+        SOCKET              ClientSocket             = INVALID_SOCKET;
+        sockaddr_in         ServerEndpoint           = {};
+        bool                bIsConnected             = false;
+        float               KeepAliveTimer           = 0.0f;
+        uint32_t            LastReceivedSnapshotTick = 0;
+        uint32_t            TotalPacketsSent         = 0;
+        uint32_t            TotalPacketsReceived     = 0;
+
+        int32_t             AssignedSphereId         = -1;
+        uint8_t             AssignedPlanet           = 0;
+        uint32_t            InputSeq                 = 0;
+        FNetworkSimulator*  Simulator                = nullptr;
     };
 }

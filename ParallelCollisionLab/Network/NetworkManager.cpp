@@ -6,6 +6,7 @@ namespace Network
     FNetworkManager::FNetworkManager()
         : CurrentRole(ENetworkRole::Standalone)
     {
+        ClientInstance.SetSimulator(&Simulator);
     }
 
     FNetworkManager::~FNetworkManager()
@@ -15,6 +16,7 @@ namespace Network
 
     void FNetworkManager::Shutdown()
     {
+        Simulator.Clear();
         if (CurrentRole == ENetworkRole::Server)
         {
             ServerInstance.Stop();

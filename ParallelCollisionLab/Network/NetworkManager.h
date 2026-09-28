@@ -2,6 +2,7 @@
 
 #include "NetworkServer.h"
 #include "NetworkClient.h"
+#include "NetworkSimulator.h"
 
 class FSimulationWorld;
 
@@ -45,10 +46,16 @@ namespace Network
         EPlanetType GetClientAssignedPlanet() const;
         bool IsServerPlanetActive(EPlanetType type) const;
 
+        FNetworkSimulator& GetSimulator()             { return Simulator; }
+        const FNetworkSimulator& GetSimulator() const { return Simulator; }
+        void CycleSimulatorLatency()                  { Simulator.CycleLatency(); }
+        void CycleSimulatorLoss()                     { Simulator.CycleLoss(); }
+
     private:
-        FWinsockScope   WinsockScope;
-        ENetworkRole    CurrentRole = ENetworkRole::Standalone;
-        FNetworkServer  ServerInstance;
-        FNetworkClient  ClientInstance;
+        FWinsockScope      WinsockScope;
+        ENetworkRole       CurrentRole = ENetworkRole::Standalone;
+        FNetworkServer     ServerInstance;
+        FNetworkClient     ClientInstance;
+        FNetworkSimulator  Simulator;
     };
 }

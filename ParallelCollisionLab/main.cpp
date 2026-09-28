@@ -134,6 +134,9 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE, LPSTR lpCmdLine, int)
 			input.SubMany = false;
 		}
 
+		if (input.CycleNetLatency) netManager.CycleSimulatorLatency();
+		if (input.CycleNetLoss)    netManager.CycleSimulatorLoss();
+
 		controller.ProcessInput(input, world, window, renderer, cpuInfo);
 		netManager.SyncServerPlanets(world);
 
@@ -194,7 +197,7 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE, LPSTR lpCmdLine, int)
 			}
 		}
 
-		wchar_t netStatusStr[256];
+		wchar_t netStatusStr[512];
 		const wchar_t* controlPromptStr = L"[Arrows/Q,E] Camera";
 
 		if (netManager.GetRole() == Network::ENetworkRole::Server)
@@ -217,28 +220,40 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE, LPSTR lpCmdLine, int)
 			if (currentPlanet == EPlanetType::Earth)
 			{
 				planetName = L"Earth";
-				controlPromptStr = L"[Arrows/Q,E] Earth";
+				controlPromptStr = L"[Arrows/Q,E] Earth  [L] Latency  [K] Loss";
 			}
 			else if (currentPlanet == EPlanetType::Mars)
 			{
 				planetName = L"Mars";
-				controlPromptStr = L"[Arrows/Q,E] Mars";
+				controlPromptStr = L"[Arrows/Q,E] Mars  [L] Latency  [K] Loss";
 			}
 			else if (currentPlanet == EPlanetType::UVMap)
 			{
 				planetName = L"UVMap";
-				controlPromptStr = L"[Arrows/Q,E] UV Sphere";
+				controlPromptStr = L"[Arrows/Q,E] UV  [L] Latency  [K] Loss";
 			}
 			else
 			{
-				controlPromptStr = L"Spectator Mode";
+				controlPromptStr = L"Spectator  [L] Latency  [K] Loss";
 			}
 
-			swprintf_s(netStatusStr, L"Client [%s] -> %s:%u (%s | Recv: %u)",
-			           planetName,
-			           wIp.c_str(), targetPort,
-			           netManager.IsConnected() ? L"Connected" : L"Searching...",
-			           netManager.GetPacketsReceived());
+			if (netManager.GetSimulator().IsEnabled())
+			{
+				swprintf_s(netStatusStr, L"Client [%s] -> %s:%u (%s | Recv: %u)\nNet Sim     : %s",
+				           planetName,
+				           wIp.c_str(), targetPort,
+				           netManager.IsConnected() ? L"Connected" : L"Searching...",
+				           netManager.GetPacketsReceived(),
+				           netManager.GetSimulator().GetStatusString().c_str());
+			}
+			else
+			{
+				swprintf_s(netStatusStr, L"Client [%s] -> %s:%u (%s | Recv: %u) [Sim: Off]",
+				           planetName,
+				           wIp.c_str(), targetPort,
+				           netManager.IsConnected() ? L"Connected" : L"Searching...",
+				           netManager.GetPacketsReceived());
+			}
 		}
 		else
 		{
