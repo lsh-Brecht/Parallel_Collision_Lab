@@ -267,13 +267,9 @@ namespace Network
             }
         }
 
-        // 2. Send Dormancy-Filtered Active Snapshot to established clients
+        // 2. Send Active Snapshot with AOI Prioritization and Packet Budget Cap
         if (!deltaSyncAddrs.empty())
         {
-            // Collect spheres that require replication:
-            // - Active/moving spheres (!s.bIsSleeping)
-            // - Spheres settling into sleep during grace period (s.SleepSyncFrames > 0)
-            // - Assigned player planets (s.PlanetType != EPlanetType::None)
             std::vector<const FSphere*> activeSpheres;
             activeSpheres.reserve(Spheres.size());
 
@@ -285,9 +281,10 @@ namespace Network
                 }
             }
 
+            LastTickActiveSpheres = static_cast<uint32_t>(activeSpheres.size());
+
             if (activeSpheres.empty())
             {
-                // All spheres are dormant! Send 1 tiny keep-alive chunk so clients know connection is active
                 FSnapshotChunkPacket keepAlivePacket = {};
                 keepAlivePacket.Header.Magic = PROTOCOL_MAGIC;
                 keepAlivePacket.Header.Type  = EPacketType::SnapshotChunk;
@@ -299,33 +296,107 @@ namespace Network
 
                 int packetSize = sizeof(keepAlivePacket) - sizeof(keepAlivePacket.Spheres);
                 SendPacketTo(&keepAlivePacket, packetSize, deltaSyncAddrs);
+                LastTickSentSpheres = 0;
             }
             else
             {
-                const int totalActive = static_cast<int>(activeSpheres.size());
-                const uint16_t totalActiveChunks = static_cast<uint16_t>((totalActive + MAX_SPHERES_PER_CHUNK - 1) / MAX_SPHERES_PER_CHUNK);
+                const int maxSpheresBudget = MAX_CHUNKS_PER_TICK_BUDGET * MAX_SPHERES_PER_CHUNK;
+                bool bNeedsAOI = (static_cast<int>(activeSpheres.size()) > maxSpheresBudget);
 
-                for (uint16_t c = 0; c < totalActiveChunks; ++c)
+                if (bNeedsAOI)
                 {
-                    FSnapshotChunkPacket chunkPacket = {};
-                    chunkPacket.Header.Magic = PROTOCOL_MAGIC;
-                    chunkPacket.Header.Type  = EPacketType::SnapshotChunk;
-                    chunkPacket.ChunkIndex   = c;
-                    chunkPacket.TotalChunks  = totalActiveChunks;
-                    chunkPacket.ServerTick   = CurrentTick;
-                    chunkPacket.TotalSpheres = static_cast<uint32_t>(totalSpheres);
+                    NetworkGrid.SetBoxHalfSize(BoxHalfSize);
+                    NetworkGrid.BuildGrid(Spheres);
+                }
 
-                    int startIdx = c * MAX_SPHERES_PER_CHUNK;
-                    int count    = (std::min)(MAX_SPHERES_PER_CHUNK, totalActive - startIdx);
-                    chunkPacket.CountInPacket = static_cast<uint16_t>(count);
+                for (auto& client : ConnectedClients)
+                {
+                    auto it = std::find_if(deltaSyncAddrs.begin(), deltaSyncAddrs.end(),
+                        [&](const sockaddr_in& a) { return MatchesAddress(a, client.Addr); });
+                    if (it == deltaSyncAddrs.end())
+                        continue;
 
-                    for (int i = 0; i < count; ++i)
+                    std::vector<const FSphere*> clientTargetSpheres;
+                    clientTargetSpheres.reserve(maxSpheresBudget);
+
+                    if (!bNeedsAOI)
                     {
-                        PackSphereNetData(chunkPacket.Spheres[i], *activeSpheres[startIdx + i], startIdx + i, BoxHalfSize);
+                        clientTargetSpheres = activeSpheres;
+                    }
+                    else
+                    {
+                        // Priority 1: Assigned player planets (always replicated)
+                        for (const auto* s : activeSpheres)
+                        {
+                            if (s->PlanetType != EPlanetType::None)
+                            {
+                                clientTargetSpheres.push_back(s);
+                            }
+                        }
+
+                        // Priority 2: Active spheres inside player's Area of Interest (AOI)
+                        std::vector<int> aoiIndices;
+                        if (client.AssignedSphereId >= 0 && client.AssignedSphereId < static_cast<int32_t>(Spheres.size()))
+                        {
+                            NetworkGrid.QuerySpheresInRadius(Spheres[client.AssignedSphereId].Center, DEFAULT_AOI_RADIUS, aoiIndices);
+                            for (int idx : aoiIndices)
+                            {
+                                if (static_cast<int>(clientTargetSpheres.size()) >= maxSpheresBudget)
+                                    break;
+
+                                const FSphere& s = Spheres[idx];
+                                if (!s.bIsSleeping || s.SleepSyncFrames > 0)
+                                {
+                                    if (std::find(clientTargetSpheres.begin(), clientTargetSpheres.end(), &s) == clientTargetSpheres.end())
+                                    {
+                                        clientTargetSpheres.push_back(&s);
+                                    }
+                                }
+                            }
+                        }
+
+                        // Priority 3: Remaining active spheres until budget cap
+                        for (const auto* s : activeSpheres)
+                        {
+                            if (static_cast<int>(clientTargetSpheres.size()) >= maxSpheresBudget)
+                                break;
+
+                            if (std::find(clientTargetSpheres.begin(), clientTargetSpheres.end(), s) == clientTargetSpheres.end())
+                            {
+                                clientTargetSpheres.push_back(s);
+                            }
+                        }
                     }
 
-                    int packetSize = sizeof(chunkPacket) - sizeof(chunkPacket.Spheres) + (count * sizeof(FSphereNetData));
-                    SendPacketTo(&chunkPacket, packetSize, deltaSyncAddrs);
+                    const int totalToSend = static_cast<int>(clientTargetSpheres.size());
+                    const uint16_t chunksToSend = static_cast<uint16_t>((totalToSend + MAX_SPHERES_PER_CHUNK - 1) / MAX_SPHERES_PER_CHUNK);
+
+                    for (uint16_t c = 0; c < chunksToSend; ++c)
+                    {
+                        FSnapshotChunkPacket chunkPacket = {};
+                        chunkPacket.Header.Magic = PROTOCOL_MAGIC;
+                        chunkPacket.Header.Type  = EPacketType::SnapshotChunk;
+                        chunkPacket.ChunkIndex   = c;
+                        chunkPacket.TotalChunks  = chunksToSend;
+                        chunkPacket.ServerTick   = CurrentTick;
+                        chunkPacket.TotalSpheres = static_cast<uint32_t>(totalSpheres);
+
+                        int startIdx = c * MAX_SPHERES_PER_CHUNK;
+                        int count    = (std::min)(MAX_SPHERES_PER_CHUNK, totalToSend - startIdx);
+                        chunkPacket.CountInPacket = static_cast<uint16_t>(count);
+
+                        for (int i = 0; i < count; ++i)
+                        {
+                            PackSphereNetData(chunkPacket.Spheres[i], *clientTargetSpheres[startIdx + i], startIdx + i, BoxHalfSize);
+                        }
+
+                        int packetSize = sizeof(chunkPacket) - sizeof(chunkPacket.Spheres) + (count * sizeof(FSphereNetData));
+                        sendto(ServerSocket, reinterpret_cast<const char*>(&chunkPacket), packetSize, 0,
+                               reinterpret_cast<const sockaddr*>(&client.Addr), sizeof(client.Addr));
+                        TotalPacketsSent++;
+                    }
+
+                    LastTickSentSpheres = (std::max)(LastTickSentSpheres, static_cast<uint32_t>(totalToSend));
                 }
             }
         }

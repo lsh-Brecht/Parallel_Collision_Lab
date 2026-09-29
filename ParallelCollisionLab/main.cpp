@@ -205,11 +205,16 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE, LPSTR lpCmdLine, int)
 			bool bEarth = netManager.IsServerPlanetActive(EPlanetType::Earth);
 			bool bMars  = netManager.IsServerPlanetActive(EPlanetType::Mars);
 			bool bUV    = netManager.IsServerPlanetActive(EPlanetType::UVMap);
-			swprintf_s(netStatusStr, L"Server (Port: %u | Clients: %zu [Earth: %s | Mars: %s | UV: %s])",
+			uint32_t activeCount = netManager.GetServerActiveSpheres();
+			uint32_t sentCount   = netManager.GetServerSentSpheres();
+
+			swprintf_s(netStatusStr, L"Server (Port: %u | Clients: %zu [Earth: %s | Mars: %s | UV: %s])\nRepl Budget : Sent %u / %u Active (Cap: %d/tick)",
 			           targetPort, netManager.GetClientCount(),
 			           bEarth ? L"ON" : L"OFF",
 			           bMars  ? L"ON" : L"OFF",
-			           bUV    ? L"ON" : L"OFF");
+			           bUV    ? L"ON" : L"OFF",
+			           sentCount, activeCount,
+			           Network::MAX_CHUNKS_PER_TICK_BUDGET * Network::MAX_SPHERES_PER_CHUNK);
 			controlPromptStr = L"Server Authority (Client Controls Only)";
 		}
 		else if (netManager.GetRole() == Network::ENetworkRole::Client)

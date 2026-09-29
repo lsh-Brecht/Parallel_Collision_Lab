@@ -2,6 +2,7 @@
 
 #include "NetworkProtocol.h"
 #include "../Core/Sphere.h"
+#include "../Collision/UniformGrid/IUniformGridVisualizer.h"
 #include <vector>
 
 class FSimulationWorld;
@@ -36,6 +37,8 @@ namespace Network
         size_t GetClientCount() const { return ConnectedClients.size(); }
         uint32_t GetPacketsSent() const { return TotalPacketsSent; }
         uint32_t GetPacketsReceived() const { return TotalPacketsReceived; }
+        uint32_t GetLastTickActiveSpheres() const { return LastTickActiveSpheres; }
+        uint32_t GetLastTickSentSpheres()   const { return LastTickSentSpheres; }
 
         bool IsPlanetActive(EPlanetType type) const;
         int32_t GetPlanetSphereId(EPlanetType type) const;
@@ -45,11 +48,15 @@ namespace Network
         void RegisterOrRefreshClient(const sockaddr_in& ClientAddr, FSimulationWorld& World);
         void RemoveClient(const sockaddr_in& ClientAddr, FSimulationWorld& World);
         void SendHandshakeResponse(const sockaddr_in& Target, uint32_t SphereCount, float BoxHalfSize, int32_t AssignedSphereId, uint8_t AssignedPlanet);
+
         SOCKET                        ServerSocket             = INVALID_SOCKET;
         uint16_t                      ListenPort               = DEFAULT_SERVER_PORT;
         std::vector<FConnectedClient> ConnectedClients;
         uint32_t                      TotalPacketsSent         = 0;
         uint32_t                      TotalPacketsReceived     = 0;
         uint32_t                      LastBroadcastSphereCount = 0;
+        uint32_t                      LastTickActiveSpheres    = 0;
+        uint32_t                      LastTickSentSpheres      = 0;
+        FUniformGridBase              NetworkGrid;
     };
 }

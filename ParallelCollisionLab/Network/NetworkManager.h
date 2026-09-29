@@ -46,6 +46,9 @@ namespace Network
         EPlanetType GetClientAssignedPlanet() const;
         bool IsServerPlanetActive(EPlanetType type) const;
 
+        uint32_t GetServerActiveSpheres() const { return ServerInstance.GetLastTickActiveSpheres(); }
+        uint32_t GetServerSentSpheres()   const { return ServerInstance.GetLastTickSentSpheres(); }
+
         FNetworkSimulator& GetSimulator()             { return Simulator; }
         const FNetworkSimulator& GetSimulator() const { return Simulator; }
         void CycleSimulatorLatency()                  { Simulator.CycleLatency(); }

@@ -14,9 +14,11 @@
 
 namespace Network
 {
-    static const uint32_t PROTOCOL_MAGIC        = 0x50434C31; // "PCL1"
-    static const uint16_t DEFAULT_SERVER_PORT   = 32768;
-    static const int      MAX_SPHERES_PER_CHUNK = 60; // 60 * 22B + 19B = 1339B (< 1472 MTU safe payload)
+    static const uint32_t PROTOCOL_MAGIC             = 0x50434C31; // "PCL1"
+    static const uint16_t DEFAULT_SERVER_PORT        = 32768;
+    static const int      MAX_SPHERES_PER_CHUNK      = 60;   // 60 * 24B + 19B = 1459B (<= 1472 MTU safe payload)
+    static const int      MAX_CHUNKS_PER_TICK_BUDGET = 4;    // Packet budget: max 4 chunks (240 spheres) per tick
+    static const float    DEFAULT_AOI_RADIUS         = 1.4f; // Area of Interest radius around player sphere
 
     enum class EPacketType : uint8_t
     {

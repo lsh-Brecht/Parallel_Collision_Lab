@@ -104,6 +104,37 @@ public:
         }
     }
 
+    void QuerySpheresInRadius(const FVector3& Center, float Radius, std::vector<int>& OutIndices) const
+    {
+        OutIndices.clear();
+        if (CellSize <= 0.0f || CellHead.empty())
+            return;
+
+        const float InvCell = 1.0f / CellSize;
+        int minCx = (std::max)(0, static_cast<int>((Center.x - Radius - GridMinX) * InvCell));
+        int maxCx = (std::min)(DimX - 1, static_cast<int>((Center.x + Radius - GridMinX) * InvCell));
+        int minCy = (std::max)(0, static_cast<int>((Center.y - Radius - GridMinY) * InvCell));
+        int maxCy = (std::min)(DimY - 1, static_cast<int>((Center.y + Radius - GridMinY) * InvCell));
+        int minCz = (std::max)(0, static_cast<int>((Center.z - Radius - GridMinZ) * InvCell));
+        int maxCz = (std::min)(DimZ - 1, static_cast<int>((Center.z + Radius - GridMinZ) * InvCell));
+
+        const int DimXY = DimX * DimY;
+        for (int cz = minCz; cz <= maxCz; ++cz)
+        {
+            for (int cy = minCy; cy <= maxCy; ++cy)
+            {
+                for (int cx = minCx; cx <= maxCx; ++cx)
+                {
+                    int cellId = cx + DimX * (cy + DimY * cz);
+                    for (int idx = CellHead[cellId]; idx != -1; idx = SphereNext[idx])
+                    {
+                        OutIndices.push_back(idx);
+                    }
+                }
+            }
+        }
+    }
+
     void GenerateActiveCellLines(std::vector<FVertexSimple>& OutLines) const override
     {
         OutLines.clear();
