@@ -32,6 +32,20 @@ namespace Network
 
         void UpdateClient(std::vector<FSphere>& Spheres, float BoxHalfSize, float DeltaTime);
         void SendClientInput(float x, float y, float z);
+        void PredictClientMovement(std::vector<FSphere>& Spheres, const FVector3& InputDir, float BoxHalfSize, float DeltaTime)
+        {
+            if (CurrentRole == ENetworkRole::Client)
+                ClientInstance.PredictMovement(Spheres, InputDir, BoxHalfSize, DeltaTime);
+        }
+        void ToggleClientPrediction()
+        {
+            if (CurrentRole == ENetworkRole::Client)
+                ClientInstance.TogglePrediction();
+        }
+        bool IsClientPredictionEnabled() const
+        {
+            return (CurrentRole == ENetworkRole::Client) ? ClientInstance.IsPredictionEnabled() : false;
+        }
 
         ENetworkRole GetRole() const { return CurrentRole; }
         const wchar_t* GetRoleString() const;

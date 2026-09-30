@@ -30,6 +30,10 @@ namespace Network
         void SetSimulator(FNetworkSimulator* InSimulator) { Simulator = InSimulator; }
         FNetworkSimulator* GetSimulator() { return Simulator; }
 
+        void PredictMovement(std::vector<FSphere>& Spheres, const FVector3& InputDir, float BoxHalfSize, float DeltaTime);
+        void TogglePrediction() { bEnablePrediction = !bEnablePrediction; }
+        bool IsPredictionEnabled() const { return bEnablePrediction; }
+
     private:
         void ProcessPacket(const uint8_t* buffer, int bytesRead, std::vector<FSphere>& Spheres, float BoxHalfSize);
         void SendSimplePacket(EPacketType type);
@@ -45,6 +49,7 @@ namespace Network
         int32_t             AssignedSphereId         = -1;
         uint8_t             AssignedPlanet           = 0;
         uint32_t            InputSeq                 = 0;
+        bool                bEnablePrediction        = true; // Not exposed to UI; modify in code only
         FNetworkSimulator*  Simulator                = nullptr;
     };
 }

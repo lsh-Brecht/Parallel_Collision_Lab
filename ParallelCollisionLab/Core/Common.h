@@ -60,6 +60,15 @@ struct FVector3
 		float len = Length();
 		return (len > 0.0f) ? (*this * (1.0f / len)) : *this;
 	}
+
+	static FVector3 Lerp(const FVector3& a, const FVector3& b, float t)
+	{
+		return FVector3(
+			a.x + (b.x - a.x) * t,
+			a.y + (b.y - a.y) * t,
+			a.z + (b.z - a.z) * t
+		);
+	}
 };
 
 struct FVector4

@@ -1,4 +1,5 @@
 #include "NetworkClient.h"
+#include "../Core/AppConfig.h"
 #include <algorithm>
 #include <cstddef>
 
@@ -221,12 +222,36 @@ namespace Network
                 uint32_t idx = netData.Id;
                 if (idx < Spheres.size())
                 {
-                    Spheres[idx].Center.x    = DecompressCoord(netData.PosX, BoxHalfSize);
-                    Spheres[idx].Center.y    = DecompressCoord(netData.PosY, BoxHalfSize);
-                    Spheres[idx].Center.z    = DecompressCoord(netData.PosZ, BoxHalfSize);
-                    Spheres[idx].Velocity.x  = DecompressVelocity(netData.VelX);
-                    Spheres[idx].Velocity.y  = DecompressVelocity(netData.VelY);
-                    Spheres[idx].Velocity.z  = DecompressVelocity(netData.VelZ);
+                    FVector3 serverPos(
+                        DecompressCoord(netData.PosX, BoxHalfSize),
+                        DecompressCoord(netData.PosY, BoxHalfSize),
+                        DecompressCoord(netData.PosZ, BoxHalfSize)
+                    );
+                    FVector3 serverVel(
+                        DecompressVelocity(netData.VelX),
+                        DecompressVelocity(netData.VelY),
+                        DecompressVelocity(netData.VelZ)
+                    );
+
+                    if (bEnablePrediction && idx == static_cast<uint32_t>(AssignedSphereId))
+                    {
+                        float errDist = (Spheres[idx].Center - serverPos).Length();
+                        if (errDist > 0.6f)
+                        {
+                            Spheres[idx].Center   = serverPos;
+                            Spheres[idx].Velocity = serverVel;
+                        }
+                        else
+                        {
+                            Spheres[idx].Center   = FVector3::Lerp(Spheres[idx].Center, serverPos, 0.15f);
+                            Spheres[idx].Velocity = FVector3::Lerp(Spheres[idx].Velocity, serverVel, 0.25f);
+                        }
+                    }
+                    else
+                    {
+                        Spheres[idx].Center   = serverPos;
+                        Spheres[idx].Velocity = serverVel;
+                    }
                     Spheres[idx].Radius      = DecompressRadius(netData.Radius);
                     Spheres[idx].PlanetType  = static_cast<EPlanetType>(netData.PlanetType);
                     Spheres[idx].bIsSleeping = (netData.Flags & 1) != 0;
@@ -285,5 +310,27 @@ namespace Network
             sizeof(ServerEndpoint)
         );
         TotalPacketsSent++;
+    }
+
+    void FNetworkClient::PredictMovement(std::vector<FSphere>& Spheres, const FVector3& InputDir, float BoxHalfSize, float DeltaTime)
+    {
+        if (!bEnablePrediction || AssignedSphereId < 0 || AssignedSphereId >= static_cast<int32_t>(Spheres.size()))
+            return;
+
+        FSphere& s = Spheres[AssignedSphereId];
+        if (InputDir.LengthSq() > 0.001f)
+        {
+            s.Velocity += InputDir.Normalize() * (Config::EARTH_ACCELERATION * DeltaTime);
+            s.WakeUp();
+        }
+
+        float speedSq = s.Velocity.LengthSq();
+        if (speedSq > Config::EARTH_MAX_SPEED * Config::EARTH_MAX_SPEED)
+        {
+            s.Velocity = s.Velocity.Normalize() * Config::EARTH_MAX_SPEED;
+        }
+
+        s.Center += s.Velocity * (DeltaTime * SPEED_FACTOR);
+        s.BoxCollisionCheck(BoxHalfSize);
     }
 }

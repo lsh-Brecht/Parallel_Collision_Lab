@@ -155,6 +155,7 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE, LPSTR lpCmdLine, int)
 		if (netManager.GetRole() == Network::ENetworkRole::Client)
 		{
 			netManager.SendClientInput(playerInput.x, playerInput.y, playerInput.z);
+			netManager.PredictClientMovement(world.GetSpheres(), playerInput, Config::BOX_HALF_SIZE, dt);
 			netManager.UpdateClient(world.GetSpheres(), Config::BOX_HALF_SIZE, dt);
 		}
 		else if (netManager.GetRole() == Network::ENetworkRole::Server)
@@ -222,6 +223,7 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE, LPSTR lpCmdLine, int)
 			std::wstring wIp(targetServerIp.begin(), targetServerIp.end());
 			EPlanetType currentPlanet = netManager.GetClientAssignedPlanet();
 			const wchar_t* planetName = L"Spectator";
+
 			if (currentPlanet == EPlanetType::Earth)
 			{
 				planetName = L"Earth";
