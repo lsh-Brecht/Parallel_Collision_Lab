@@ -152,6 +152,21 @@ namespace Network
                 ProcessPacket(readyData.data(), static_cast<int>(readyData.size()), Spheres, BoxHalfSize);
             }
         }
+
+        // Remote entity dead reckoning / extrapolation
+        const int count = static_cast<int>(Spheres.size());
+        for (int i = 0; i < count; ++i)
+        {
+            if (i == AssignedSphereId)
+                continue;
+
+            FSphere& s = Spheres[i];
+            if (!s.bIsSleeping)
+            {
+                s.Center += s.Velocity * (DeltaTime * SPEED_FACTOR);
+                s.BoxCollisionCheck(BoxHalfSize);
+            }
+        }
     }
 
     void FNetworkClient::ProcessPacket(const uint8_t* buffer, int bytesRead, std::vector<FSphere>& Spheres, float BoxHalfSize)
@@ -249,7 +264,8 @@ namespace Network
                     }
                     else
                     {
-                        Spheres[idx].Center   = serverPos;
+                        float errDist = (Spheres[idx].Center - serverPos).Length();
+                        Spheres[idx].Center   = (errDist > 0.5f) ? serverPos : FVector3::Lerp(Spheres[idx].Center, serverPos, 0.4f);
                         Spheres[idx].Velocity = serverVel;
                     }
                     Spheres[idx].Radius      = DecompressRadius(netData.Radius);

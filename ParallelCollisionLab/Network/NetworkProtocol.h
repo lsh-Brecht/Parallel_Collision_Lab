@@ -19,6 +19,7 @@ namespace Network
     static const int      MAX_SPHERES_PER_CHUNK      = 60;   // 60 * 24B + 19B = 1459B (<= 1472 MTU safe payload)
     static const int      MAX_CHUNKS_PER_TICK_BUDGET = 4;    // Packet budget: max 4 chunks (240 spheres) per tick
     static const float    DEFAULT_AOI_RADIUS         = 1.4f; // Area of Interest radius around player sphere
+    static const float    SNAPSHOT_SEND_INTERVAL     = 1.0f / 30.0f; // 30 FPS server snapshot interval
 
     enum class EPacketType : uint8_t
     {

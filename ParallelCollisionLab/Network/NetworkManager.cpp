@@ -66,11 +66,11 @@ namespace Network
         }
     }
 
-    void FNetworkManager::BroadcastServerSnapshot(uint32_t CurrentTick, const std::vector<FSphere>& Spheres, float BoxHalfSize)
+    void FNetworkManager::BroadcastServerSnapshot(uint32_t CurrentTick, const std::vector<FSphere>& Spheres, float BoxHalfSize, float DeltaTime)
     {
         if (CurrentRole == ENetworkRole::Server)
         {
-            ServerInstance.BroadcastSnapshot(CurrentTick, Spheres, BoxHalfSize);
+            ServerInstance.BroadcastSnapshot(CurrentTick, Spheres, BoxHalfSize, DeltaTime);
         }
     }
 

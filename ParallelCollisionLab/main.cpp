@@ -162,7 +162,7 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE, LPSTR lpCmdLine, int)
 		{
 			netManager.ProcessServerIncoming(world, dt);
 			updateMs = world.Update(dt, controller.IsPaused(), timer.GetFrequency());
-			netManager.BroadcastServerSnapshot(s_TickCounter, world.GetSpheres(), world.GetBoxHalfSize());
+			netManager.BroadcastServerSnapshot(s_TickCounter, world.GetSpheres(), world.GetBoxHalfSize(), dt);
 		}
 		else
 		{

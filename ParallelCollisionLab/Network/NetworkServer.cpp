@@ -183,10 +183,15 @@ namespace Network
         SyncPromotedPlanets(World);
     }
 
-    void FNetworkServer::BroadcastSnapshot(uint32_t CurrentTick, const std::vector<FSphere>& Spheres, float BoxHalfSize)
+    void FNetworkServer::BroadcastSnapshot(uint32_t CurrentTick, const std::vector<FSphere>& Spheres, float BoxHalfSize, float DeltaTime)
     {
         if (ServerSocket == INVALID_SOCKET || ConnectedClients.empty() || Spheres.empty())
             return;
+
+        SnapshotTimer += DeltaTime;
+        if (SnapshotTimer < SNAPSHOT_SEND_INTERVAL)
+            return;
+        SnapshotTimer -= SNAPSHOT_SEND_INTERVAL;
 
         const int totalSpheres = static_cast<int>(Spheres.size());
 

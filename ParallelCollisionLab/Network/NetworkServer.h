@@ -31,7 +31,7 @@ namespace Network
         void ProcessIncoming(FSimulationWorld& World, float DeltaTime = 0.016f);
 
         // Broadcast current physics snapshot to all connected clients
-        void BroadcastSnapshot(uint32_t CurrentTick, const std::vector<FSphere>& Spheres, float BoxHalfSize);
+        void BroadcastSnapshot(uint32_t CurrentTick, const std::vector<FSphere>& Spheres, float BoxHalfSize, float DeltaTime = 0.016f);
 
         bool IsRunning() const { return ServerSocket != INVALID_SOCKET; }
         size_t GetClientCount() const { return ConnectedClients.size(); }
@@ -57,6 +57,7 @@ namespace Network
         uint32_t                      LastBroadcastSphereCount = 0;
         uint32_t                      LastTickActiveSpheres    = 0;
         uint32_t                      LastTickSentSpheres      = 0;
+        float                         SnapshotTimer            = 0.0f;
         FUniformGridBase              NetworkGrid;
     };
 }
