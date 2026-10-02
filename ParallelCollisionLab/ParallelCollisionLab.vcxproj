@@ -143,6 +143,7 @@
     <ClCompile Include="Network\NetworkClient.cpp" />
     <ClCompile Include="Network\NetworkManager.cpp" />
     <ClCompile Include="Network\NetworkServer.cpp" />
+    <ClCompile Include="Network\NetworkSimulator.cpp" />
     <ClCompile Include="Renderer\Renderer.cpp" />
     <ClCompile Include="Renderer\TextRenderer.cpp" />
     <ClCompile Include="Window\Window.cpp" />

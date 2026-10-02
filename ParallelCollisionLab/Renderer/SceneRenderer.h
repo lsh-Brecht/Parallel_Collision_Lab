@@ -3,6 +3,7 @@
 #include <vector>
 #include <windows.h>
 #include "Renderer.h"
+#include "MeshPrimitives.h"
 #include "../Core/SimulationWorld.h"
 
 //=============================================================================
