@@ -37,11 +37,9 @@ namespace Network
         if (ServerSocket == INVALID_SOCKET)
             return false;
 
-        // Non-blocking mode
         u_long nonBlocking = 1;
         ioctlsocket(ServerSocket, FIONBIO, &nonBlocking);
 
-        // Socket buffer optimizations
         int bufSize = 512 * 1024;
         setsockopt(ServerSocket, SOL_SOCKET, SO_RCVBUF, reinterpret_cast<const char*>(&bufSize), sizeof(bufSize));
         setsockopt(ServerSocket, SOL_SOCKET, SO_SNDBUF, reinterpret_cast<const char*>(&bufSize), sizeof(bufSize));
@@ -82,7 +80,6 @@ namespace Network
         if (ServerSocket == INVALID_SOCKET)
             return;
 
-        // 1. Process all incoming UDP packets (non-blocking)
         uint8_t recvBuffer[2048];
         sockaddr_in senderAddr = {};
         int senderLen = sizeof(senderAddr);
@@ -161,7 +158,7 @@ namespace Network
             }
         }
 
-        // 2. Client heartbeat timeout check (20.0s threshold to tolerate WAN lag and window dragging)
+        // Timeout clients inactive for >20s (tolerates WAN lag and window dragging)
         for (auto it = ConnectedClients.begin(); it != ConnectedClients.end(); )
         {
             it->TimeSinceLastSeen += DeltaTime;
@@ -179,7 +176,7 @@ namespace Network
             }
         }
 
-        // 3. Keep assigned planets active across world resets
+        // Keep assigned planets active across world resets
         SyncPromotedPlanets(World);
     }
 
@@ -195,7 +192,7 @@ namespace Network
 
         const int totalSpheres = static_cast<int>(Spheres.size());
 
-        // Check if sphere count changed (e.g. world reset or count toggle)
+        // Trigger full sync on all clients if sphere count changes (e.g. world reset)
         if (static_cast<uint32_t>(totalSpheres) != LastBroadcastSphereCount)
         {
             LastBroadcastSphereCount = static_cast<uint32_t>(totalSpheres);
@@ -205,10 +202,9 @@ namespace Network
             }
         }
 
-        // Periodic baseline full sync every 120 ticks (~2 sec) for WAN packet loss self-healing
+        // Periodic full sync every 120 ticks (~2s) for self-healing on packet loss
         const bool bPeriodicFullSync = (CurrentTick % 120 == 0);
 
-        // Partition clients into FullSync recipients vs Dormancy-Optimized (Delta) recipients
         std::vector<sockaddr_in> fullSyncAddrs;
         std::vector<sockaddr_in> deltaSyncAddrs;
 
@@ -244,7 +240,6 @@ namespace Network
             }
         };
 
-        // 1. Send Full Snapshot to clients that need it (New joins, reconnects, or periodic 2s sync)
         if (!fullSyncAddrs.empty())
         {
             const uint16_t totalChunks = static_cast<uint16_t>((totalSpheres + MAX_SPHERES_PER_CHUNK - 1) / MAX_SPHERES_PER_CHUNK);
@@ -272,7 +267,6 @@ namespace Network
             }
         }
 
-        // 2. Send Active Snapshot with AOI Prioritization and Packet Budget Cap
         if (!deltaSyncAddrs.empty())
         {
             std::vector<const FSphere*> activeSpheres;
@@ -330,7 +324,7 @@ namespace Network
                     }
                     else
                     {
-                        // Priority 1: Assigned player planets (always replicated)
+                        // Priority 1: player planets (always replicated)
                         for (const auto* s : activeSpheres)
                         {
                             if (s->PlanetType != EPlanetType::None)
@@ -339,7 +333,7 @@ namespace Network
                             }
                         }
 
-                        // Priority 2: Active spheres inside player's Area of Interest (AOI)
+                        // Priority 2: active spheres inside AOI
                         std::vector<int> aoiIndices;
                         if (client.AssignedSphereId >= 0 && client.AssignedSphereId < static_cast<int32_t>(Spheres.size()))
                         {
@@ -360,7 +354,7 @@ namespace Network
                             }
                         }
 
-                        // Priority 3: Remaining active spheres until budget cap
+                        // Priority 3: remaining active spheres up to budget cap
                         for (const auto* s : activeSpheres)
                         {
                             if (static_cast<int>(clientTargetSpheres.size()) >= maxSpheresBudget)
@@ -414,14 +408,14 @@ namespace Network
         {
             if (MatchesAddress(existing.Addr, ClientAddr))
             {
-                existing.TimeSinceLastSeen = 0.0f; // Heartbeat refreshed
-                existing.FullSyncRemainingTicks = 60; // Refresh full snapshot
+                existing.TimeSinceLastSeen      = 0.0f;
+                existing.FullSyncRemainingTicks = 60;
                 SendHandshakeResponse(existing.Addr, static_cast<uint32_t>(World.GetSphereCount()), World.GetBoxHalfSize(), existing.AssignedSphereId, existing.AssignedPlanet);
                 return;
             }
         }
 
-        // New client: check available planet slots
+        // New client: assign next available planet slot
         bool bEarthTaken = false;
         bool bMarsTaken  = false;
         bool bUvTaken    = false;

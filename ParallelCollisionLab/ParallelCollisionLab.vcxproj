@@ -170,6 +170,7 @@
     <ClInclude Include="Core\CPUInfo.h" />
     <ClInclude Include="Core\Timer.h" />
     <ClInclude Include="Renderer\HUDTracker.h" />
+    <ClInclude Include="Renderer\MeshPrimitives.h" />
     <ClInclude Include="Renderer\Renderer.h" />
     <ClInclude Include="Renderer\SceneRenderer.h" />
     <ClInclude Include="Renderer\TextRenderer.h" />

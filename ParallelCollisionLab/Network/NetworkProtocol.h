@@ -17,21 +17,20 @@ namespace Network
     static const uint32_t PROTOCOL_MAGIC             = 0x50434C31; // "PCL1"
     static const uint16_t DEFAULT_SERVER_PORT        = 32768;
     static const int      MAX_SPHERES_PER_CHUNK      = 60;   // 60 * 24B + 19B = 1459B (<= 1472 MTU safe payload)
-    static const int      MAX_CHUNKS_PER_TICK_BUDGET = 4;    // Packet budget: max 4 chunks (240 spheres) per tick
-    static const float    DEFAULT_AOI_RADIUS         = 1.4f; // Area of Interest radius around player sphere
-    static const float    SNAPSHOT_SEND_INTERVAL     = 1.0f / 30.0f; // 30 FPS server snapshot interval
+    static const int      MAX_CHUNKS_PER_TICK_BUDGET = 4;    // max 4 chunks (240 spheres) per tick
+    static const float    DEFAULT_AOI_RADIUS         = 1.4f;
+    static const float    SNAPSHOT_SEND_INTERVAL     = 1.0f / 30.0f; // 30 FPS server snapshot rate
 
     enum class EPacketType : uint8_t
     {
-        HandshakeRequest  = 1, // Client -> Server
-        HandshakeResponse = 2, // Server -> Client (Sphere count, bounds, assigned sphere & planet)
-        SnapshotChunk     = 3, // Server -> Client (Batch of sphere states)
-        Heartbeat         = 4, // Keep-alive
-        Disconnect        = 5, // Client -> Server
-        ClientInput       = 6  // Client -> Server (Inputs for assigned sphere)
+        HandshakeRequest  = 1,
+        HandshakeResponse = 2,
+        SnapshotChunk     = 3,
+        Heartbeat         = 4,
+        Disconnect        = 5,
+        ClientInput       = 6
     };
 
-    // 32-bit RGBA packing/unpacking helpers
     inline uint32_t PackRGBA(const FVector4& c)
     {
         uint8_t r = static_cast<uint8_t>((std::max)(0.0f, (std::min)(1.0f, c.x)) * 255.0f);
@@ -50,9 +49,6 @@ namespace Network
         return FVector4(r, g, b, (a > 0.0f) ? a : 1.0f);
     }
 
-    //=============================================================================
-    // Quantization & Bit Packing Helpers
-    //=============================================================================
     inline uint16_t CompressCoord(float val, float boxHalfSize)
     {
         float normalized = (val + boxHalfSize) / (2.0f * boxHalfSize);
@@ -94,18 +90,18 @@ namespace Network
 
     struct FSphereNetData
     {
-        uint32_t Id;        // 4 bytes: Sphere Index (supports >100,000 spheres)
-        uint16_t PosX;      // 2 bytes: Quantized X in [-BoxHalfSize, +BoxHalfSize]
-        uint16_t PosY;      // 2 bytes: Quantized Y in [-BoxHalfSize, +BoxHalfSize]
-        uint16_t PosZ;      // 2 bytes: Quantized Z in [-BoxHalfSize, +BoxHalfSize]
-        int16_t  VelX;      // 2 bytes: Quantized Velocity X in [-16.0, +16.0]
-        int16_t  VelY;      // 2 bytes: Quantized Velocity Y in [-16.0, +16.0]
-        int16_t  VelZ;      // 2 bytes: Quantized Velocity Z in [-16.0, +16.0]
-        uint16_t Radius;    // 2 bytes: Quantized Radius in [0.0, 1.0]
-        uint8_t  PlanetType;// 1 byte: EPlanetType (0: None, 1: Earth, 2: Mars, 3: UVMap)
-        uint8_t  Flags;     // 1 byte: bit 0: bIsSleeping
-        uint32_t ColorRGBA; // 4 bytes: 32-bit packed RGBA
-    };                      // Total: exactly 24 bytes!
+        uint32_t Id;         // 4B: sphere index
+        uint16_t PosX;       // 2B: quantized X in [-BoxHalfSize, +BoxHalfSize]
+        uint16_t PosY;       // 2B: quantized Y
+        uint16_t PosZ;       // 2B: quantized Z
+        int16_t  VelX;       // 2B: quantized velocity X in [-16, +16]
+        int16_t  VelY;       // 2B: quantized velocity Y
+        int16_t  VelZ;       // 2B: quantized velocity Z
+        uint16_t Radius;     // 2B: quantized radius in [0, 1]
+        uint8_t  PlanetType; // 1B: EPlanetType
+        uint8_t  Flags;      // 1B: bit0 = bIsSleeping
+        uint32_t ColorRGBA;  // 4B: packed RGBA
+    };                       // Total: 24 bytes
 
     static_assert(sizeof(FSphereNetData) == 24, "FSphereNetData must be exactly 24 bytes");
 
@@ -125,8 +121,8 @@ namespace Network
         FPacketHeader Header;
         uint32_t      SphereCount;
         float         BoxHalfSize;
-        int32_t       AssignedSphereId; // e.g. 0: Earth, 1: Mars, 2: UVMap, -1: Spectator
-        uint8_t       AssignedPlanet;   // 1: Earth, 2: Mars, 3: UVMap, 0: None/Spectator
+        int32_t       AssignedSphereId;
+        uint8_t       AssignedPlanet;
     };
 
     struct FSnapshotChunkPacket
@@ -145,9 +141,9 @@ namespace Network
         FPacketHeader Header;
         uint32_t      InputSeq;
         int32_t       AssignedSphereId;
-        float         InputX; // Left/Right (-1.0 ~ 1.0)
-        float         InputY; // Up/Down (-1.0 ~ 1.0)
-        float         InputZ; // Backward/Forward (-1.0 ~ 1.0)
+        float         InputX;
+        float         InputY;
+        float         InputZ;
     };
 
     #pragma pack(pop)
@@ -157,7 +153,7 @@ namespace Network
         return a.sin_addr.s_addr == b.sin_addr.s_addr && a.sin_port == b.sin_port;
     }
 
-    // RAII Winsock Subsystem Manager
+    // RAII Winsock lifecycle manager
     class FWinsockScope
     {
     public:

@@ -23,7 +23,6 @@ namespace Network
         if (ClientSocket == INVALID_SOCKET)
             return false;
 
-        // Non-blocking mode
         u_long nonBlocking = 1;
         ioctlsocket(ClientSocket, FIONBIO, &nonBlocking);
 
@@ -44,7 +43,6 @@ namespace Network
             return false;
         }
 
-        // Configure Server destination address
         ServerEndpoint = {};
         ServerEndpoint.sin_family = AF_INET;
         ServerEndpoint.sin_port   = htons(InServerPort);
@@ -58,7 +56,6 @@ namespace Network
         AssignedPlanet           = 0;
         InputSeq                 = 0;
 
-        // Send initial Handshake Request
         SendSimplePacket(EPacketType::HandshakeRequest);
         return true;
     }
@@ -91,7 +88,6 @@ namespace Network
         if (ClientSocket == INVALID_SOCKET)
             return;
 
-        // Keep-alive timer
         KeepAliveTimer += DeltaTime;
         if (!bIsConnected && KeepAliveTimer >= 0.5f)
         {
@@ -131,7 +127,6 @@ namespace Network
 
             TotalPacketsReceived++;
 
-            // If simulator is active, enqueue packet for latency/loss/jitter simulation
             if (Simulator && Simulator->IsEnabled())
             {
                 Simulator->EnqueuePacket(recvBuffer, bytesRead, senderAddr);
@@ -142,7 +137,6 @@ namespace Network
             }
         }
 
-        // Process packets released by simulator whose delay has elapsed
         if (Simulator && Simulator->IsEnabled())
         {
             std::vector<uint8_t> readyData;
@@ -153,7 +147,7 @@ namespace Network
             }
         }
 
-        // Remote entity dead reckoning / extrapolation
+        // Dead reckoning: extrapolate remote spheres every frame (fills gaps between 30Hz snapshots)
         const int count = static_cast<int>(Spheres.size());
         for (int i = 0; i < count; ++i)
         {
@@ -188,7 +182,6 @@ namespace Network
             AssignedSphereId = resp->AssignedSphereId;
             AssignedPlanet   = resp->AssignedPlanet;
 
-            // Validate sphere count sanity bounds
             if (resp->SphereCount >= MIN_SPHERES && resp->SphereCount <= MAX_SPHERES && resp->SphereCount != Spheres.size())
             {
                 Spheres = CreateSpheres(resp->SphereCount, BoxHalfSize);
@@ -196,18 +189,15 @@ namespace Network
         }
         else if (header->Type == EPacketType::SnapshotChunk)
         {
-            // 1. Validate minimum header size for snapshot chunk
             const size_t minChunkHeaderSize = offsetof(FSnapshotChunkPacket, Spheres);
             if (bytesRead < static_cast<int>(minChunkHeaderSize))
                 return;
 
             const auto* chunk = reinterpret_cast<const FSnapshotChunkPacket*>(buffer);
 
-            // 2. Validate CountInPacket and ChunkIndex bounds
             if (chunk->CountInPacket > MAX_SPHERES_PER_CHUNK || chunk->TotalChunks == 0 || chunk->ChunkIndex >= chunk->TotalChunks)
                 return;
 
-            // 3. Validate that buffer actually contains all CountInPacket sphere elements
             const size_t expectedPacketSize = minChunkHeaderSize + (chunk->CountInPacket * sizeof(FSphereNetData));
             if (bytesRead < static_cast<int>(expectedPacketSize))
                 return;
@@ -217,20 +207,16 @@ namespace Network
             {
                 int32_t tickDiff = static_cast<int32_t>(chunk->ServerTick - LastReceivedSnapshotTick);
                 if (tickDiff < 0)
-                {
-                    return; // Past tick packet arrived late, drop it
-                }
+                    return; // Late packet arrived out of order, drop it
             }
 
             LastReceivedSnapshotTick = (std::max)(LastReceivedSnapshotTick, chunk->ServerTick);
 
-            // Ensure sphere buffer is sized to match (with sanity bounds)
             if (chunk->TotalSpheres >= MIN_SPHERES && chunk->TotalSpheres <= MAX_SPHERES && chunk->TotalSpheres != Spheres.size())
             {
                 Spheres = CreateSpheres(chunk->TotalSpheres, BoxHalfSize);
             }
 
-            // Apply received sphere positions and properties directly (Dequantization)
             for (uint16_t i = 0; i < chunk->CountInPacket; ++i)
             {
                 const auto& netData = chunk->Spheres[i];
@@ -298,7 +284,6 @@ namespace Network
         );
         TotalPacketsSent++;
     }
-
 
     void FNetworkClient::SendInput(float x, float y, float z)
     {

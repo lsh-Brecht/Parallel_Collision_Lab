@@ -14,18 +14,10 @@
 #include "BVHNode.h"
 #include "IBVHVisualizer.h"
 
-//=============================================================================
-// BVHMTSolver - Multi-Threaded AABB Bounding Volume Hierarchy Collision Solver
-//
-// Architecture:
-// 1. Broad Phase: Top-Down Longest-Axis Object Median Split Tree Build
-// 2. Narrow Phase: 100% Lock-Free Parallel Query-Against-Tree Traversal
-//    - Flat FBVHNode tree buffer is 100% read-only in L2/L3 cache
-//    - Spheres are partitioned evenly among worker threads
-//    - Each thread maintains a thread-local L1 traversal stack (stack[64])
-//    - Unique collision pairs (i < j) collected into thread-local buffers
-// 3. Resolution Phase: Standard impulse-based sphere collision resolution
-//=============================================================================
+// Multi-threaded BVH collision solver.
+// Broad phase: top-down longest-axis median-split tree build (optionally parallelised at fork depth 2-3).
+// Narrow phase: lock-free parallel query-against-tree; each thread owns a local stack[64] and manifold buffer.
+// Resolution: standard impulse-based collision response.
 class BVHMTSolver : public ICollisionSolver, public FBVHVisualizerBase
 {
 public:
@@ -47,9 +39,6 @@ public:
         ShutdownThreadPool();
     }
 
-    //-------------------------------------------------------------------------
-    // Thread Pool Lifecycle
-    //-------------------------------------------------------------------------
     void SetThreadCount(int InThreadCount) override
     {
         if (InThreadCount <= 0 || InThreadCount == WorkerThreadCount)
@@ -100,9 +89,6 @@ public:
         WorkerThreads.clear();
     }
 
-    //-------------------------------------------------------------------------
-    // ICollisionSolver Interface
-    //-------------------------------------------------------------------------
     void Solve(std::vector<FSphere>& Spheres) override
     {
         const int Count = static_cast<int>(Spheres.size());
@@ -186,9 +172,6 @@ public:
     const FCollisionStats& GetLastStats() const override { return LastStats; }
     const std::vector<FCollisionManifold>& GetManifolds() const { return Manifolds; }
 
-    //-------------------------------------------------------------------------
-    // IBVHVisualizer Interface
-    //-------------------------------------------------------------------------
     void BuildBVH(const std::vector<FSphere>& Spheres) override
     {
         const int Count = static_cast<int>(Spheres.size());
@@ -548,7 +531,6 @@ private:
     std::vector<int>                SphereIndices;
     std::vector<FAABB>              SphereBounds;
 
-    // Multi-threading state
     int                             WorkerThreadCount  = 1;
     std::vector<std::thread>        WorkerThreads;
     std::mutex                      SyncMutex;
