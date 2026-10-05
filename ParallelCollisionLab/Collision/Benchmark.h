@@ -9,9 +9,6 @@
 #include "../Core/CPUInfo.h"
 #include "ICollisionSolver.h"
 
-//=============================================================================
-// FBenchmarkItem - Individual solver performance statistics
-//=============================================================================
 struct FBenchmarkItem
 {
     std::wstring Name;
@@ -19,23 +16,24 @@ struct FBenchmarkItem
     double       AvgBroadMs       = 0.0;
     double       AvgNarrowMs      = 0.0;
     double       AvgTotalMs       = 0.0;
+    double       MedianTotalMs    = 0.0;
+    double       P95TotalMs       = 0.0;
     double       MinTotalMs       = 0.0;
     double       MaxTotalMs       = 0.0;
     double       Speedup          = 1.0; // Based on AvgTotalMs vs Baseline (Total solve time)
     double       NarrowSpeedup    = 1.0; // Narrow-phase only speedup for architectural reference
     uint64_t     CandidatePairs   = 0;
     uint64_t     ActualCollisions = 0;
+    bool         bFrame0Match     = true;
 };
 
-//=============================================================================
-// FBenchmarkReport - Complete benchmark suite report
-//=============================================================================
 struct FBenchmarkReport
 {
-    bool                        bValid     = false;
-    int                         BallCount  = 0;
-    int                         WarmupRuns = 10;
-    int                         SampleRuns = 50;
+    bool                        bValid         = false;
+    int                         BallCount      = 0;
+    int                         WarmupRuns     = 10;
+    int                         SampleRuns     = 50;
+    bool                        bAllMatch      = true;
     std::vector<FBenchmarkItem> Items;
     std::wstring                DisplayText;
 
@@ -48,24 +46,27 @@ struct FBenchmarkReport
         uint64_t MaxPossiblePairs = static_cast<uint64_t>(BallCount) * (BallCount - 1) / 2;
 
         swprintf_s(headerBuf,
-            L"====================================================================================================\r\n"
-            L"                             PARALLEL COLLISION LAB - BENCHMARK REPORT                              \r\n"
-            L"====================================================================================================\r\n"
+            L"========================================================================================================================\r\n"
+            L"                                       PARALLEL COLLISION LAB - BENCHMARK REPORT                                        \r\n"
+            L"                                      (Snapshot Replay: 100%% Identical Trajectories)                                   \r\n"
+            L"========================================================================================================================\r\n"
             L"Date / Time     : %04d-%02d-%02d %02d:%02d:%02d\r\n"
             L"CPU             : %s\r\n"
             L"Cache           : %s\r\n"
             L"Ball Count      : %d Balls (Max Pairs: %llu)\r\n"
-            L"Iterations      : %d Runs (Warm-up: %d Runs)\r\n"
-            L"====================================================================================================\r\n\r\n"
-            L"[SOLVER PERFORMANCE COMPARISON - TOTAL TIME SPEEDUP]\r\n"
-            L"----------------------------------------------------------------------------------------------------\r\n"
-            L"No.  Solver Name        Threads   Broad Phase   Narrow Phase   Total Time (Min / Max)      Speedup  \r\n"
-            L"----------------------------------------------------------------------------------------------------\r\n",
+            L"Replay Frames   : %d Sample Runs (Warm-up: %d Runs) [Pre-recorded via Ground Truth]\r\n"
+            L"Validation      : %s (Frame 0 collision count across all solvers)\r\n"
+            L"========================================================================================================================\r\n\r\n"
+            L"[SOLVER PERFORMANCE COMPARISON - TOTAL TIME SPEEDUP & DISTRIBUTION]\r\n"
+            L"------------------------------------------------------------------------------------------------------------------------\r\n"
+            L"No.  Solver Name        Threads   Broad Phase   Narrow Phase   Total (Avg / Median / P95)        Speedup   Verified     \r\n"
+            L"------------------------------------------------------------------------------------------------------------------------\r\n",
             st.wYear, st.wMonth, st.wDay, st.wHour, st.wMinute, st.wSecond,
             CPUInfo.GetSummaryString().c_str(),
             CPUInfo.GetCacheString().c_str(),
             BallCount, MaxPossiblePairs,
-            SampleRuns, WarmupRuns);
+            SampleRuns, WarmupRuns,
+            bAllMatch ? L"ALL PASS (100% Consistent Collision Count)" : L"PARTIAL MISMATCH");
 
         std::wstring out = headerBuf;
 
@@ -73,25 +74,27 @@ struct FBenchmarkReport
         {
             const auto& it = Items[i];
             wchar_t rowBuf[256];
+            const wchar_t* matchStr = it.bFrame0Match ? L"PASS" : L"DIFF";
             if (i == 0)
             {
                 swprintf_s(rowBuf,
-                    L"%02zu   %-18s %4d    %6.2f ms    %6.2f ms    %6.2f ms (%5.2f / %5.2f)   [Baseline]\r\n",
+                    L"%02zu   %-18s %4d    %6.2f ms    %6.2f ms    %6.2f / %5.2f / %5.2f ms   [Baseline]      %s\r\n",
                     i + 1, it.Name.c_str(), it.ThreadCount,
-                    it.AvgBroadMs, it.AvgNarrowMs, it.AvgTotalMs, it.MinTotalMs, it.MaxTotalMs);
+                    it.AvgBroadMs, it.AvgNarrowMs, it.AvgTotalMs, it.MedianTotalMs, it.P95TotalMs, matchStr);
             }
             else
             {
                 swprintf_s(rowBuf,
-                    L"%02zu   %-18s %4d    %6.2f ms    %6.2f ms    %6.2f ms (%5.2f / %5.2f)   %6.2fx\r\n",
+                    L"%02zu   %-18s %4d    %6.2f ms    %6.2f ms    %6.2f / %5.2f / %5.2f ms     %5.2fx        %s\r\n",
                     i + 1, it.Name.c_str(), it.ThreadCount,
-                    it.AvgBroadMs, it.AvgNarrowMs, it.AvgTotalMs, it.MinTotalMs, it.MaxTotalMs, it.Speedup);
+                    it.AvgBroadMs, it.AvgNarrowMs, it.AvgTotalMs, it.MedianTotalMs, it.P95TotalMs, it.Speedup, matchStr);
             }
             out += rowBuf;
         }
 
-        out += L"----------------------------------------------------------------------------------------------------\r\n";
-        out += L"* Speedup is calculated based on TOTAL solve time (Broad Phase + Narrow Phase).\r\n\r\n";
+        out += L"------------------------------------------------------------------------------------------------------------------------\r\n";
+        out += L"* Speedup is calculated based on TOTAL solve time (Broad Phase + Narrow Phase).\r\n";
+        out += L"* All solvers evaluated on the exact same pre-recorded snapshot stream to eliminate divergence.\r\n\r\n";
 
         out += L"[SUMMARY & ARCHITECTURE ANALYSIS]\r\n";
         if (Items.size() >= 2 && Items[1].Speedup > 1.0)
@@ -139,15 +142,14 @@ struct FBenchmarkReport
                 Items[5].Speedup, Items[5].AvgTotalMs, Items[0].AvgTotalMs);
             out += bvhMtNoteBuf;
         }
-        out += L"====================================================================================================\r\n";
+        out += L"========================================================================================================================\r\n";
 
         return out;
     }
 };
 
-//=============================================================================
-// RunBenchmark - Runs warm-up and timed sample iterations across all solvers
-//=============================================================================
+// Pre-records ground truth trajectories using Nested Loop ST,
+// then plays back exact identical frames to all solvers to eliminate divergence.
 inline FBenchmarkReport RunBenchmark(
     const std::vector<std::unique_ptr<ICollisionSolver>>& Solvers,
     const std::vector<FSphere>& BaseSpheres,
@@ -162,66 +164,125 @@ inline FBenchmarkReport RunBenchmark(
     }
 
     report.WarmupRuns = 10;
-    report.SampleRuns = (report.BallCount <= 256) ? 100 : 50;
+    report.SampleRuns = (report.BallCount <= 256) ? 100 : (report.BallCount <= 2048 ? 50 : 30);
 
+    //-------------------------------------------------------------------------
+    // 1. Pre-Record Ground Truth Snapshot Stream (Nested Loop ST)
+    //-------------------------------------------------------------------------
+    std::vector<std::vector<FSphere>> warmupSnapshots;
+    std::vector<std::vector<FSphere>> sampleSnapshots;
+    warmupSnapshots.reserve(report.WarmupRuns);
+    sampleSnapshots.reserve(report.SampleRuns);
+
+    std::vector<FSphere> simSpheres = BaseSpheres;
+    ICollisionSolver* groundTruth = Solvers[0].get();
+
+    for (int w = 0; w < report.WarmupRuns; ++w)
+    {
+        for (FSphere& s : simSpheres)
+        {
+            s.Update(FixedDt, false); // Damping and sleep disabled for uniform workload
+            s.BoxCollisionCheck(BoxHalfSize);
+        }
+        warmupSnapshots.push_back(simSpheres); // Save pre-solve state
+        groundTruth->Solve(simSpheres);
+        for (FSphere& s : simSpheres)
+        {
+            s.BoxCollisionCheck(BoxHalfSize);
+        }
+    }
+
+    uint64_t baselineCollisionsFrame0 = 0;
+
+    for (int r = 0; r < report.SampleRuns; ++r)
+    {
+        for (FSphere& s : simSpheres)
+        {
+            s.Update(FixedDt, false);
+            s.BoxCollisionCheck(BoxHalfSize);
+        }
+        sampleSnapshots.push_back(simSpheres); // Save pre-solve state
+        groundTruth->Solve(simSpheres);
+        for (FSphere& s : simSpheres)
+        {
+            s.BoxCollisionCheck(BoxHalfSize);
+        }
+
+        if (r == 0)
+        {
+            baselineCollisionsFrame0 = groundTruth->GetLastStats().ActualCollisionCount;
+        }
+    }
+
+    //-------------------------------------------------------------------------
+    // 2. Playback & Measure Each Solver on Identical Snapshot Streams
+    //-------------------------------------------------------------------------
     double baselineAvgTotal  = 0.0;
     double baselineAvgNarrow = 0.0;
+    bool   bAllMatch         = true;
 
     for (size_t s = 0; s < Solvers.size(); ++s)
     {
         ICollisionSolver* solver = Solvers[s].get();
         if (!solver) continue;
 
-        std::vector<FSphere> testSpheres = BaseSpheres;
+        // Warmup on recorded stream
         for (int w = 0; w < report.WarmupRuns; ++w)
         {
-            for (FSphere& sphere : testSpheres)
-            {
-                sphere.Update(FixedDt);
-                sphere.BoxCollisionCheck(BoxHalfSize);
-            }
-            solver->Solve(testSpheres);
+            std::vector<FSphere> workSpheres = warmupSnapshots[w];
+            solver->Solve(workSpheres);
         }
 
-        testSpheres = BaseSpheres;
+        double   totalBroadMs           = 0.0;
+        double   totalNarrowMs          = 0.0;
+        double   totalTimeMs            = 0.0;
+        uint64_t totalCandidatePairs    = 0;
+        uint64_t totalActualCollisions  = 0;
+        bool     bFrame0Match           = true;
 
-        double totalBroadMs   = 0.0;
-        double totalNarrowMs  = 0.0;
-        double totalTimeMs    = 0.0;
-        double minTotalMs     = 1e9;
-        double maxTotalMs     = 0.0;
-        uint64_t candidatePairs   = 0;
-        uint64_t actualCollisions = 0;
+        std::vector<double> sampleTotals;
+        sampleTotals.reserve(report.SampleRuns);
 
-        for (int run = 0; run < report.SampleRuns; ++run)
+        for (int r = 0; r < report.SampleRuns; ++r)
         {
-            for (FSphere& sphere : testSpheres)
-            {
-                sphere.Update(FixedDt);
-                sphere.BoxCollisionCheck(BoxHalfSize);
-            }
-
-            solver->Solve(testSpheres);
+            std::vector<FSphere> workSpheres = sampleSnapshots[r];
+            solver->Solve(workSpheres);
 
             const FCollisionStats& stats = solver->GetLastStats();
             double broad  = stats.BroadPhaseTimeMs;
             double narrow = stats.NarrowPhaseTimeMs;
             double total  = stats.TotalSolveTimeMs;
 
-            totalBroadMs  += broad;
-            totalNarrowMs += narrow;
-            totalTimeMs   += total;
+            totalBroadMs           += broad;
+            totalNarrowMs          += narrow;
+            totalTimeMs            += total;
+            totalCandidatePairs    += stats.CandidatePairCount;
+            totalActualCollisions  += stats.ActualCollisionCount;
+            sampleTotals.push_back(total);
 
-            if (total < minTotalMs) minTotalMs = total;
-            if (total > maxTotalMs) maxTotalMs = total;
-
-            candidatePairs   = stats.CandidatePairCount;
-            actualCollisions = stats.ActualCollisionCount;
+            if (r == 0)
+            {
+                if (stats.ActualCollisionCount != baselineCollisionsFrame0)
+                {
+                    bFrame0Match = false;
+                    bAllMatch    = false;
+                }
+            }
         }
 
-        double avgBroadMs  = totalBroadMs  / static_cast<double>(report.SampleRuns);
-        double avgNarrowMs = totalNarrowMs / static_cast<double>(report.SampleRuns);
-        double avgTotalMs  = totalTimeMs   / static_cast<double>(report.SampleRuns);
+        // Compute Statistics (Average, Min, Max, Median, P95)
+        std::sort(sampleTotals.begin(), sampleTotals.end());
+        double minTotal    = sampleTotals.front();
+        double maxTotal    = sampleTotals.back();
+        double medianTotal = sampleTotals[report.SampleRuns / 2];
+        size_t p95Index    = static_cast<size_t>(floor(0.95 * (report.SampleRuns - 1)));
+        double p95Total    = sampleTotals[p95Index];
+
+        double avgBroadMs  = totalBroadMs           / static_cast<double>(report.SampleRuns);
+        double avgNarrowMs = totalNarrowMs          / static_cast<double>(report.SampleRuns);
+        double avgTotalMs  = totalTimeMs            / static_cast<double>(report.SampleRuns);
+        uint64_t avgPairs  = totalCandidatePairs    / report.SampleRuns;
+        uint64_t avgColl   = totalActualCollisions  / report.SampleRuns;
 
         if (s == 0 || baselineAvgTotal <= 0.0)
         {
@@ -238,21 +299,25 @@ inline FBenchmarkReport RunBenchmark(
         item.AvgBroadMs       = avgBroadMs;
         item.AvgNarrowMs      = avgNarrowMs;
         item.AvgTotalMs       = avgTotalMs;
-        item.MinTotalMs       = minTotalMs;
-        item.MaxTotalMs       = maxTotalMs;
+        item.MedianTotalMs    = medianTotal;
+        item.P95TotalMs       = p95Total;
+        item.MinTotalMs       = minTotal;
+        item.MaxTotalMs       = maxTotal;
         item.Speedup          = speedup;
         item.NarrowSpeedup    = narrowSpeedup;
-        item.CandidatePairs   = candidatePairs;
-        item.ActualCollisions = actualCollisions;
+        item.CandidatePairs   = avgPairs;
+        item.ActualCollisions = avgColl;
+        item.bFrame0Match     = bFrame0Match;
 
         report.Items.push_back(item);
     }
 
-    report.bValid = true;
+    report.bValid    = true;
+    report.bAllMatch = bAllMatch;
 
     wchar_t buf[2048];
     int offset = swprintf_s(buf,
-        L"=== BENCHMARK (%d Balls, %d Runs - Total Time Speedup) ===\n",
+        L"=== BENCHMARK (Snapshot Replay: %d Balls, %d Runs) ===\n",
         report.BallCount, report.SampleRuns);
 
     for (size_t i = 0; i < report.Items.size(); ++i)
@@ -261,14 +326,14 @@ inline FBenchmarkReport RunBenchmark(
         if (i == 0)
         {
             offset += swprintf_s(buf + offset, sizeof(buf)/sizeof(wchar_t) - offset,
-                L"[%zu] %-16s : Total %5.2f ms (Broad:%4.2f, Narrow:%5.2f) [Base]\n",
-                i + 1, it.Name.c_str(), it.AvgTotalMs, it.AvgBroadMs, it.AvgNarrowMs);
+                L"[%zu] %-16s : %5.2f ms (Median:%5.2f, P95:%5.2f) [Base]\n",
+                i + 1, it.Name.c_str(), it.AvgTotalMs, it.MedianTotalMs, it.P95TotalMs);
         }
         else
         {
             offset += swprintf_s(buf + offset, sizeof(buf)/sizeof(wchar_t) - offset,
-                L"[%zu] %-16s : Total %5.2f ms (Broad:%4.2f, Narrow:%5.2f) -> %5.2fx\n",
-                i + 1, it.Name.c_str(), it.AvgTotalMs, it.AvgBroadMs, it.AvgNarrowMs, it.Speedup);
+                L"[%zu] %-16s : %5.2f ms (Median:%5.2f, P95:%5.2f) -> %5.2fx\n",
+                i + 1, it.Name.c_str(), it.AvgTotalMs, it.MedianTotalMs, it.P95TotalMs, it.Speedup);
         }
     }
     swprintf_s(buf + offset, sizeof(buf)/sizeof(wchar_t) - offset, L"\n");
