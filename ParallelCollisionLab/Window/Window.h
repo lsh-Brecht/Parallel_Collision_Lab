@@ -23,6 +23,7 @@ struct FInputState
 	bool ResetCamera;
 	bool Quit;
 	bool Benchmark;
+	bool RunStudy;
 	bool ToggleGridVis;
 	bool ToggleHUD;
 	bool DecThread;

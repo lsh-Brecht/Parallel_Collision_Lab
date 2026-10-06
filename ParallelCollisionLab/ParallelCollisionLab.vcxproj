@@ -184,6 +184,7 @@
     <ClInclude Include="Collision\NestedLoop\NestedLoopMTSolver.h" />
     <ClInclude Include="Collision\UniformGrid\UniformGridSolver.h" />
     <ClInclude Include="Collision\Benchmark.h" />
+    <ClInclude Include="Collision\BenchmarkSuite.h" />
     <ClInclude Include="Network\NetworkProtocol.h" />
     <ClInclude Include="Network\NetworkManager.h" />
     <ClInclude Include="Network\NetworkClient.h" />

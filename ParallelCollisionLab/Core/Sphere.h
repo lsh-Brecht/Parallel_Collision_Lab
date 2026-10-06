@@ -4,7 +4,7 @@
 #include <vector>
 
 static const int   MIN_SPHERES        = 16;
-static const int   MAX_SPHERES        = 2048;
+static const int   MAX_SPHERES        = 8192;
 static const float SPEED_FACTOR       = 0.8f;
 static const float PLANET_BASE_RADIUS = 0.36f;
 
@@ -189,6 +189,81 @@ inline std::vector<FSphere> CreateSpheres(int numSpheres, float L, bool bMultiSc
 			float ColorRand = RandF(0.0f, 340.0f);
 			ColorRand = (ColorRand > 230.0f) ? ColorRand + 20.0f : ColorRand;
 			c.Color       = HSVtoRGB(ColorRand, RandF(0.85f, 1.0f), RandF(0.85f, 1.0f));
+			c.BaseColor   = c.Color;
+			c.bIsSleeping     = false;
+			c.SleepTimer      = 0.0f;
+			c.SleepSyncFrames = 60;
+
+			for (const FSphere& e : spheres)
+			{
+				if (c.CollisionCheck(e) < 0.0f)
+				{
+					bColliding = true;
+					break;
+				}
+			}
+		}
+		while (bColliding);
+
+		spheres.push_back(c);
+	}
+
+	return spheres;
+}
+
+inline std::vector<FSphere> CreateSpheresScaled(
+	int numSpheres,
+	float L,
+	float sizeRatio = 1.0f,
+	int largeCount = 0,
+	unsigned int seed = 1)
+{
+	if (seed != 0)
+	{
+		srand(seed);
+	}
+
+	std::vector<FSphere> spheres;
+	spheres.reserve(numSpheres);
+
+	float scale = cbrtf((float)MIN_SPHERES) / cbrtf((float)numSpheres);
+	float rs    = 0.15f * scale;
+
+	for (int i = 0; i < numSpheres; ++i)
+	{
+		FSphere c;
+		c.Id         = i;
+		c.PlanetType = EPlanetType::None;
+
+		if (i < largeCount)
+		{
+			c.Radius = rs * sizeRatio;
+			float maxAllowed = (L - 0.05f) * 0.45f;
+			if (c.Radius > maxAllowed) c.Radius = maxAllowed;
+		}
+		else
+		{
+			c.Radius = RandF(rs * 0.9f, rs * 1.1f);
+		}
+
+		c.Mass = c.Radius * c.Radius * c.Radius;
+
+		bool bColliding;
+		int attempts = 0;
+
+		do
+		{
+			bColliding = false;
+			if (++attempts > 1000)
+				break;
+
+			float bound = (L - c.Radius) * 0.95f;
+			if (bound < 0.01f) bound = 0.01f;
+			c.Center   = FVector3(RandF(-bound, bound), RandF(-bound, bound), RandF(-bound, bound));
+			c.Velocity = FVector3(RandF(-1.0f, 1.0f), RandF(-1.0f, 1.0f), RandF(-1.0f, 1.0f));
+
+			float ColorRand = (i < largeCount) ? 20.0f : RandF(120.0f, 320.0f);
+			c.Color       = HSVtoRGB(ColorRand, 0.9f, 0.9f);
 			c.BaseColor   = c.Color;
 			c.bIsSleeping     = false;
 			c.SleepTimer      = 0.0f;

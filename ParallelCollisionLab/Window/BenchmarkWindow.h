@@ -3,23 +3,21 @@
 #include <windows.h>
 #include <commdlg.h>
 #include <string>
+#include <thread>
+#include "../Collision/BenchmarkSuite.h"
 
-//=============================================================================
-// Control IDs
-//=============================================================================
 #define IDC_BENCH_EDIT       1001
 #define IDC_BENCH_BTN_SAVE   1002
 #define IDC_BENCH_BTN_COPY   1003
 #define IDC_BENCH_BTN_CLOSE  1004
+#define IDC_BENCH_BTN_STUDY  1005
 
-//=============================================================================
-// Window State
-//=============================================================================
 struct FBenchmarkWindowState
 {
     HWND         hEdit       = nullptr;
     HWND         hBtnSave    = nullptr;
     HWND         hBtnCopy    = nullptr;
+    HWND         hBtnStudy   = nullptr;
     HWND         hBtnClose   = nullptr;
     HFONT        hFontEdit   = nullptr;
     std::wstring ReportText;
@@ -87,6 +85,15 @@ static LRESULT CALLBACK BenchmarkWndProc(HWND hWnd, UINT msg, WPARAM wParam, LPA
         );
         SendMessageW(state->hBtnCopy, WM_SETFONT, reinterpret_cast<WPARAM>(hFontBtn), TRUE);
 
+        state->hBtnStudy = CreateWindowExW(
+            0, L"BUTTON", L"Run Study (Export CSV)",
+            WS_CHILD | WS_VISIBLE | BS_PUSHBUTTON,
+            0, 0, 0, 0,
+            hWnd, reinterpret_cast<HMENU>(IDC_BENCH_BTN_STUDY),
+            GetModuleHandleW(nullptr), nullptr
+        );
+        SendMessageW(state->hBtnStudy, WM_SETFONT, reinterpret_cast<WPARAM>(hFontBtn), TRUE);
+
         state->hBtnClose = CreateWindowExW(
             0, L"BUTTON", L"Close",
             WS_CHILD | WS_VISIBLE | BS_PUSHBUTTON,
@@ -107,8 +114,11 @@ static LRESULT CALLBACK BenchmarkWndProc(HWND hWnd, UINT msg, WPARAM wParam, LPA
 
         const int margin  = 12;
         const int btnH    = 32;
-        const int btnW    = 140;
         const int spacing = 10;
+        const int wSave   = 120;
+        const int wCopy   = 140;
+        const int wStudy  = 180;
+        const int wClose  = 90;
 
         int editH = clientH - btnH - margin * 3;
         int editW = clientW - margin * 2;
@@ -118,13 +128,14 @@ static LRESULT CALLBACK BenchmarkWndProc(HWND hWnd, UINT msg, WPARAM wParam, LPA
         MoveWindow(state->hEdit, margin, margin, editW, editH, TRUE);
 
         int btnY      = margin * 2 + editH;
-        int totalBtnW = btnW * 3 + spacing * 2;
-        int startX    = clientW - margin - totalBtnW;
-        if (startX < margin) startX = margin;
+        int totalBtnW = wSave + wCopy + wStudy + wClose + spacing * 3;
+        int curX      = clientW - margin - totalBtnW;
+        if (curX < margin) curX = margin;
 
-        MoveWindow(state->hBtnSave,  startX, btnY, btnW, btnH, TRUE);
-        MoveWindow(state->hBtnCopy,  startX + btnW + spacing, btnY, btnW, btnH, TRUE);
-        MoveWindow(state->hBtnClose, startX + (btnW + spacing) * 2, btnY, btnW, btnH, TRUE);
+        MoveWindow(state->hBtnSave,  curX, btnY, wSave,  btnH, TRUE); curX += wSave + spacing;
+        MoveWindow(state->hBtnCopy,  curX, btnY, wCopy,  btnH, TRUE); curX += wCopy + spacing;
+        MoveWindow(state->hBtnStudy, curX, btnY, wStudy, btnH, TRUE); curX += wStudy + spacing;
+        MoveWindow(state->hBtnClose, curX, btnY, wClose, btnH, TRUE);
         return 0;
     }
 
@@ -132,6 +143,37 @@ static LRESULT CALLBACK BenchmarkWndProc(HWND hWnd, UINT msg, WPARAM wParam, LPA
     {
         switch (LOWORD(wParam))
         {
+        case IDC_BENCH_BTN_STUDY:
+        {
+            if (state->hBtnStudy)
+            {
+                EnableWindow(state->hBtnStudy, FALSE);
+                SetWindowTextW(state->hBtnStudy, L"Running Study (Please wait)...");
+                UpdateWindow(state->hBtnStudy);
+            }
+
+            std::string csvPath = "BenchmarkStudy_Results.csv";
+            std::string outPath = Benchmark::RunCompleteStudy(2.0f, csvPath);
+
+            if (state->hBtnStudy)
+            {
+                EnableWindow(state->hBtnStudy, TRUE);
+                SetWindowTextW(state->hBtnStudy, L"Run Study (Export CSV)");
+            }
+
+            if (!outPath.empty())
+            {
+                std::wstring msg = L"Full Benchmark Study (A, B1, B2, C) completed!\r\nExported to:\r\n" +
+                    std::wstring(outPath.begin(), outPath.end());
+                MessageBoxW(hWnd, msg.c_str(), L"Study Export Complete", MB_OK | MB_ICONINFORMATION);
+            }
+            else
+            {
+                MessageBoxW(hWnd, L"Failed to write CSV file.", L"Export Error", MB_OK | MB_ICONERROR);
+            }
+            break;
+        }
+
         case IDC_BENCH_BTN_SAVE:
         {
             OPENFILENAMEW ofn = {};
@@ -227,8 +269,8 @@ inline void ShowBenchmarkWindow(HWND parentHwnd, const std::wstring& reportText,
     state.BallCount  = ballCount;
 
     // Center dialog over parent window
-    const int dlgW = 760;
-    const int dlgH = 560;
+    const int dlgW = 920;
+    const int dlgH = 620;
     int posX = 100, posY = 100;
     if (parentHwnd)
     {

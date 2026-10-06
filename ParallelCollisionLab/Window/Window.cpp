@@ -209,6 +209,11 @@ bool FWindow::PumpMessages(FInputState& outInput)
 				outInput.Benchmark = true;
 				break;
 
+			case 'P':
+			case VK_F9:
+				outInput.RunStudy = true;
+				break;
+
 			case 'G':
 				outInput.ToggleGridVis = true;
 				break;

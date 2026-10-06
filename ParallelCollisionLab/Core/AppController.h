@@ -138,6 +138,18 @@ public:
                 ShowBenchmarkWindow(Window.GetHWND(), detailedReport, World.GetSphereCount());
             }
         }
+
+        // Full Study Execution (Export CSV)
+        if (Input.RunStudy)
+        {
+            std::string outCsv = Benchmark::RunCompleteStudy(World.GetBoxHalfSize(), "BenchmarkStudy_Results.csv");
+            if (!outCsv.empty())
+            {
+                std::wstring msg = L"Full Benchmark Study (A, B1, B2, C) completed!\r\nExported to:\r\n" +
+                    std::wstring(outCsv.begin(), outCsv.end());
+                MessageBoxW(Window.GetHWND(), msg.c_str(), L"Study Export Complete", MB_OK | MB_ICONINFORMATION);
+            }
+        }
     }
 
     FMatrix4x4 GetViewProj(float Aspect) const

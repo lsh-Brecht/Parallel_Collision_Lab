@@ -129,7 +129,7 @@ public:
                        L"Balls: %s\n"
                        L"Pairs: %s | Collisions: %s\n"
                        L"[1] Naive (2 MT) | [3] Grid (4 MT) | [5] BVH (6 MT)\n"
-                       L"[D] Damp: %s  [M] %s  [B] Bench  [G] %s  [H] HUD",
+                       L"[D] Damp: %s  [M] %s  [B] Bench  [P] Study  [G] %s  [H] HUD",
                        CachedBallCount.c_str(),
                        CachedCandidates.c_str(),
                        CachedCollisions.c_str(),
